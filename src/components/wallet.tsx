@@ -36,6 +36,16 @@ type Auth = {
     to: string,
     onStep?: (s: PayStep) => void,
   ) => Promise<string>;
+  /** Signs in if needed (connect + one-time message). Resolves to the verified account. */
+  ensureSignedIn: (onStep?: (s: PayStep) => void) => Promise<string>;
+  /** Calls a contract method from the user's wallet with NEAR attached; returns the transaction hash. */
+  callWithDeposit: (
+    contractId: string,
+    method: string,
+    args: Record<string, unknown>,
+    near: number,
+    onStep?: (s: PayStep) => void,
+  ) => Promise<string>;
 };
 const AuthContext = createContext<Auth | null>(null);
 export const useAuth = () => {
@@ -212,6 +222,33 @@ function AuthBridge({ children }: { children: ReactNode }) {
     [ensure, wallet],
   );
 
+  const callWithDeposit = useCallback(
+    async (
+      contractId: string,
+      method: string,
+      args: Record<string, unknown>,
+      near: number,
+      onStep?: (s: PayStep) => void,
+    ) => {
+      onStep?.("approve");
+      const outcome = await wallet.callFunctionRaw({
+        contractId,
+        method,
+        args,
+        deposit: toYocto(near),
+        gas: "50000000000000",
+      });
+      const hash = txHashOf(outcome);
+      if (!hash)
+        throw new Error(
+          "The wallet didn't return a transaction. Check your wallet's activity before trying again.",
+        );
+      onStep?.("confirm");
+      return hash;
+    },
+    [wallet],
+  );
+
   const signOut = useCallback(async () => {
     await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
     await wallet.signOut().catch(() => {});
@@ -220,7 +257,17 @@ function AuthBridge({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ account, ready, busy, error, signIn, signOut, pay }}
+      value={{
+        account,
+        ready,
+        busy,
+        error,
+        signIn,
+        signOut,
+        pay,
+        ensureSignedIn: ensure,
+        callWithDeposit,
+      }}
     >
       {children}
     </AuthContext.Provider>

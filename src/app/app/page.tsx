@@ -268,7 +268,6 @@ export default function Live() {
 
             <PostJob
               busy={!!running}
-              escrow={state?.coordinator.id ?? null}
               liveKey={key}
               onPosted={(id) => {
                 setSelected(id);
@@ -488,21 +487,106 @@ function PayStatus({
   );
 }
 
+/**
+ * Posting through the escrow contract: sign in if needed, reserve a job id, have the wallet call
+ * post_job(job_id) on the contract with the budget attached, then let the server confirm it from the contract.
+ * If confirming fails after the deposit, the job id is kept for a retry (and the poster can reclaim on chain).
+ */
+function useEscrowPost(
+  liveKey: string,
+  onDone: (data: { id?: string }) => void,
+) {
+  const { ensureSignedIn, callWithDeposit } = useAuth();
+  const [step, setStep] = useState<PayStep | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{
+    jobId: string;
+    txHash: string;
+  } | null>(null);
+  const headers = {
+    "content-type": "application/json",
+    ...(liveKey ? { "x-live-key": liveKey } : {}),
+  };
+
+  const submit = async (jobId: string, txHash: string) => {
+    setStep("confirm");
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const res = await fetch("/api/live/jobs", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ jobId, txHash }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPending(null);
+        setStep(null);
+        onDone(data);
+        return true;
+      }
+      if (
+        res.status === 402 &&
+        /no deposit/i.test(data.error || "") &&
+        attempt < 4
+      ) {
+        await new Promise((r) => setTimeout(r, 2500));
+        continue;
+      }
+      setPending({ jobId, txHash });
+      setError(data.error || `Request failed (${res.status})`);
+      setStep(null);
+      return false;
+    }
+    return false;
+  };
+
+  const run = async (job: {
+    description: string;
+    skills: string[];
+    budget: number;
+  }) => {
+    setError(null);
+    try {
+      await ensureSignedIn(setStep);
+      const prep = await fetch("/api/live/jobs/prepare", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(job),
+      });
+      const p = await prep.json().catch(() => ({}));
+      if (!prep.ok) throw new Error(p.error || "Couldn't start the job.");
+      const txHash = await callWithDeposit(
+        p.contractId,
+        "post_job",
+        { job_id: p.jobId },
+        job.budget,
+        setStep,
+      );
+      return await submit(p.jobId, txHash);
+    } catch (e) {
+      setStep(null);
+      setError(e instanceof Error ? e.message : "The payment was cancelled.");
+      return false;
+    }
+  };
+
+  const retry = async () =>
+    pending ? (setError(null), submit(pending.jobId, pending.txHash)) : false;
+  return { run, retry, step, error, pending };
+}
+
 function PostJob({
   busy,
-  escrow,
   liveKey,
   onPosted,
 }: {
   busy: boolean;
-  escrow: string | null;
   liveKey: string;
   onPosted: (id: string) => void;
 }) {
   const [description, setDescription] = useState("");
   const [skills, setSkills] = useState<string[]>(["writing"]);
   const [budget, setBudget] = useState(0.5);
-  const action = usePaidAction("/api/live/jobs", escrow, liveKey, (d) => {
+  const action = useEscrowPost(liveKey, (d) => {
     setDescription("");
     if (d.id) onPosted(d.id);
   });
@@ -517,13 +601,14 @@ function PostJob({
       onSubmit={(e) => {
         e.preventDefault();
         if (valid && !busy && !action.step)
-          action.run({ description, skills, budget }, budget);
+          action.run({ description, skills, budget });
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="eyebrow">Post a job</h2>
         <span className="text-xs text-faint">
-          You only pay the winning bid; the rest comes back to your wallet.
+          Your budget is held by the escrow contract. You only pay the winning
+          bid.
         </span>
       </div>
       <label className="mt-3 block">

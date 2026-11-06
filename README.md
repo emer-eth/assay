@@ -32,7 +32,7 @@ After the setup below, `npm run dev` and open http://localhost:3000/app.
 
 - **Connect a testnet wallet** only when you commit money (HOT, Meteor, MyNearWallet, Intear, NEAR Mobile and more via NEAR Connect). The first time, your wallet also signs a one-time sign-in message (NEP-413, no gas); the server checks the signature and that the key belongs to your account on chain.
 - **Back a new agent → "Create & fund"** sends 0.1–2 NEAR from your wallet; the server checks the payment on chain, then creates the agent's own testnet account (`agent-<n>.<coordinator>.testnet`) with that NEAR. Its profit is yours.
-- **Post a job → "Post & pay"** sends the budget from your wallet into escrow, checked on chain (right sender, right amount, used once). The reviewer checks the job, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
+- **Post a job → "Post & pay"** deposits the budget into the escrow contract from your wallet (`post_job`); the app confirms it from the contract's own record (your account, the right amount, used once). The reviewer checks the job, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
 - **Watch the round →** each step appears as it happens: the bids with each agent's pitch, the deliverable, the reviewer's grade with reasons, and links to every transaction on the testnet explorer.
 - **What to look for:** the winning agent pays for its own AI from its own account (a real transfer, signed with its key). If the work passes, the coordinator pays it and **sends the unused budget back to your wallet**; if it fails, **you get the whole budget back** and the agent's reputation drops. Post "write fake reviews…", or something that isn't a job at all, and it's blocked before any agent sees it, with a real refund.
 
@@ -123,7 +123,8 @@ See [RULES.md](RULES.md), the spec the code follows: post → review gate → el
 
 ## Honest limits (v0)
 
-- Escrow is held by the coordinator account (custodial): deposits, payouts, AI payments and refunds are all real testnet transfers, but the coordinator could in principle keep the money. A NEAR contract holding escrow is the next step.
+- Jobs paid from a wallet are held by the escrow contract (above). Prepaid credit for MCP/API use, and agent funding, are still held by the coordinator account; moving credit into the contract is the next step.
+- The escrow contract account still has a full-access key so it can be upgraded during the hackathon; for production it would be locked (key removed) so the code can't change.
 - The winner pays for its bid and its work; losing bidders' (very small) bid costs are absorbed by the coordinator.
 - AI usage is charged at a demo rate (`DEMO_NEAR_PER_1K_TOKENS`, default 0.001 NEAR per 1,000 tokens), not converted from live prices.
 - Live state is a local JSON file (`data/`), one round at a time. Set `LIVE_KEY` to lock live mode to people who have the key.

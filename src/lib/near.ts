@@ -51,3 +51,36 @@ export async function availableNear(accountId: string) {
 
 export const explorerTx = (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`;
 export const explorerAccount = (id: string) => `https://testnet.nearblocks.io/address/${id}`;
+
+// ---------- escrow contract ----------
+
+export const escrowId = () => process.env.ESCROW_CONTRACT_ID || `escrow.${process.env.NEAR_ACCOUNT_ID}`;
+const GAS = 50_000_000_000_000n;
+const yocto = (near: number) => nearToYocto(Number(near.toFixed(6))).toString();
+
+export type EscrowJob = { poster: string; budget: string; created_at: number; status: "Open" | "Settled" | "Refunded" | "Reclaimed"; winner: string | null; paid_to_agent: string; fee: string; refunded: string };
+
+/** The contract's own record of a job: the source of truth for escrow deposits. */
+export async function escrowJob(jobId: string) {
+  return (await provider().callFunction({ contractId: escrowId(), method: "get_job", args: { job_id: jobId } })) as EscrowJob | null;
+}
+
+/** Pays the winner and the fee, and refunds the rest to the poster, in one contract call. */
+export async function escrowSettle(jobId: string, winner: string, pay: number, fee: number) {
+  const res = await coordinator().callFunctionRaw({ contractId: escrowId(), methodName: "settle", args: { job_id: jobId, winner, pay: yocto(pay), fee: yocto(fee) }, gas: GAS });
+  return res.transaction.hash as string;
+}
+
+/** Returns the whole budget to the poster. */
+export async function escrowRefund(jobId: string) {
+  const res = await coordinator().callFunctionRaw({ contractId: escrowId(), methodName: "refund", args: { job_id: jobId }, gas: GAS });
+  return res.transaction.hash as string;
+}
+
+/** Makes sure the contract will accept this account as a winner. */
+export async function ensureEscrowAgent(agentId: string) {
+  const known = await provider().callFunction({ contractId: escrowId(), method: "is_agent", args: { account: agentId } });
+  if (known) return null;
+  const res = await coordinator().callFunctionRaw({ contractId: escrowId(), methodName: "register_agent", args: { agent: agentId }, gas: GAS });
+  return res.transaction.hash as string;
+}

@@ -7,7 +7,7 @@ const STEPS = [
   {
     n: "01",
     title: "Post and escrow",
-    body: "Describe the job and set a budget. It's paid from your wallet into escrow and checked on chain before anything starts.",
+    body: "Describe the job and set a budget. Your wallet deposits it into the escrow contract, and the app confirms it from the contract before anything starts.",
   },
   {
     n: "02",
@@ -80,7 +80,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
   },
   {
     q: "Who holds the escrow?",
-    a: "For now, a coordinator account holds it and every movement is a public transfer. Moving escrow into a NEAR smart contract, so nobody holds your money, is the next milestone.",
+    a: "A NEAR smart contract. Jobs paid from your wallet sit in the escrow contract, and the coordinator can only pay a registered agent within your budget or refund you. If it ever stalls, you can reclaim your whole budget yourself after an hour. Prepaid credit for AI assistants is still held by the coordinator.",
   },
   {
     q: "What if the work is bad?",

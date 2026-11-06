@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { gradeDelivery, reviewJob } from "../near-ai";
-import { agentAccount, availableNear, coordinator, sendNear } from "../near";
+import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob, escrowRefund, escrowSettle, sendNear } from "../near";
 import { decide, eligibleAgents, settle } from "../swarm/round";
 import type { Job } from "../swarm/types";
 import type { Payment } from "./actions";
@@ -19,19 +19,30 @@ export function activeRound() {
 }
 
 export function createRound(job: Omit<Job, "id" | "poster">, poster: string, payment: Payment) {
-  const deposit = payment.via === "wallet" ? payment.txHash : undefined;
+  const deposit = payment.via === "wallet" ? payment.txHash : payment.via === "escrow" ? payment.txHash : undefined;
   const id = randomUUID().slice(0, 8);
   const round: LiveRound = {
     id,
     createdAt: new Date().toISOString(),
     job: { ...job, id: `job-${id}`, poster },
     status: "reviewing",
-    steps: [{ at: new Date().toISOString(), text: deposit ? `${poster} posted the job and paid ${job.budget} NEAR into escrow` : `${poster} posted the job through the API, paying ${job.budget} NEAR from prepaid credit` }],
+    steps: [
+      {
+        at: new Date().toISOString(),
+        text:
+          payment.via === "escrow"
+            ? `${poster} posted the job; ${job.budget} NEAR is held by the escrow contract (job ${payment.jobId})`
+            : deposit
+              ? `${poster} posted the job and paid ${job.budget} NEAR into escrow`
+              : `${poster} posted the job through the API, paying ${job.budget} NEAR from prepaid credit`,
+      },
+    ],
     eligible: [],
     bids: [],
     txs: [],
     deposit,
     paidWith: payment.via,
+    escrowJobId: payment.via === "escrow" ? payment.jobId : undefined,
   };
   update((s) => s.rounds.unshift(round));
   return round;
@@ -44,6 +55,14 @@ async function refund(id: string, poster: string, near: number, why: string) {
   if (r.paidWith === "credit") {
     addCredit(poster, near);
     updateRound(id, {}, `Returned ${near} NEAR to ${poster}'s credit (${why})`);
+    return;
+  }
+  if (r.paidWith === "escrow" && r.escrowJobId) {
+    // The contract refunds the whole budget itself (only while the job is still open there).
+    const onChain = await escrowJob(r.escrowJobId);
+    if (onChain?.status !== "Open") return;
+    const hash = await escrowRefund(r.escrowJobId);
+    updateRound(id, (x) => x.txs.push({ label: `Escrow contract refunded ${r.job.budget} NEAR to ${poster} (${why})`, hash }));
     return;
   }
   if (!r.deposit) return; // early demo rounds funded by the coordinator
@@ -109,12 +128,24 @@ export async function runLiveRound(id: string) {
     // 6. Settlement
     updateRound(id, { grade, status: "settling" }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);
     const s = settle(job, winner, decision.winner.ask, { passed: grade.passed, aiCost });
-    if (grade.passed && s.payout.toAgent > 0) {
+    const escrowJobId = load().rounds.find((r) => r.id === id)?.escrowJobId;
+    if (escrowJobId && grade.passed) {
+      // One contract call pays the agent and the fee and refunds the rest of the budget to the poster.
+      await ensureEscrowAgent(winner.id);
+      const hash = await escrowSettle(escrowJobId, winner.id, s.payout.toAgent, s.payout.fee);
+      paidOut = job.budget;
+      updateRound(id, (r) =>
+        r.txs.push({ label: `Escrow contract paid ${winner.name} ${s.payout.toAgent} NEAR, fee ${s.payout.fee}, and refunded ${s.payout.refundToPoster} NEAR to ${job.poster}`, hash }),
+      );
+    } else if (escrowJobId) {
+      await refund(id, job.poster, job.budget, "work failed review");
+      paidOut = job.budget;
+    } else if (grade.passed && s.payout.toAgent > 0) {
       const hash = await sendNear(coordinator(), winner.id, s.payout.toAgent);
       paidOut += s.payout.toAgent + s.payout.fee;
       updateRound(id, (r) => r.txs.push({ label: `Coordinator paid ${winner.name} ${s.payout.toAgent} NEAR`, hash }));
     }
-    await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
+    if (!escrowJobId) await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
     paidOut = job.budget;
     update((st) => {
       const a = st.agents.find((x) => x.id === winner.id);

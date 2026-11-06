@@ -27,7 +27,8 @@ export type LiveRound = {
   txs: Tx[];
   error?: string;
   deposit?: string; // escrow payment tx hash, when paid from a wallet
-  paidWith?: "wallet" | "credit"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
+  paidWith?: "escrow" | "wallet" | "credit"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
+  escrowJobId?: string; // the job id in the escrow contract, when paidWith is "escrow"
 };
 
 export type Deposit = { txHash: string; from: string; near: number; purpose: string; at: string };
@@ -39,7 +40,10 @@ type State = {
   deposits: Deposit[];
   credits: Record<string, number>; // prepaid NEAR per account, spent by API keys (MCP), refunded back into
   apiKeys: ApiKey[];
+  /** Jobs waiting for their escrow deposit: the job id the wallet passes to post_job, and what was asked for. */
+  drafts: Record<string, { account: string; job: Job_; expires: number }>;
 };
+type Job_ = { description: string; skills: Skill[]; budget: number };
 
 const DIR = join(process.cwd(), "data");
 const FILE = join(DIR, "live.json");
@@ -47,10 +51,11 @@ const KEYS = join(process.cwd(), ".keys");
 const ALL_SKILLS: Skill[] = ["writing", "research", "code", "data", "design", "translation"];
 
 export function load(): State {
-  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [], credits: {}, apiKeys: [] };
+  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [], credits: {}, apiKeys: [], drafts: {} };
   state.deposits ??= [];
   state.credits ??= {};
   state.apiKeys ??= [];
+  state.drafts ??= {};
   // Adopt agents created by `npm run spike -- --create` that aren't registered yet.
   if (existsSync(KEYS)) {
     for (const f of readdirSync(KEYS).filter((x) => x.endsWith(".json"))) {
