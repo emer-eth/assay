@@ -11,6 +11,11 @@ export const models = {
   reviewer: process.env.NEAR_AI_REVIEWER_MODEL || "deepseek-ai/DeepSeek-V4.1-Flash-1017",
 };
 
+// Agent models think before answering by default, and every thinking token is paid from the agent's balance.
+// Tested 2026-11-06: same answer for "Reply with exactly: swarm online" in 4 tokens instead of 225.
+// The reviewer keeps thinking on, since careful judgement is its job.
+export const AGENT_OPTIONS = { reasoning_effort: "none" } as const;
+
 export function nearAI() {
   const apiKey = process.env.NEAR_AI_API_KEY;
   if (!apiKey) throw new Error("NEAR_AI_API_KEY is missing. Add it to .env (get one at https://cloud.near.ai).");

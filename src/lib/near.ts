@@ -11,7 +11,8 @@ export function coordinator() {
   const id = process.env.NEAR_ACCOUNT_ID;
   const key = process.env.NEAR_PRIVATE_KEY as KeyPairString | undefined;
   if (!id || !key) throw new Error("NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY (a TESTNET account) must be set in .env.");
-  if (!id.endsWith(".testnet")) throw new Error(`Refusing to run on ${id}: use a .testnet account.`);
+  if (!id.endsWith(".testnet"))
+    throw new Error(`Refusing to run on ${id}: that's not a testnet account, so its key can move real money. Remove its key from .env and use an account ending in .testnet (free at https://testnet.mynearwallet.com).`);
   return new Account(id, provider(), KeyPairSigner.fromSecretKey(key));
 }
 

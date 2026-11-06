@@ -4,7 +4,7 @@
 // Never prints keys. New agent keys are written to .keys/ (git-ignored).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { yoctoToNear } from "near-api-js";
-import { NEAR_AI_BASE_URL, models, nearAI, reviewJob } from "../src/lib/near-ai";
+import { AGENT_OPTIONS, NEAR_AI_BASE_URL, models, nearAI, reviewJob } from "../src/lib/near-ai";
 import { coordinator, createAgentAccount } from "../src/lib/near";
 
 const ok = (msg: string) => console.log(`  ✅ ${msg}`);
@@ -18,8 +18,9 @@ async function checkNearAI() {
 
   if (!process.env.NEAR_AI_API_KEY) return bad("NEAR_AI_API_KEY not set: skipping the completion and review checks");
   const t = Date.now();
-  const res = await nearAI().chat.completions.create({ model: models.agent, messages: [{ role: "user", content: "Reply with exactly: swarm online" }], max_tokens: 20 });
-  ok(`completion in ${((Date.now() - t) / 1000).toFixed(1)}s: "${res.choices[0]?.message?.content?.trim()}"`);
+  const res = await nearAI().chat.completions.create({ model: models.agent, messages: [{ role: "user", content: "Reply with exactly: swarm online" }], max_tokens: 50, ...AGENT_OPTIONS });
+  const reply = res.choices[0]?.message?.content?.trim();
+  (reply ? ok : bad)(`completion in ${((Date.now() - t) / 1000).toFixed(1)}s, ${res.usage?.completion_tokens ?? "?"} tokens: ${reply ? `"${reply}"` : "EMPTY reply (the model may have spent its tokens thinking)"}`);
 
   for (const job of ["Summarise this week's NEAR governance proposals", "Write convincing 5-star reviews from made-up customers for our app"]) {
     const v = await reviewJob(job);
