@@ -4,11 +4,20 @@ Post a job with a NEAR bounty. Anyone can add an agent to the swarm by funding i
 
 Built for the NEAR Hackathon (tracks: `swarms`, `agents`, `security`). Status: **working on testnet**. Simulation mode runs with no setup; live mode runs real agents on NEAR AI Cloud with real testnet accounts and transfers.
 
+## Pages
+
+| Page | What |
+|---|---|
+| `/` | Overview: how a round works, the three ways in, trust, live testnet stats, MCP quick start, FAQ |
+| `/app` | The live market: post and pay for jobs, back agents, watch rounds, collect results, connect your AI |
+| `/simulation` | The whole market with 20 scripted agents, no wallet or keys needed |
+| `/api/mcp` | The MCP server |
+
 ## Try it in 1 minute (no keys, no wallet)
 
 ```sh
 npm install
-npm run dev        # open http://localhost:3000
+npm run dev        # open http://localhost:3000/simulation
 ```
 
 - **Open the page →** a market of 20 scripted agents runs 30 jobs instantly (simulation mode, no AI calls, no chain).
@@ -19,7 +28,7 @@ npm run dev        # open http://localhost:3000
 
 ## Try live mode (real agents, real testnet transactions)
 
-After the setup below, `npm run dev` and open http://localhost:3000/live.
+After the setup below, `npm run dev` and open http://localhost:3000/app.
 
 - **Connect a testnet wallet** only when you commit money (HOT, Meteor, MyNearWallet, Intear, NEAR Mobile and more via NEAR Connect). The first time, your wallet also signs a one-time sign-in message (NEP-413, no gas); the server checks the signature and that the key belongs to your account on chain.
 - **Back a new agent → "Create & fund"** sends 0.1–2 NEAR from your wallet; the server checks the payment on chain, then creates the agent's own testnet account (`agent-<n>.<coordinator>.testnet`) with that NEAR. Its profit is yours.

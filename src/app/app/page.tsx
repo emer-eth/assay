@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
 import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
@@ -126,7 +127,7 @@ export default function Live() {
 
   return (
     <>
-      <TopBar mode="live">
+      <TopBar mode="app">
         {state?.coordinator.id && (
           <Stat
             label="Coordinator"
@@ -141,20 +142,40 @@ export default function Live() {
         <Stat label="Agents" value={state?.agents.length ?? "…"} />
         <Stat label="Rounds" value={state?.rounds.length ?? "…"} />
         <span
-          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-honey/50 text-honey" : "border-line text-muted"}`}
+          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-accent/50 text-accent" : "border-line text-muted"}`}
         >
           <span
-            className={`size-1.5 rounded-full ${running ? "live-dot bg-honey" : "bg-ok"}`}
+            className={`size-1.5 rounded-full ${running ? "live-dot bg-accent" : "bg-ok"}`}
           />
           {running ? "Round running" : "Ready"}
         </span>
       </TopBar>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
+          <div>
+            <p className="eyebrow flex items-center gap-2">
+              <span
+                className={`size-1.5 rounded-full ${running ? "live-dot bg-accent" : "bg-ok"}`}
+              />
+              {running ? "Round running" : "Market open"} · NEAR testnet
+            </p>
+            <h1 className="headline mt-2 text-3xl text-text sm:text-4xl">
+              Live market
+            </h1>
+            <p className="mt-2 max-w-xl text-[15px] text-muted">
+              Post a job and watch the swarm review it, bid, do the work and
+              settle it on chain. You pay only for work that passes.
+            </p>
+          </div>
+          <Link href="/#mcp" className="text-sm text-muted hover:text-text">
+            Using an AI assistant? Connect over MCP →
+          </Link>
+        </div>
         {state && !state.configured && (
-          <p className="panel mb-6 border-honey/40 p-4 text-sm">
+          <p className="panel mb-6 border-accent/40 p-4 text-sm">
             Live mode isn&apos;t set up yet. Fill in{" "}
-            <code className="num text-honey">.env</code> (see{" "}
+            <code className="num text-accent">.env</code> (see{" "}
             <code className="num">.env.example</code>) and run{" "}
             <code className="num">npm run spike</code>.
           </p>
@@ -187,9 +208,9 @@ export default function Live() {
         {notice && (
           <div
             role="status"
-            className={`panel enter mb-6 flex flex-wrap items-center justify-between gap-3 p-4 text-sm ${notice.ok ? "border-ok/50" : "border-honey/50"}`}
+            className={`panel enter mb-6 flex flex-wrap items-center justify-between gap-3 p-4 text-sm ${notice.ok ? "border-ok/50" : "border-accent/50"}`}
           >
-            <span className={notice.ok ? "text-ok" : "text-honey"}>
+            <span className={notice.ok ? "text-ok" : "text-accent"}>
               {notice.text}
             </span>
             <span className="flex gap-2">
@@ -211,7 +232,7 @@ export default function Live() {
         )}
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="grid min-w-0 content-start gap-6">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
             <section className="panel p-5" aria-labelledby="hive-h">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="hive-h" className="eyebrow">
@@ -264,13 +285,13 @@ export default function Live() {
             <UseFromAI escrow={state?.coordinator.id ?? null} liveKey={key} />
           </div>
 
-          <div className="grid content-start gap-4 lg:sticky lg:top-20 lg:self-start">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 lg:sticky lg:top-20 lg:self-start">
             {!!state?.rounds.some((r) => r.mine) && (
               <nav
                 aria-label="Your jobs"
                 className="flex items-center gap-1.5 overflow-x-auto pb-1"
               >
-                <span className="eyebrow mr-1 shrink-0 !text-honey">
+                <span className="eyebrow mr-1 shrink-0 !text-accent">
                   Your jobs
                 </span>
                 {state.rounds
@@ -281,7 +302,7 @@ export default function Live() {
                       key={r.id}
                       onClick={() => setSelected(r.id)}
                       aria-current={round?.id === r.id ? "true" : undefined}
-                      className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-honey bg-honey/12 text-honey" : "border-honey/30 text-honey/80 hover:text-honey"}`}
+                      className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-accent bg-accent/12 text-accent" : "border-accent/30 text-accent/80 hover:text-accent"}`}
                     >
                       <span className={`size-1.5 rounded-full ${dot(r)}`} />#
                       {r.id.slice(0, 4)}
@@ -299,7 +320,7 @@ export default function Live() {
                     key={r.id}
                     onClick={() => setSelected(r.id)}
                     aria-current={round?.id === r.id ? "true" : undefined}
-                    className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-honey/60 bg-panel-2 text-text" : "border-line text-muted hover:text-text"}`}
+                    className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-white/30 bg-panel-2 text-text" : "border-line text-muted hover:text-text"}`}
                   >
                     <span className={`size-1.5 rounded-full ${dot(r)}`} />#
                     {r.id.slice(0, 4)}
@@ -321,7 +342,7 @@ export default function Live() {
 
 const dot = (r: PublicRound) =>
   ACTIVE.includes(r.status)
-    ? "live-dot bg-honey"
+    ? "live-dot bg-accent"
     : r.status === "done" && r.grade?.passed
       ? "bg-ok"
       : r.status === "blocked" || r.status === "error"
@@ -428,10 +449,10 @@ function PayStatus({
   if (step)
     return (
       <p
-        className="mt-3 flex items-center gap-2 text-sm text-honey"
+        className="mt-3 flex items-center gap-2 text-sm text-accent"
         role="status"
       >
-        <span className="live-dot size-1.5 rounded-full bg-honey" />{" "}
+        <span className="live-dot size-1.5 rounded-full bg-accent" />{" "}
         {PAY_STEP_LABEL[step]}
       </p>
     );
@@ -540,7 +561,7 @@ function PostJob({
           </label>
           <button
             disabled={busy || !!action.step || !valid}
-            className="btn btn-honey"
+            className="btn btn-primary"
           >
             {busy
               ? "Round running…"
@@ -605,20 +626,20 @@ function Agents({
           return (
             <li key={a.id} className="flex items-center gap-3 py-2.5">
               <span
-                className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-honey" : st === "bid" ? "bg-honey/50" : "bg-line-strong"}`}
+                className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-accent" : st === "bid" ? "bg-accent/50" : "bg-line-strong"}`}
               />
               <span className="min-w-0 flex-1">
                 <a
                   href={acctUrl(a.id)}
                   target="_blank"
                   rel="noreferrer"
-                  className="block truncate text-sm font-medium hover:text-honey"
+                  className="block truncate text-sm font-medium hover:text-accent"
                 >
                   {a.name}
                 </a>
                 <span className="num block truncate text-[11px] text-faint">
                   {a.backer === account ? (
-                    <span className="text-honey">yours</span>
+                    <span className="text-accent">yours</span>
                   ) : (
                     <>backed by {a.backer}</>
                   )}
@@ -718,7 +739,7 @@ function AddAgent({
             </span>
           </span>
         </label>
-        <button disabled={!!action.step || !valid} className="btn btn-honey">
+        <button disabled={!!action.step || !valid} className="btn btn-primary">
           {action.step ? "Working…" : `Create & fund ${funding || 0} Ⓝ`}
         </button>
       </div>
@@ -819,11 +840,11 @@ function stages(r: PublicRound): Stage[] {
 }
 
 const STAGE_STYLE: Record<Stage["state"], string> = {
-  done: "border-ok bg-ok text-[#06210f]",
-  active: "border-honey bg-honey/20 text-honey hex-thinking",
+  done: "border-ok/60 text-ok",
+  active: "border-accent text-accent hex-thinking",
   pending: "border-line-strong text-faint",
-  failed: "border-bad bg-bad text-[#2a0703]",
-  neutral: "border-muted text-muted",
+  failed: "border-bad/60 text-bad",
+  neutral: "border-line-strong text-muted",
 };
 const STAGE_ICON: Record<Stage["state"], string> = {
   done: "✓",
@@ -861,12 +882,12 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
           <li key={s.label} className="relative flex gap-3 pb-3 last:pb-0">
             {i < all.length - 1 && (
               <span
-                className="absolute top-6 left-[11px] h-[calc(100%-18px)] w-px bg-line"
+                className="absolute top-5 left-[8.5px] h-[calc(100%-14px)] w-px bg-line"
                 aria-hidden
               />
             )}
             <span
-              className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${STAGE_STYLE[s.state]}`}
+              className={`relative z-10 grid size-[18px] shrink-0 place-items-center rounded-full border bg-panel text-[10px] ${STAGE_STYLE[s.state]}`}
             >
               {STAGE_ICON[s.state]}
             </span>
@@ -914,7 +935,7 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
                     <div className="flex items-baseline justify-between gap-2 text-sm">
                       <span
                         className={
-                          won ? "font-semibold text-honey" : "text-text"
+                          won ? "font-semibold text-accent" : "text-text"
                         }
                       >
                         {won && "★ "}
@@ -924,9 +945,9 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
                         {near(b.ask)} · value {b.value.toFixed(2)}
                       </span>
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panel-2">
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
                       <div
-                        className={`h-full rounded-full ${won ? "bg-honey" : "bg-line-strong"}`}
+                        className={`h-full rounded-full ${won ? "bg-accent" : "bg-white/20"}`}
                         style={{
                           width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
                           transition: "width 400ms ease-out",
@@ -961,7 +982,7 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
           )}
           {r.grade && (
             <div
-              className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/40 bg-ok/8" : "border-bad/40 bg-bad/8"}`}
+              className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/25 bg-ok/[0.04]" : "border-bad/25 bg-bad/[0.04]"}`}
             >
               <p
                 className={`font-semibold ${r.grade.passed ? "text-ok" : "text-bad"}`}
@@ -1005,10 +1026,10 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
                     href={txUrl(t.hash)}
                     target="_blank"
                     rel="noreferrer"
-                    className="group flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-honey/50"
+                    className="group flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-accent/50"
                   >
                     <span>{t.label}</span>
-                    <span className="num shrink-0 text-muted group-hover:text-honey">
+                    <span className="num shrink-0 text-muted group-hover:text-accent">
                       {t.hash.slice(0, 6)}… ↗
                     </span>
                   </a>
@@ -1191,7 +1212,7 @@ function UseFromAI({
         wallet itself.
       </p>
       {open && !account && (
-        <p className="mt-3 text-sm text-honey">
+        <p className="mt-3 text-sm text-accent">
           Connect your wallet (top right) to top up credit and create a key.
         </p>
       )}
@@ -1218,7 +1239,7 @@ function UseFromAI({
                 />
               </label>
               <button
-                className="btn btn-honey !py-1.5 text-xs"
+                className="btn btn-primary !py-1.5 text-xs"
                 disabled={!!topUp.step || amount < 0.1 || amount > 10}
                 onClick={() => topUp.run({ amount }, amount)}
               >
@@ -1317,8 +1338,8 @@ function UseFromAI({
               </button>
             </div>
             {fresh && (
-              <div className="mt-3 rounded-lg border border-honey/50 bg-honey/8 p-3 text-xs">
-                <p className="font-semibold text-honey">
+              <div className="mt-3 rounded-lg border border-accent/50 bg-accent/8 p-3 text-xs">
+                <p className="font-semibold text-accent">
                   Copy this key now: it won&apos;t be shown again.
                 </p>
                 <code className="num mt-1 block break-all text-text">

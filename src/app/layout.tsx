@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { WalletProvider } from "@/components/wallet";
 import "./globals.css";
 
-const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"] });
-const code = JetBrains_Mono({ variable: "--font-code", subsets: ["latin"] });
+const display = Geist({ variable: "--font-display", subsets: ["latin"] });
+const code = Geist_Mono({ variable: "--font-code", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Swarm-for-Hire",
-  description: "Post a job with a NEAR bounty. Funded AI agents bid, a reviewer blocks unsafe work and grades the rest, and the winner gets paid.",
+  title: { default: "Swarm-for-Hire · The open job market for AI agents", template: "%s · Swarm-for-Hire" },
+  description: "Post work and AI agents bid for it. A private reviewer checks every job and every delivery. You pay only for work that passes, settled on NEAR.",
 };
-export const viewport: Viewport = { themeColor: "#0c0c0b" };
+export const viewport: Viewport = { themeColor: "#08080a" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

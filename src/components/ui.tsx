@@ -2,55 +2,139 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { WalletButton } from "./wallet";
 
-export const SKILLS = ["writing", "research", "code", "data", "design", "translation"] as const;
+export const SKILLS = [
+  "writing",
+  "research",
+  "code",
+  "data",
+  "design",
+  "translation",
+] as const;
+
+export function Mark({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M12 1.8 21 7v10l-9 5.2L3 17V7z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M12 7.6 16.2 10v4.8L12 17.2 7.8 14.8V10z" fill="var(--accent)" />
+    </svg>
+  );
+}
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="Swarm-for-Hire home">
-      <svg width="26" height="28" viewBox="0 0 26 28" aria-hidden>
-        <polygon points="13,1 25,7.75 25,20.25 13,27 1,20.25 1,7.75" fill="var(--honey)" />
-        <polygon points="13,8 19,11.5 19,16.5 13,20 7,16.5 7,11.5" fill="var(--honey-ink)" />
-      </svg>
-      <span className="text-[15px] font-bold tracking-tight">
-        SWARM<span className="text-honey">-FOR-</span>HIRE
+    <Link
+      href="/"
+      className="flex items-center gap-2 text-text"
+      aria-label="Swarm-for-Hire home"
+    >
+      <Mark />
+      <span className="text-[15px] font-semibold tracking-[-0.02em]">
+        Swarm-for-Hire
       </span>
     </Link>
   );
 }
 
-export function TopBar({ mode, children }: { mode: "live" | "sim"; children?: ReactNode }) {
+const NAV = [
+  { href: "/", label: "Overview", key: "home" },
+  { href: "/app", label: "App", key: "app" },
+  { href: "/simulation", label: "Simulation", key: "sim" },
+  { href: "/#mcp", label: "MCP", key: "mcp" },
+] as const;
+
+/** One header for every page: brand, navigation, optional live stats, wallet. */
+export function TopBar({
+  mode,
+  children,
+}: {
+  mode: "home" | "app" | "sim";
+  children?: ReactNode;
+}) {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 border-b border-line bg-bg/75 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-6">
           <Logo />
-          <nav className="flex rounded-lg border border-line p-0.5 text-xs font-medium" aria-label="Mode">
-            <Link href="/live" aria-current={mode === "live" ? "page" : undefined} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 ${mode === "live" ? "bg-panel-2 text-text" : "text-muted hover:text-text"}`}>
-              <span className={`size-1.5 rounded-full ${mode === "live" ? "live-dot bg-honey" : "bg-faint"}`} /> Live
-            </Link>
-            <Link href="/" aria-current={mode === "sim" ? "page" : undefined} className={`rounded-md px-2.5 py-1 ${mode === "sim" ? "bg-panel-2 text-text" : "text-muted hover:text-text"}`}>
-              Simulation
-            </Link>
+          <nav
+            className="hidden items-center gap-1 text-[13px] md:flex"
+            aria-label="Main"
+          >
+            {NAV.map((n) => (
+              <Link
+                key={n.key}
+                href={n.href}
+                aria-current={mode === n.key ? "page" : undefined}
+                className={`rounded-md px-2.5 py-1.5 transition-colors ${mode === n.key ? "text-text" : "text-muted hover:text-text"}`}
+              >
+                {n.label}
+              </Link>
+            ))}
           </nav>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          {children}
-          <WalletButton />
+        <div className="flex items-center gap-4">
+          <div className="hidden items-center gap-5 lg:flex">{children}</div>
+          {mode === "home" ? (
+            <Link
+              href="/app"
+              className="btn btn-primary !px-3.5 !py-1.5 text-[13px]"
+            >
+              Launch app
+            </Link>
+          ) : (
+            <WalletButton />
+          )}
         </div>
       </div>
+      {/* phone navigation */}
+      <nav
+        className="flex gap-1 overflow-x-auto border-t border-line px-3 py-1.5 text-[13px] md:hidden"
+        aria-label="Main"
+      >
+        {NAV.map((n) => (
+          <Link
+            key={n.key}
+            href={n.href}
+            aria-current={mode === n.key ? "page" : undefined}
+            className={`shrink-0 rounded-md px-2.5 py-1 ${mode === n.key ? "bg-panel-2 text-text" : "text-muted"}`}
+          >
+            {n.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
 
-export function Stat({ label, value, href }: { label: string; value: ReactNode; href?: string }) {
+export function Stat({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: ReactNode;
+  href?: string;
+}) {
   const body = (
     <>
-      <span className="eyebrow block !text-[10px]">{label}</span>
-      <span className="num text-sm text-text">{value}</span>
+      <span className="block text-[10px] tracking-[0.08em] text-faint uppercase">
+        {label}
+      </span>
+      <span className="num text-[13px] text-text">{value}</span>
     </>
   );
   return href ? (
-    <a href={href} target="_blank" rel="noreferrer" className="leading-tight hover:opacity-80">
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="leading-tight hover:opacity-80"
+    >
       {body}
     </a>
   ) : (
@@ -58,10 +142,18 @@ export function Stat({ label, value, href }: { label: string; value: ReactNode; 
   );
 }
 
-export function SkillPicker({ value, onChange, label }: { value: string[]; onChange: (v: string[]) => void; label: string }) {
+export function SkillPicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  label: string;
+}) {
   return (
     <fieldset>
-      <legend className="eyebrow mb-1.5">{label}</legend>
+      <legend className="eyebrow mb-2">{label}</legend>
       <div className="flex flex-wrap gap-1.5">
         {SKILLS.map((s) => {
           const on = value.includes(s);
@@ -70,8 +162,10 @@ export function SkillPicker({ value, onChange, label }: { value: string[]; onCha
               type="button"
               key={s}
               aria-pressed={on}
-              onClick={() => onChange(on ? value.filter((x) => x !== s) : [...value, s])}
-              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-honey bg-honey/12 text-honey" : "border-line-strong text-muted hover:text-text"}`}
+              onClick={() =>
+                onChange(on ? value.filter((x) => x !== s) : [...value, s])
+              }
+              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-white/40 bg-white/10 text-text" : "border-line-strong text-muted hover:text-text"}`}
             >
               {s}
             </button>
@@ -82,4 +176,35 @@ export function SkillPicker({ value, onChange, label }: { value: string[]; onCha
   );
 }
 
-export const near = (n: number, digits?: number) => `${n.toFixed(digits ?? (n !== 0 && Math.abs(n) < 0.01 ? 4 : n < 1 ? 3 : 2))} Ⓝ`;
+export function Footer() {
+  return (
+    <footer className="mt-auto border-t border-line">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-[13px] text-muted sm:px-6">
+        <span className="flex items-center gap-2">
+          <Mark size={16} /> Swarm-for-Hire · built at the NEAR Hackathon ·
+          testnet
+        </span>
+        <span className="flex flex-wrap gap-5">
+          <Link href="/app" className="hover:text-text">
+            App
+          </Link>
+          <Link href="/simulation" className="hover:text-text">
+            Simulation
+          </Link>
+          <Link href="/#mcp" className="hover:text-text">
+            MCP
+          </Link>
+          <a
+            href="https://github.com/emer-eth/swarm-for-hire"
+            className="hover:text-text"
+          >
+            GitHub
+          </a>
+        </span>
+      </div>
+    </footer>
+  );
+}
+
+export const near = (n: number, digits?: number) =>
+  `${n.toFixed(digits ?? (n !== 0 && Math.abs(n) < 0.01 ? 4 : n < 1 ? 3 : 2))} Ⓝ`;

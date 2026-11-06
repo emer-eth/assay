@@ -1,7 +1,15 @@
 "use client";
 
 import { NearProvider, useNearWallet } from "near-connect-hooks";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 // Wallets, the "pay when you commit" way: anyone can use the page; the wallet only comes in when
 // someone posts a job or backs an agent. First time: connect, sign a one-time message (NEP-413,
@@ -23,7 +31,11 @@ type Auth = {
   signIn: () => Promise<string>;
   signOut: () => Promise<void>;
   /** Signs in if needed, then sends `near` to `to` from the user's wallet and returns the transaction hash. */
-  pay: (near: number, to: string, onStep?: (s: PayStep) => void) => Promise<string>;
+  pay: (
+    near: number,
+    to: string,
+    onStep?: (s: PayStep) => void,
+  ) => Promise<string>;
 };
 const AuthContext = createContext<Auth | null>(null);
 export const useAuth = () => {
@@ -39,7 +51,10 @@ export function toYocto(near: number) {
 }
 
 function txHashOf(outcome: unknown): string | null {
-  const o = outcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } } | null;
+  const o = outcome as {
+    transaction?: { hash?: string };
+    transaction_outcome?: { id?: string };
+  } | null;
   return o?.transaction?.hash || o?.transaction_outcome?.id || null;
 }
 
@@ -51,7 +66,12 @@ const walletConnect = WC_PROJECT
     : import("@walletconnect/sign-client").then(({ default: SignClient }) =>
         SignClient.init({
           projectId: WC_PROJECT,
-          metadata: { name: "Swarm-for-Hire", description: "AI agents bid for NEAR-paid jobs", url: window.location.origin, icons: [`${window.location.origin}/icon.svg`] },
+          metadata: {
+            name: "Swarm-for-Hire",
+            description: "AI agents bid for NEAR-paid jobs",
+            url: window.location.origin,
+            icons: [`${window.location.origin}/icon.svg`],
+          },
         }),
       )
   : undefined;
@@ -61,7 +81,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <NearProvider
       config={{
         network: "testnet",
-        providers: { testnet: ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com"] },
+        providers: {
+          testnet: [
+            "https://rpc.testnet.fastnear.com",
+            "https://test.rpc.fastnear.com",
+          ],
+        },
         ...(walletConnect ? { walletConnect: walletConnect as never } : {}),
       }}
     >
@@ -77,7 +102,10 @@ function AuthBridge({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Resolves when the wallet picker has connected an account.
-  const waiting = useRef<{ resolve: (id: string) => void; reject: (e: Error) => void } | null>(null);
+  const waiting = useRef<{
+    resolve: (id: string) => void;
+    reject: (e: Error) => void;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -110,13 +138,29 @@ function AuthBridge({ children }: { children: ReactNode }) {
   }, [wallet]);
 
   const prove = useCallback(async () => {
-    const ch = (await (await fetch("/api/auth/challenge", { cache: "no-store" })).json()) as { message: string; recipient: string; nonce: string; token: string };
+    const ch = (await (
+      await fetch("/api/auth/challenge", { cache: "no-store" })
+    ).json()) as {
+      message: string;
+      recipient: string;
+      nonce: string;
+      token: string;
+    };
     const nonce = Uint8Array.from(atob(ch.nonce), (c) => c.charCodeAt(0));
-    const signed = await wallet.signNEP413Message({ message: ch.message, recipient: ch.recipient, nonce });
+    const signed = await wallet.signNEP413Message({
+      message: ch.message,
+      recipient: ch.recipient,
+      nonce,
+    });
     const res = await fetch("/api/auth/verify", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: ch.token, accountId: signed.accountId, publicKey: String(signed.publicKey), signature: String(signed.signature) }),
+      body: JSON.stringify({
+        token: ch.token,
+        accountId: signed.accountId,
+        publicKey: String(signed.publicKey),
+        signature: String(signed.signature),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Sign-in failed.");
@@ -153,9 +197,15 @@ function AuthBridge({ children }: { children: ReactNode }) {
     async (near: number, to: string, onStep?: (s: PayStep) => void) => {
       await ensure(onStep);
       onStep?.("approve");
-      const outcome = await wallet.transfer({ receiverId: to, amount: toYocto(near) });
+      const outcome = await wallet.transfer({
+        receiverId: to,
+        amount: toYocto(near),
+      });
       const hash = txHashOf(outcome);
-      if (!hash) throw new Error("The wallet didn't return a transaction. Check your wallet's activity before trying again.");
+      if (!hash)
+        throw new Error(
+          "The wallet didn't return a transaction. Check your wallet's activity before trying again.",
+        );
       onStep?.("confirm");
       return hash;
     },
@@ -168,7 +218,13 @@ function AuthBridge({ children }: { children: ReactNode }) {
     setAccount(null);
   }, [wallet]);
 
-  return <AuthContext.Provider value={{ account, ready, busy, error, signIn, signOut, pay }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{ account, ready, busy, error, signIn, signOut, pay }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function WalletButton() {
@@ -178,11 +234,18 @@ export function WalletButton() {
   if (!account)
     return (
       <span className="flex flex-col items-end">
-        <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => signIn().catch(() => {})} disabled={busy}>
+        <button
+          className="btn btn-ghost !px-3 !py-1.5 text-xs"
+          onClick={() => signIn().catch(() => {})}
+          disabled={busy}
+        >
           {busy ? "Check your wallet…" : "Connect wallet"}
         </button>
         {error && (
-          <span role="alert" className="mt-1 max-w-56 text-right text-[11px] text-bad">
+          <span
+            role="alert"
+            className="mt-1 max-w-56 text-right text-[11px] text-bad"
+          >
             {error}
           </span>
         )}
@@ -190,13 +253,22 @@ export function WalletButton() {
     );
   return (
     <span className="relative">
-      <button className="num flex items-center gap-2 rounded-lg border border-line-strong px-2.5 py-1.5 text-xs hover:bg-panel-2" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button
+        className="num flex items-center gap-2 rounded-lg border border-line-strong px-2.5 py-1.5 text-xs hover:bg-panel-2"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
         <span className="size-1.5 rounded-full bg-ok" />
         <span className="max-w-40 truncate">{account}</span>
       </button>
       {open && (
         <span className="panel enter absolute top-full right-0 z-30 mt-1.5 grid min-w-48 p-1 text-sm">
-          <a className="rounded-md px-3 py-2 text-muted hover:bg-panel-2 hover:text-text" href={`https://testnet.nearblocks.io/address/${account}`} target="_blank" rel="noreferrer">
+          <a
+            className="rounded-md px-3 py-2 text-muted hover:bg-panel-2 hover:text-text"
+            href={`https://testnet.nearblocks.io/address/${account}`}
+            target="_blank"
+            rel="noreferrer"
+          >
             View on explorer ↗
           </a>
           <button
