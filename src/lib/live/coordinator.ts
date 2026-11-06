@@ -4,7 +4,9 @@ import { gradeDelivery, reviewJob } from "../near-ai";
 import { agentAccount, availableNear, coordinator, sendNear } from "../near";
 import { decide, eligibleAgents, settle } from "../swarm/round";
 import type { Job } from "../swarm/types";
+import type { Payment } from "./actions";
 import { agentBid, agentWork, tokensToNear } from "./agent-ai";
+import { addCredit } from "./credit";
 import { load, update, updateRound, type LiveRound } from "./store";
 
 // Runs one live round, following RULES.md step by step. Every step is written to the store as it
@@ -16,27 +18,35 @@ export function activeRound() {
   return load().rounds.find((r) => ACTIVE.includes(r.status)) ?? null;
 }
 
-export function createRound(job: Omit<Job, "id" | "poster">, poster: string, deposit?: string) {
+export function createRound(job: Omit<Job, "id" | "poster">, poster: string, payment: Payment) {
+  const deposit = payment.via === "wallet" ? payment.txHash : undefined;
   const id = randomUUID().slice(0, 8);
   const round: LiveRound = {
     id,
     createdAt: new Date().toISOString(),
     job: { ...job, id: `job-${id}`, poster },
     status: "reviewing",
-    steps: [{ at: new Date().toISOString(), text: deposit ? `${poster} posted the job and paid ${job.budget} NEAR into escrow` : `${poster} posted the job with a ${job.budget} NEAR budget (held in escrow by the coordinator)` }],
+    steps: [{ at: new Date().toISOString(), text: deposit ? `${poster} posted the job and paid ${job.budget} NEAR into escrow` : `${poster} posted the job through the API, paying ${job.budget} NEAR from prepaid credit` }],
     eligible: [],
     bids: [],
     txs: [],
     deposit,
+    paidWith: payment.via,
   };
   update((s) => s.rounds.unshift(round));
   return round;
 }
 
-/** Sends the poster's money back from escrow as a real transfer (only for rounds they paid for from their wallet). */
+/** Gives the poster's money back the way it came: a real transfer to their wallet, or back into their credit. */
 async function refund(id: string, poster: string, near: number, why: string) {
   const r = load().rounds.find((x) => x.id === id);
-  if (!r?.deposit || near <= 0) return;
+  if (!r || near <= 0) return;
+  if (r.paidWith === "credit") {
+    addCredit(poster, near);
+    updateRound(id, {}, `Returned ${near} NEAR to ${poster}'s credit (${why})`);
+    return;
+  }
+  if (!r.deposit) return; // early demo rounds funded by the coordinator
   const hash = await sendNear(coordinator(), poster, near);
   updateRound(id, (x) => x.txs.push({ label: `Refunded ${near} NEAR to ${poster} (${why})`, hash }));
 }

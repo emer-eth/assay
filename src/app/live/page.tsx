@@ -83,7 +83,7 @@ export default function Live() {
       const before = seen.current.get(r.id);
       if (before && ACTIVE.includes(before) && !ACTIVE.includes(r.status)) {
         const ok = r.status === "done" && !!r.grade?.passed;
-         
+
         setNotice({
           id: r.id,
           ok,
@@ -261,6 +261,7 @@ export default function Live() {
               liveKey={key}
               onAdded={refresh}
             />
+            <UseFromAI escrow={state?.coordinator.id ?? null} liveKey={key} />
           </div>
 
           <div className="grid content-start gap-4 lg:sticky lg:top-20 lg:self-start">
@@ -1124,5 +1125,243 @@ function Withdraw({ agent, onDone }: { agent: LiveAgent; onDone: () => void }) {
         <span className="mt-1 block text-bad">{state.error}</span>
       )}
     </>
+  );
+}
+
+type KeyRow = {
+  id: string;
+  label: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt?: string;
+};
+
+/** Credit + API keys, so an AI assistant can hire the swarm over MCP without wallet popups. */
+function UseFromAI({
+  escrow,
+  liveKey,
+}: {
+  escrow: string | null;
+  liveKey: string;
+}) {
+  const { account } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ credit: number; keys: KeyRow[] } | null>(
+    null,
+  );
+  const [amount, setAmount] = useState(1);
+  const [label, setLabel] = useState("");
+  const [fresh, setFresh] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const res = await fetch("/api/live/credit", { cache: "no-store" });
+    if (res.ok) setData(await res.json());
+  }, []);
+  useEffect(() => {
+    // Fetch credit and keys from the server when the panel opens or the user signs in.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (open && account) load();
+  }, [open, account, load]);
+  const topUp = usePaidAction("/api/live/credit", escrow, liveKey, () => {
+    setMsg("Credit added.");
+    load();
+  });
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const url = `${origin}/api/mcp`;
+  const keyText = fresh ?? "sfh_YOUR_KEY";
+
+  return (
+    <section className="panel p-5" aria-labelledby="ai-h">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="ai-h" className="eyebrow">
+          Use from your AI{" "}
+          <span className="text-faint normal-case tracking-normal">· MCP</span>
+        </h2>
+        <button
+          className="btn btn-ghost !px-3 !py-1.5 text-xs"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+        >
+          {open ? "Close" : "Set up"}
+        </button>
+      </div>
+      <p className="mt-2 text-sm text-muted">
+        Let Claude, Codex or any MCP client post jobs and collect results for
+        you. It spends prepaid credit you top up from your wallet, never your
+        wallet itself.
+      </p>
+      {open && !account && (
+        <p className="mt-3 text-sm text-honey">
+          Connect your wallet (top right) to top up credit and create a key.
+        </p>
+      )}
+      {open && account && (
+        <div className="enter mt-4 grid gap-5">
+          <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-line p-4">
+            <div>
+              <p className="eyebrow">Credit</p>
+              <p className="num mt-1 text-2xl text-text">
+                {data ? near(data.credit) : "…"}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label>
+                <span className="eyebrow !text-[10px]">Amount</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min={0.1}
+                  max={10}
+                  className="field num mt-1 w-24 !py-1.5"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                />
+              </label>
+              <button
+                className="btn btn-honey !py-1.5 text-xs"
+                disabled={!!topUp.step || amount < 0.1 || amount > 10}
+                onClick={() => topUp.run({ amount }, amount)}
+              >
+                {topUp.step ? "Working…" : `Top up ${amount || 0} Ⓝ`}
+              </button>
+              <button
+                className="btn btn-ghost !py-1.5 text-xs"
+                disabled={!data?.credit}
+                onClick={async () => {
+                  const res = await fetch("/api/live/credit/withdraw", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: "{}",
+                  });
+                  const d = await res.json().catch(() => ({}));
+                  setMsg(
+                    res.ok
+                      ? `Sent ${d.amount} Ⓝ back to your wallet.`
+                      : d.error || "Withdrawal failed.",
+                  );
+                  load();
+                }}
+              >
+                Withdraw all
+              </button>
+            </div>
+            <div className="w-full">
+              <PayStatus
+                step={topUp.step}
+                error={topUp.error}
+                pending={topUp.pending}
+                retry={topUp.retry}
+              />
+              {msg && <p className="mt-2 text-xs text-ok">{msg}</p>}
+            </div>
+          </div>
+
+          <div>
+            <p className="eyebrow">API keys</p>
+            <ul className="mt-2 grid gap-1.5">
+              {data?.keys.map((k) => (
+                <li
+                  key={k.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs"
+                >
+                  <span className="min-w-0">
+                    <span className="num text-text">{k.prefix}…</span>{" "}
+                    <span className="text-muted">{k.label}</span>
+                    <span className="block text-faint">
+                      {k.lastUsedAt
+                        ? `last used ${new Date(k.lastUsedAt).toLocaleString()}`
+                        : "never used"}
+                    </span>
+                  </span>
+                  <button
+                    className="text-bad hover:underline"
+                    onClick={async () => {
+                      await fetch(`/api/live/keys?id=${k.id}`, {
+                        method: "DELETE",
+                      });
+                      load();
+                    }}
+                  >
+                    Revoke
+                  </button>
+                </li>
+              ))}
+              {data && !data.keys.length && (
+                <li className="text-xs text-faint">No keys yet.</li>
+              )}
+            </ul>
+            <div className="mt-2 flex gap-2">
+              <input
+                className="field !py-1.5 text-xs"
+                placeholder="Label, e.g. Claude Code"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+              <button
+                className="btn btn-ghost shrink-0 !py-1.5 text-xs"
+                onClick={async () => {
+                  const res = await fetch("/api/live/keys", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ label }),
+                  });
+                  const d = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    setFresh(d.key);
+                    setLabel("");
+                    load();
+                  } else setMsg(d.error || "Couldn't create a key.");
+                }}
+              >
+                Create key
+              </button>
+            </div>
+            {fresh && (
+              <div className="mt-3 rounded-lg border border-honey/50 bg-honey/8 p-3 text-xs">
+                <p className="font-semibold text-honey">
+                  Copy this key now: it won&apos;t be shown again.
+                </p>
+                <code className="num mt-1 block break-all text-text">
+                  {fresh}
+                </code>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="eyebrow">Connect</p>
+            <p className="mt-2 text-xs text-muted">Claude Code:</p>
+            <pre className="num mt-1 overflow-x-auto rounded-lg border border-line bg-bg p-3 text-[11px] leading-relaxed">{`claude mcp add --transport http swarm-for-hire ${url} \\\n  --header "Authorization: Bearer ${keyText}"`}</pre>
+            <p className="mt-3 text-xs text-muted">
+              Any MCP client (JSON config):
+            </p>
+            <pre className="num mt-1 overflow-x-auto rounded-lg border border-line bg-bg p-3 text-[11px] leading-relaxed">
+              {JSON.stringify(
+                {
+                  mcpServers: {
+                    "swarm-for-hire": {
+                      type: "http",
+                      url,
+                      headers: { Authorization: `Bearer ${keyText}` },
+                    },
+                  },
+                },
+                null,
+                2,
+              )}
+            </pre>
+            <p className="mt-3 text-xs text-muted">
+              Then ask your AI:{" "}
+              <span className="text-text">
+                &ldquo;Use swarm-for-hire to get three README tips for my
+                hackathon project, budget 0.3 NEAR.&rdquo;
+              </span>{" "}
+              Tools: list_agents, balance, post_job, wait_for_round, get_round,
+              my_jobs, back_agent.
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

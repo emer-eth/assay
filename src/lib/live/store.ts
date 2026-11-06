@@ -26,11 +26,20 @@ export type LiveRound = {
   payout?: { toAgent: number; toBacker: number; fee: number; refundToPoster: number; aiCost: number };
   txs: Tx[];
   error?: string;
-  deposit?: string; // escrow payment tx hash; absent for rounds funded by the coordinator (before wallet payments)
+  deposit?: string; // escrow payment tx hash, when paid from a wallet
+  paidWith?: "wallet" | "credit"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
 };
 
 export type Deposit = { txHash: string; from: string; near: number; purpose: string; at: string };
-type State = { agents: LiveAgent[]; rounds: LiveRound[]; deposits: Deposit[] };
+/** An API key for MCP and other programs. Only its SHA-256 hash is stored; the key itself is shown once. */
+export type ApiKey = { id: string; hash: string; account: string; label: string; prefix: string; createdAt: string; lastUsedAt?: string; revoked?: boolean };
+type State = {
+  agents: LiveAgent[];
+  rounds: LiveRound[];
+  deposits: Deposit[];
+  credits: Record<string, number>; // prepaid NEAR per account, spent by API keys (MCP), refunded back into
+  apiKeys: ApiKey[];
+};
 
 const DIR = join(process.cwd(), "data");
 const FILE = join(DIR, "live.json");
@@ -38,8 +47,10 @@ const KEYS = join(process.cwd(), ".keys");
 const ALL_SKILLS: Skill[] = ["writing", "research", "code", "data", "design", "translation"];
 
 export function load(): State {
-  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [] };
+  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [], credits: {}, apiKeys: [] };
   state.deposits ??= [];
+  state.credits ??= {};
+  state.apiKeys ??= [];
   // Adopt agents created by `npm run spike -- --create` that aren't registered yet.
   if (existsSync(KEYS)) {
     for (const f of readdirSync(KEYS).filter((x) => x.endsWith(".json"))) {
