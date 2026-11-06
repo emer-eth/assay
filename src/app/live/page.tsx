@@ -1,0 +1,456 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
+import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
+import type { LiveAgent, LiveRound } from "@/lib/live/store";
+
+// Live mode: real agents on NEAR AI Cloud, real testnet accounts and transfers.
+
+type State = { configured: boolean; needsKey: boolean; coordinator: { id: string | null; near: number | null }; agents: LiveAgent[]; rounds: LiveRound[]; busy: boolean };
+const txUrl = (h: string) => `https://testnet.nearblocks.io/txns/${h}`;
+const acctUrl = (id: string) => `https://testnet.nearblocks.io/address/${id}`;
+const ACTIVE: LiveRound["status"][] = ["reviewing", "bidding", "working", "grading", "settling"];
+
+function cellState(agentId: string, r?: LiveRound): CellState {
+  if (!r) return "idle";
+  if (r.winner === agentId) {
+    if (r.grade) return r.grade.passed ? "paid" : "failed";
+    return "winner";
+  }
+  if (r.status === "bidding" && r.eligible.includes(agentId)) return "thinking";
+  if (r.bids.some((b) => b.agent === agentId)) return "bid";
+  if (r.eligible.includes(agentId)) return "eligible";
+  return "idle";
+}
+
+export default function Live() {
+  const [state, setState] = useState<State | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [key, setKey] = useState("");
+
+  const refresh = useCallback(async () => {
+    try {
+      setState((await (await fetch("/api/live/state", { cache: "no-store" })).json()) as State);
+    } catch {
+      setError("Can't reach the coordinator. Is the server running?");
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      // Read after mount so the server render and the first browser render match.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setKey(localStorage.getItem("swarm-live-key") || "");
+    } catch {}
+    refresh();
+  }, [refresh]);
+  useEffect(() => {
+    const t = setInterval(refresh, state?.busy ? 1200 : 6000);
+    return () => clearInterval(t);
+  }, [refresh, state?.busy]);
+
+  const round = useMemo(() => state?.rounds.find((r) => r.id === selected) ?? state?.rounds[0], [state, selected]);
+  const cells: Cell[] = useMemo(
+    () => (state?.agents ?? []).map((a) => ({ id: a.id, label: a.name, rep: a.quality, detail: `${a.skills.join(", ")} · ${a.balance.toFixed(3)} Ⓝ`, state: cellState(a.id, round) })),
+    [state?.agents, round],
+  );
+
+  async function post(path: string, body: unknown) {
+    setError(null);
+    const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json", ...(key ? { "x-live-key": key } : {}) }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || `Request failed (${res.status})`);
+      return null;
+    }
+    await refresh();
+    return data;
+  }
+
+  const running = state?.rounds.find((r) => ACTIVE.includes(r.status));
+
+  return (
+    <>
+      <TopBar mode="live">
+        {state?.coordinator.id && <Stat label="Coordinator" value={state.coordinator.near !== null ? near(state.coordinator.near) : "…"} href={acctUrl(state.coordinator.id)} />}
+        <Stat label="Agents" value={state?.agents.length ?? "…"} />
+        <Stat label="Rounds" value={state?.rounds.length ?? "…"} />
+        <span className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-honey/50 text-honey" : "border-line text-muted"}`}>
+          <span className={`size-1.5 rounded-full ${running ? "live-dot bg-honey" : "bg-ok"}`} />
+          {running ? "Round running" : "Ready"}
+        </span>
+      </TopBar>
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        {state && !state.configured && (
+          <p className="panel mb-6 border-honey/40 p-4 text-sm">
+            Live mode isn&apos;t set up yet. Fill in <code className="num text-honey">.env</code> (see <code className="num">.env.example</code>) and run <code className="num">npm run spike</code>.
+          </p>
+        )}
+        {state?.needsKey && (
+          <label className="mb-6 block max-w-xs">
+            <span className="eyebrow">Live key</span>
+            <input
+              type="password"
+              className="field mt-1.5"
+              value={key}
+              onChange={(e) => {
+                setKey(e.target.value);
+                try {
+                  localStorage.setItem("swarm-live-key", e.target.value);
+                } catch {}
+              }}
+            />
+          </label>
+        )}
+        {error && (
+          <p role="alert" className="panel mb-6 border-bad/50 p-4 text-sm text-bad">
+            {error}
+          </p>
+        )}
+
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="grid min-w-0 content-start gap-6">
+            <section className="panel p-5" aria-labelledby="hive-h">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="hive-h" className="eyebrow">The hive</h2>
+                <span className="text-xs text-muted">{round ? `Showing round ${round.id}` : "Post a job to wake it up"}</span>
+              </div>
+              <div className="mx-auto mt-4 max-w-md">
+                <Hive cells={cells} size={34} label="Agents in the swarm and what each is doing in the selected round" />
+              </div>
+              <div className="mt-4">
+                <HiveLegend states={["idle", "eligible", "thinking", "bid", "winner", "paid", "failed"]} />
+              </div>
+            </section>
+
+            <PostJob busy={!!running} onPost={async (b) => { const d = await post("/api/live/jobs", b); if (d) setSelected(d.id); return !!d; }} />
+            <Agents agents={state?.agents ?? []} round={round} onAdd={async (b) => !!(await post("/api/live/agents", b))} />
+          </div>
+
+          <div className="grid content-start gap-4 lg:sticky lg:top-20 lg:self-start">
+            {!!state?.rounds.length && (
+              <nav aria-label="Rounds" className="flex gap-1.5 overflow-x-auto pb-1">
+                {state.rounds.slice(0, 12).map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelected(r.id)}
+                    aria-current={round?.id === r.id ? "true" : undefined}
+                    className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-honey/60 bg-panel-2 text-text" : "border-line text-muted hover:text-text"}`}
+                  >
+                    <span className={`size-1.5 rounded-full ${dot(r)}`} />#{r.id.slice(0, 4)}
+                  </button>
+                ))}
+              </nav>
+            )}
+            {round ? <RoundDetail r={round} agents={state?.agents ?? []} /> : <EmptyFeed />}
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+const dot = (r: LiveRound) => (ACTIVE.includes(r.status) ? "live-dot bg-honey" : r.status === "done" && r.grade?.passed ? "bg-ok" : r.status === "blocked" || r.status === "error" ? "bg-bad" : "bg-muted");
+
+function EmptyFeed() {
+  return (
+    <section className="panel p-6 text-sm text-muted">
+      <p className="eyebrow mb-2">Round feed</p>
+      Post a job and its round plays out here: the review, the sealed bids, the work, the grade and every payout on chain.
+    </section>
+  );
+}
+
+function PostJob({ busy, onPost }: { busy: boolean; onPost: (b: unknown) => Promise<boolean> }) {
+  const [description, setDescription] = useState("");
+  const [skills, setSkills] = useState<string[]>(["writing"]);
+  const [budget, setBudget] = useState(0.5);
+  const [sending, setSending] = useState(false);
+  return (
+    <form
+      className="panel p-5"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setSending(true);
+        if (await onPost({ description, skills, budget })) setDescription("");
+        setSending(false);
+      }}
+    >
+      <h2 className="eyebrow">Post a job</h2>
+      <label className="mt-3 block">
+        <span className="sr-only">What should an agent do?</span>
+        <textarea className="field min-h-24 text-[15px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What should an agent do? e.g. Summarise the trade-offs of optimistic vs ZK rollups in 5 bullet points" />
+      </label>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+        <SkillPicker label="Skills needed" value={skills} onChange={setSkills} />
+        <div className="flex items-end gap-3">
+          <label>
+            <span className="eyebrow">Budget</span>
+            <span className="relative mt-1.5 block">
+              <input type="number" step="0.05" min={0.05} max={5} className="field num w-28 pr-7" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+              <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">Ⓝ</span>
+            </span>
+          </label>
+          <button disabled={busy || sending || description.trim().length < 10 || !skills.length} className="btn btn-honey">
+            {busy ? "Round running…" : sending ? "Posting…" : "Post job ▸"}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function Agents({ agents, round, onAdd }: { agents: LiveAgent[]; round?: LiveRound; onAdd: (b: unknown) => Promise<boolean> }) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <section className="panel p-5" aria-labelledby="agents-h">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="agents-h" className="eyebrow">
+          Agents <span className="num text-faint">{agents.length}</span>
+        </h2>
+        <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setAdding(!adding)} aria-expanded={adding}>
+          {adding ? "Close" : "+ Back an agent"}
+        </button>
+      </div>
+      {adding && <AddAgent onAdd={async (b) => { const ok = await onAdd(b); if (ok) setAdding(false); return ok; }} />}
+      <ul className="mt-3 divide-y divide-line">
+        {agents.map((a) => {
+          const st = cellState(a.id, round);
+          return (
+            <li key={a.id} className="flex items-center gap-3 py-2.5">
+              <span className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-honey" : st === "bid" ? "bg-honey/50" : "bg-line-strong"}`} />
+              <span className="min-w-0 flex-1">
+                <a href={acctUrl(a.id)} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium hover:text-honey">
+                  {a.name}
+                </a>
+                <span className="num block truncate text-[11px] text-faint">{a.id}</span>
+              </span>
+              <span className="hidden text-xs text-muted sm:block">{a.skills.join(" · ")}</span>
+              <span className="num w-28 shrink-0 text-right text-xs leading-tight">
+                <span className="text-text">rep {a.quality.toFixed(2)}</span>
+                <br />
+                <span className="text-muted">{near(a.balance, 3)}</span>
+                {a.earned > 0 && <span className="text-ok"> +{a.earned.toFixed(3)}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function AddAgent({ onAdd }: { onAdd: (b: unknown) => Promise<boolean> }) {
+  const [name, setName] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [skills, setSkills] = useState<string[]>(["writing", "research"]);
+  const [funding, setFunding] = useState(0.5);
+  const [sending, setSending] = useState(false);
+  return (
+    <form
+      className="enter mt-4 grid gap-3 rounded-xl border border-line bg-bg/60 p-4"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setSending(true);
+        await onAdd({ name, prompt, skills, funding });
+        setSending(false);
+      }}
+    >
+      <p className="text-xs text-muted">Creates the agent&apos;s own testnet account, funded with NEAR to pay for its AI. Its profit goes to you, the backer.</p>
+      <label>
+        <span className="eyebrow">Name</span>
+        <input className="field mt-1.5" value={name} onChange={(e) => setName(e.target.value)} placeholder="Research Rita" />
+      </label>
+      <label>
+        <span className="eyebrow">Its prompt</span>
+        <textarea className="field mt-1.5 min-h-20" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="You are a precise researcher. Say where facts come from and never guess numbers." />
+      </label>
+      <SkillPicker label="Skills" value={skills} onChange={setSkills} />
+      <div className="flex items-end justify-between gap-3">
+        <label>
+          <span className="eyebrow">Funding</span>
+          <span className="relative mt-1.5 block">
+            <input type="number" step="0.1" min={0.1} max={2} className="field num w-28 pr-7" value={funding} onChange={(e) => setFunding(Number(e.target.value))} />
+            <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">Ⓝ</span>
+          </span>
+        </label>
+        <button disabled={sending || name.trim().length < 2 || prompt.trim().length < 10 || !skills.length} className="btn btn-honey">
+          {sending ? "Creating account…" : "Create agent"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+type Stage = { label: string; state: "done" | "active" | "pending" | "failed" | "neutral"; note?: string };
+
+function stages(r: LiveRound): Stage[] {
+  const st = r.status;
+  const blocked = r.review && !r.review.allowed;
+  const after = (s: LiveRound["status"][]) => s.includes(st);
+  return [
+    { label: "Posted", state: "done", note: `${r.job.budget} Ⓝ in escrow` },
+    { label: "Job review", state: st === "reviewing" ? "active" : blocked ? "failed" : r.review ? "done" : "pending", note: blocked ? "Blocked" : r.review ? "Approved" : undefined },
+    { label: "Sealed bids", state: st === "bidding" ? "active" : st === "unfilled" ? "failed" : r.bids.length ? "done" : blocked ? "neutral" : "pending", note: st === "bidding" ? `${r.eligible.length} agents thinking` : r.bids.length ? `${r.bids.length} revealed` : undefined },
+    { label: "Work", state: st === "working" ? "active" : r.deliverable ? "done" : "pending", note: r.tokens ? `${r.tokens} tokens` : undefined },
+    { label: "Delivery review", state: st === "grading" ? "active" : r.grade ? (r.grade.passed ? "done" : "failed") : "pending", note: r.grade ? (r.grade.passed ? "Passed" : "Failed") : undefined },
+    {
+      label: "Settlement",
+      state: st === "settling" ? "active" : st === "error" ? "failed" : after(["done", "blocked", "unfilled"]) ? (r.grade?.passed ? "done" : "neutral") : "pending",
+      note: r.payout ? (r.grade?.passed ? `Paid ${near(r.payout.toAgent)}` : `Refunded ${near(r.payout.refundToPoster)}`) : undefined,
+    },
+  ];
+}
+
+const STAGE_STYLE: Record<Stage["state"], string> = {
+  done: "border-ok bg-ok text-[#06210f]",
+  active: "border-honey bg-honey/20 text-honey hex-thinking",
+  pending: "border-line-strong text-faint",
+  failed: "border-bad bg-bad text-[#2a0703]",
+  neutral: "border-muted text-muted",
+};
+const STAGE_ICON: Record<Stage["state"], string> = { done: "✓", active: "•", pending: "", failed: "✕", neutral: "–" };
+
+function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
+  const name = (id?: string) => agents.find((a) => a.id === id)?.name || id?.split(".")[0] || "—";
+  const maxValue = Math.max(...r.bids.map((b) => b.value), 0.0001);
+  const [showLog, setShowLog] = useState(false);
+  return (
+    <article className="panel enter overflow-hidden" key={r.id}>
+      <header className="border-b border-line p-5">
+        <p className="eyebrow flex items-center justify-between">
+          <span>
+            Round <span className="text-text">#{r.id}</span>
+          </span>
+          <span className="num normal-case tracking-normal">{new Date(r.createdAt).toLocaleTimeString()}</span>
+        </p>
+        <p className="mt-2 text-[15px] leading-snug">{r.job.description}</p>
+        <p className="num mt-2 text-xs text-muted">
+          {near(r.job.budget)} · {r.job.skills.join(" + ")}
+        </p>
+      </header>
+
+      <ol className="grid gap-0 p-5">
+        {stages(r).map((s, i, all) => (
+          <li key={s.label} className="relative flex gap-3 pb-3 last:pb-0">
+            {i < all.length - 1 && <span className="absolute top-6 left-[11px] h-[calc(100%-18px)] w-px bg-line" aria-hidden />}
+            <span className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${STAGE_STYLE[s.state]}`}>{STAGE_ICON[s.state]}</span>
+            <span className="flex min-w-0 flex-1 items-baseline justify-between gap-2 pt-0.5">
+              <span className={`text-sm ${s.state === "pending" ? "text-faint" : "text-text"}`}>{s.label}</span>
+              {s.note && <span className={`num text-xs ${s.state === "failed" ? "text-bad" : s.state === "done" ? "text-ok" : "text-muted"}`}>{s.note}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      {r.review && !r.review.allowed && (
+        <section className="border-t border-line p-5">
+          <p className="eyebrow !text-bad">Why it was blocked</p>
+          <ul className="mt-2 grid gap-1 text-sm text-text">
+            {r.review.reasons.map((x) => (
+              <li key={x}>— {x}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {r.bids.length > 0 && (
+        <section className="border-t border-line p-5">
+          <p className="eyebrow">Sealed bids, revealed · value = rep² ÷ price</p>
+          <ul className="mt-3 grid gap-2.5">
+            {[...r.bids]
+              .sort((a, b) => b.value - a.value)
+              .map((b) => {
+                const won = b.agent === r.winner;
+                return (
+                  <li key={b.agent}>
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className={won ? "font-semibold text-honey" : "text-text"}>
+                        {won && "★ "}
+                        {name(b.agent)}
+                      </span>
+                      <span className="num text-xs text-muted">
+                        {near(b.ask)} · value {b.value.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panel-2">
+                      <div className={`h-full rounded-full ${won ? "bg-honey" : "bg-line-strong"}`} style={{ width: `${Math.max(4, (b.value / maxValue) * 100)}%`, transition: "width 400ms ease-out" }} />
+                    </div>
+                    {b.pitch && <p className="mt-1 text-xs text-muted">“{b.pitch}”</p>}
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
+      )}
+
+      {r.deliverable && (
+        <section className="border-t border-line p-5">
+          <p className="eyebrow">Delivered by {name(r.winner)}</p>
+          <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-bg p-3 text-sm leading-relaxed whitespace-pre-wrap">{r.deliverable}</div>
+          {r.grade && (
+            <div className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/40 bg-ok/8" : "border-bad/40 bg-bad/8"}`}>
+              <p className={`font-semibold ${r.grade.passed ? "text-ok" : "text-bad"}`}>{r.grade.passed ? "✓ Reviewer passed it" : "✕ Reviewer failed it"}</p>
+              <ul className="mt-1 grid gap-0.5 text-muted">
+                {r.grade.reasons.map((x) => (
+                  <li key={x}>— {x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {(r.payout || r.txs.length > 0) && (
+        <section className="border-t border-line p-5">
+          <p className="eyebrow">Money</p>
+          {r.payout && (
+            <dl className="num mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <dt className="text-muted">To agent</dt>
+              <dd className="text-right">{near(r.payout.toAgent)}</dd>
+              <dt className="text-muted">Backer profit</dt>
+              <dd className="text-right text-ok">{near(r.payout.toBacker)}</dd>
+              <dt className="text-muted">Reviewer fee</dt>
+              <dd className="text-right">{near(r.payout.fee)}</dd>
+              <dt className="text-muted">Agent&apos;s AI cost</dt>
+              <dd className="text-right">{near(r.payout.aiCost)}</dd>
+              <dt className="text-muted">Refunded to poster</dt>
+              <dd className="text-right">{near(r.payout.refundToPoster)}</dd>
+            </dl>
+          )}
+          {r.txs.length > 0 && (
+            <ul className="mt-3 grid gap-1.5">
+              {r.txs.map((t) => (
+                <li key={t.hash}>
+                  <a href={txUrl(t.hash)} target="_blank" rel="noreferrer" className="group flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-honey/50">
+                    <span>{t.label}</span>
+                    <span className="num shrink-0 text-muted group-hover:text-honey">{t.hash.slice(0, 6)}… ↗</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {r.error && <p className="border-t border-line p-5 text-sm text-bad">{r.error}</p>}
+
+      <footer className="border-t border-line px-5 py-3">
+        <button className="text-xs text-muted hover:text-text" onClick={() => setShowLog(!showLog)} aria-expanded={showLog}>
+          {showLog ? "Hide" : "Show"} coordinator log
+        </button>
+        {showLog && (
+          <ol className="num mt-2 grid gap-1 text-[11px] text-muted">
+            {r.steps.map((s, i) => (
+              <li key={i}>
+                <span className="text-faint">{new Date(s.at).toLocaleTimeString()}</span> {s.text}
+              </li>
+            ))}
+          </ol>
+        )}
+      </footer>
+    </article>
+  );
+}

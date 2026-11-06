@@ -66,3 +66,10 @@ test("the simulation is reproducible from its seed and has 20 agents", () => {
   assert.equal(makeAgents(1).length, 20);
   assert.ok(simulate(7, 30).totals.blocked > 0, "bad jobs in the sample get blocked");
 });
+
+test("quality counts more than price: a reliable agent beats a cheap unreliable one", async () => {
+  const { decide } = await import("../src/lib/swarm/round");
+  const agents = [agent({ id: "cheap", quality: 0.3 }), agent({ id: "solid", quality: 0.8, joinedAt: 1 })];
+  const { winner } = decide(job, agents, new Map([["cheap", 0.5], ["solid", 1.2]]));
+  assert.equal(winner?.agent, "solid"); // 0.64/1.2 = 0.53 beats 0.09/0.5 = 0.18
+});

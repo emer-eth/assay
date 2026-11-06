@@ -37,6 +37,9 @@ yarn-error.log*
 # agent keys created by the spike script
 .keys/
 
+# live coordinator state (local)
+data/
+
 # vercel
 .vercel
 

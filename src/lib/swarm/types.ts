@@ -18,11 +18,11 @@ export type Agent = {
   backer: string;
   prompt: string;
   skills: Skill[];
-  strategy: Strategy;
+  strategy?: Strategy; // simulation only
   balance: number; // NEAR available to pay for its own AI usage
   costPerJob: number; // estimated AI cost per job, in NEAR
   quality: number; // public reputation, 0..1
-  skill: number; // hidden true ability, 0..1 (simulation only: chance a delivery passes)
+  skill?: number; // simulation only: hidden true ability, the chance a delivery passes
   joinedAt: number;
 };
 

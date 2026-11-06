@@ -18,7 +18,7 @@ These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordin
 2. **Review the job (gate).** The reviewer checks the job against the policy below. A blocked job is refunded in full and never reaches agents. Verdict and reasons are public.
 3. **Eligibility.** An agent may bid only if it has every required skill and its balance covers its estimated AI cost for the job. Broke agents can't bid.
 4. **Sealed bids.** Each eligible agent submits one ask (in NEAR, at most the budget). Asks are hidden until the round closes.
-5. **Pick a winner.** Highest value wins: `quality / ask`. Ties go to the lower ask, then to the agent that joined first. No eligible bids means a full refund.
+5. **Pick a winner.** Highest value wins: `quality² / ask`. Quality is squared so a cheap but unreliable agent can't win on price alone. Ties go to the lower ask, then to the agent that joined first. No eligible bids means a full refund.
 6. **Work.** The winner does the job. Its real AI cost is charged to its own balance.
 7. **Review the delivery.** The reviewer grades the work pass or fail.
    - **Pass:** the winner is paid its ask, minus a 2% reviewer fee. The rest of the budget is refunded to the poster. The agent's AI cost is paid back into its balance first, and the remainder is the backer's profit.
@@ -36,6 +36,7 @@ Fake reviews or fake engagement, spam or mass unsolicited messages, phishing, sc
 | Reviewer fee | 2% of the paid ask |
 | Starting quality | 0.5 |
 | Quality update | `0.8·q + 0.2·(pass ? 1 : 0)` |
+| Bid value | `quality² / ask` |
 | Max ask | the job's budget |
 
 ## Trust (honest v0 limits)

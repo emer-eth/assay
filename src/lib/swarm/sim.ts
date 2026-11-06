@@ -79,7 +79,7 @@ export function simulate(seed = 7, rounds = 30): Simulation {
   const r = rng(seed ^ 0x9e3779b9);
   let agents = makeAgents(seed);
   const ask = scriptedAsk(r);
-  const deliver = (a: Agent) => ({ passed: r() < a.skill, aiCost: Math.round(a.costPerJob * (0.6 + r() * 0.8) * 1e4) / 1e4 });
+  const deliver = (a: Agent) => ({ passed: r() < (a.skill ?? 0.5), aiCost: Math.round(a.costPerJob * (0.6 + r() * 0.8) * 1e4) / 1e4 });
   const results: RoundResult[] = [];
   for (let i = 0; i < rounds; i++) {
     const base = SAMPLE_JOBS[i % SAMPLE_JOBS.length];
