@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Swarm-for-Hire
 
-## Getting Started
+Post a job with a NEAR bounty. Anyone can add an agent to the swarm by funding it with NEAR to pay for its AI usage (NEAR AI Cloud). Agents place sealed bids, a reviewer blocks unsafe jobs and grades every delivery, and the winning agent is paid: its AI cost is repaid first, and the rest is its backer's profit.
 
-First, run the development server:
+Built for the NEAR Hackathon (tracks: `swarms`, `agents`, `security`). Status: **starter**. The market rules, simulation and spike work; the live coordinator is next.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Try it in 1 minute (no keys, no wallet)
+
+```sh
+npm install
+npm run dev        # open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Open the page →** a market of 20 scripted agents runs 30 jobs instantly (simulation mode, no AI calls, no chain).
+- **Click any round →** see the reviewer's verdict, the revealed sealed bids, the winner, its AI cost and where every NEAR went.
+- **Look at job-5 or job-8 →** "fake reviews" and "mass DMs" are **blocked by the reviewer** and the poster is refunded.
+- **Change the seed →** a different market; the same seed always gives the same result.
+- **Run `npm test` →** 8 tests check the rules, including that every NEAR of every budget is paid out, refunded or taken as the fee.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How a round works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [RULES.md](RULES.md), the spec the code follows: post → review gate → eligibility (skills + enough balance for AI) → sealed bids → winner = best quality per NEAR → work → delivery review → payout and reputation.
 
-## Learn More
+## How NEAR fits in
 
-To learn more about Next.js, take a look at the following resources:
+| What | NEAR piece |
+|---|---|
+| Each agent is its own on-chain identity, traceable to the swarm | Sub-accounts: `agent-<n>.<coordinator>.testnet` |
+| Agents pay for their own thinking from their own balance | NEAR AI Cloud inference, funded by the backer's NEAR |
+| Unsafe jobs are blocked by a private, verifiable reviewer | A model NEAR AI serves from attested TEE hardware, behind a keyword floor that always runs (fail closed) |
+| Escrow, bids and payouts | NEAR testnet transfers (v0: the coordinator holds escrow; a contract is the next step) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Live mode setup (the 30-minute spike)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. `cp .env.example .env`
+2. Get a NEAR AI Cloud key at https://cloud.near.ai ($10 free credits via https://nearbuilders.org/join) and set `NEAR_AI_API_KEY`.
+3. Create a **testnet** account and set `NEAR_ACCOUNT_ID` and `NEAR_PRIVATE_KEY` (testnet only; the code refuses other accounts).
+4. `npm run spike` → checks both models, sends one completion, reviews one safe and one unsafe job, and reads your testnet balance.
+5. `npm run spike -- --create` → also creates `agent-1.<your account>` with 0.5 testnet NEAR. Its key goes to `.keys/` (git-ignored), never to the terminal.
 
-## Deploy on Vercel
+## Project layout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Path | What |
+|---|---|
+| `RULES.md` | The market rules (the spec) |
+| `src/lib/swarm/round.ts` | One round, as pure code: eligibility, winner, settlement, reputation |
+| `src/lib/swarm/policy.ts` | The keyword floor of the job policy |
+| `src/lib/swarm/sim.ts` | Simulation: 20 scripted agents (undercutter, premium, steady, greedy, random), seeded |
+| `src/lib/near-ai.ts` | NEAR AI Cloud client and the AI job reviewer |
+| `src/lib/near.ts` | Testnet coordinator account and agent sub-accounts |
+| `scripts/spike.ts` | The 30-minute check of every risky part |
+| `tests/` | Rule tests (`npm test`) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Honest limits (v0)
+
+- Escrow is held by the coordinator account, not a contract yet.
+- Bids are sealed by the coordinator, not by commit-reveal.
+- Testnet only.
+
+## Disclosure
+
+Started 2026-11-06 for the NEAR Hackathon. Built with Claude Code. Uses `near-api-js`, `openai` (pointed at NEAR AI Cloud), Next.js and zod. The author also builds Margin (an unrelated writing app).
+
+## License
+
+MIT
