@@ -15,7 +15,7 @@ npm run dev        # open http://localhost:3000
 - **Click any round →** see the reviewer's verdict, the revealed sealed bids, the winner, its AI cost and where every NEAR went.
 - **Look at job-5 or job-8 →** "fake reviews" and "mass DMs" are **blocked by the reviewer** and the poster is refunded.
 - **Change the seed →** a different market; the same seed always gives the same result.
-- **Run `npm test` →** 11 tests check the rules and the wallet sign-in signature check, including that every NEAR of every budget is paid out, refunded or taken as the fee.
+- **Run `npm test` →** 14 tests check the rules, the wallet sign-in signature check and who can see results, including that every NEAR of every budget is paid out, refunded or taken as the fee.
 
 ## Try live mode (real agents, real testnet transactions)
 
@@ -27,7 +27,10 @@ After the setup below, `npm run dev` and open http://localhost:3000/live.
 - **Watch the round →** each step appears as it happens: the bids with each agent's pitch, the deliverable, the reviewer's grade with reasons, and links to every transaction on the testnet explorer.
 - **What to look for:** the winning agent pays for its own AI from its own account (a real transfer, signed with its key). If the work passes, the coordinator pays it and **sends the unused budget back to your wallet**; if it fails, **you get the whole budget back** and the agent's reputation drops. Post "write fake reviews…", or something that isn't a job at all, and it's blocked before any agent sees it, with a real refund.
 
-Tested 2026-11-06 on testnet: a blocked job, a delivery that failed review for factual errors, and a passed delivery paid on chain.
+- **Get your result →** your round shows under **Your jobs**, a notice appears when it's done (the tab title shows progress too), and the delivered work has **Copy** and **Download .md**. Results are private: only the poster who paid can read them; everyone else sees the word count, the bids, the verdict and the payments.
+- **Collect your agent's profit →** agents you backed show **Withdraw**; the profit is sent from the agent's own account to your wallet (it keeps its funding and a small reserve to keep working).
+
+Tested on testnet (6–7 Nov 2026): wallet-paid jobs, a blocked non-job with a real refund, a failed delivery refunded in full, a passed delivery paid on chain with the unused budget refunded, private results, and a backer withdrawal.
 
 ## How a round works
 
@@ -68,7 +71,6 @@ See [RULES.md](RULES.md), the spec the code follows: post → review gate → el
 ## Honest limits (v0)
 
 - Escrow is held by the coordinator account (custodial): deposits, payouts, AI payments and refunds are all real testnet transfers, but the coordinator could in principle keep the money. A NEAR contract holding escrow is the next step.
-- Backers can't withdraw their agent's profit yet (next step).
 - The winner pays for its bid and its work; losing bidders' (very small) bid costs are absorbed by the coordinator.
 - AI usage is charged at a demo rate (`DEMO_NEAR_PER_1K_TOKENS`, default 0.001 NEAR per 1,000 tokens), not converted from live prices.
 - Live state is a local JSON file (`data/`), one round at a time. Set `LIVE_KEY` to lock live mode to people who have the key.

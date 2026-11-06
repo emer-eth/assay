@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
 import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
+import type { PublicRound } from "@/lib/live/visibility";
 
 // Live mode: real agents on NEAR AI Cloud, real testnet accounts and transfers.
 
@@ -12,8 +13,9 @@ type State = {
   configured: boolean;
   needsKey: boolean;
   coordinator: { id: string | null; near: number | null };
+  viewer: string | null;
   agents: LiveAgent[];
-  rounds: LiveRound[];
+  rounds: PublicRound[];
   busy: boolean;
 };
 const txUrl = (h: string) => `https://testnet.nearblocks.io/txns/${h}`;
@@ -67,6 +69,42 @@ export default function Live() {
     const t = setInterval(refresh, state?.busy ? 1200 : 6000);
     return () => clearInterval(t);
   }, [refresh, state?.busy]);
+
+  // Tell posters when their job finishes, even if they're looking at another round; show progress in the tab title.
+  const [notice, setNotice] = useState<{
+    id: string;
+    text: string;
+    ok: boolean;
+  } | null>(null);
+  const seen = useRef(new Map<string, LiveRound["status"]>());
+  useEffect(() => {
+    if (!state) return;
+    for (const r of state.rounds.filter((x) => x.mine)) {
+      const before = seen.current.get(r.id);
+      if (before && ACTIVE.includes(before) && !ACTIVE.includes(r.status)) {
+        const ok = r.status === "done" && !!r.grade?.passed;
+         
+        setNotice({
+          id: r.id,
+          ok,
+          text: ok
+            ? `Your job is done: the work passed review. ${r.payout?.refundToPoster ? `${r.payout.refundToPoster} Ⓝ of unused budget is on its way back to your wallet.` : ""}`
+            : r.status === "error"
+              ? "Your job hit an error. Whatever was left of your budget is being refunded."
+              : `Your job ended without a passing delivery, so your ${r.job.budget} Ⓝ is being refunded.`,
+        });
+      }
+      seen.current.set(r.id, r.status);
+    }
+    const mineRunning = state.rounds.some(
+      (r) => r.mine && ACTIVE.includes(r.status),
+    );
+    document.title = mineRunning
+      ? "● Your job is running · Swarm-for-Hire"
+      : notice
+        ? "✓ Job finished · Swarm-for-Hire"
+        : "Swarm-for-Hire";
+  }, [state, notice]);
 
   const round = useMemo(
     () => state?.rounds.find((r) => r.id === selected) ?? state?.rounds[0],
@@ -146,6 +184,32 @@ export default function Live() {
           </p>
         )}
 
+        {notice && (
+          <div
+            role="status"
+            className={`panel enter mb-6 flex flex-wrap items-center justify-between gap-3 p-4 text-sm ${notice.ok ? "border-ok/50" : "border-honey/50"}`}
+          >
+            <span className={notice.ok ? "text-ok" : "text-honey"}>
+              {notice.text}
+            </span>
+            <span className="flex gap-2">
+              <button
+                className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                onClick={() => setSelected(notice.id)}
+              >
+                See the result
+              </button>
+              <button
+                className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                onClick={() => setNotice(null)}
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </span>
+          </div>
+        )}
+
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="grid min-w-0 content-start gap-6">
             <section className="panel p-5" aria-labelledby="hive-h">
@@ -200,6 +264,30 @@ export default function Live() {
           </div>
 
           <div className="grid content-start gap-4 lg:sticky lg:top-20 lg:self-start">
+            {!!state?.rounds.some((r) => r.mine) && (
+              <nav
+                aria-label="Your jobs"
+                className="flex items-center gap-1.5 overflow-x-auto pb-1"
+              >
+                <span className="eyebrow mr-1 shrink-0 !text-honey">
+                  Your jobs
+                </span>
+                {state.rounds
+                  .filter((r) => r.mine)
+                  .slice(0, 10)
+                  .map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => setSelected(r.id)}
+                      aria-current={round?.id === r.id ? "true" : undefined}
+                      className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-honey bg-honey/12 text-honey" : "border-honey/30 text-honey/80 hover:text-honey"}`}
+                    >
+                      <span className={`size-1.5 rounded-full ${dot(r)}`} />#
+                      {r.id.slice(0, 4)}
+                    </button>
+                  ))}
+              </nav>
+            )}
             {!!state?.rounds.length && (
               <nav
                 aria-label="Rounds"
@@ -230,7 +318,7 @@ export default function Live() {
   );
 }
 
-const dot = (r: LiveRound) =>
+const dot = (r: PublicRound) =>
   ACTIVE.includes(r.status)
     ? "live-dot bg-honey"
     : r.status === "done" && r.grade?.passed
@@ -545,6 +633,9 @@ function Agents({
                 {a.earned > 0 && (
                   <span className="text-ok"> +{a.earned.toFixed(3)}</span>
                 )}
+                {a.backer === account && a.earned > 0 && (
+                  <Withdraw agent={a} onDone={onAdded} />
+                )}
               </span>
             </li>
           );
@@ -646,7 +737,7 @@ type Stage = {
   note?: string;
 };
 
-function stages(r: LiveRound): Stage[] {
+function stages(r: PublicRound): Stage[] {
   const st = r.status;
   const blocked = r.review && !r.review.allowed;
   const after = (s: LiveRound["status"][]) => s.includes(st);
@@ -685,7 +776,12 @@ function stages(r: LiveRound): Stage[] {
     },
     {
       label: "Work",
-      state: st === "working" ? "active" : r.deliverable ? "done" : "pending",
+      state:
+        st === "working"
+          ? "active"
+          : r.deliverable || r.deliveredWords
+            ? "done"
+            : "pending",
       note: r.tokens ? `${r.tokens} tokens` : undefined,
     },
     {
@@ -736,7 +832,7 @@ const STAGE_ICON: Record<Stage["state"], string> = {
   neutral: "–",
 };
 
-function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
+function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
   const name = (id?: string) =>
     agents.find((a) => a.id === id)?.name || id?.split(".")[0] || "—";
   const maxValue = Math.max(...r.bids.map((b) => b.value), 0.0001);
@@ -846,12 +942,22 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
         </section>
       )}
 
-      {r.deliverable && (
+      {(r.deliverable || r.private) && (
         <section className="border-t border-line p-5">
-          <p className="eyebrow">Delivered by {name(r.winner)}</p>
-          <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-bg p-3 text-sm leading-relaxed whitespace-pre-wrap">
-            {r.deliverable}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="eyebrow">Delivered by {name(r.winner)}</p>
+            {r.deliverable && <ResultActions r={r} />}
           </div>
+          {r.deliverable ? (
+            <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-bg p-3 text-sm leading-relaxed whitespace-pre-wrap">
+              {r.deliverable}
+            </div>
+          ) : (
+            <p className="mt-2 rounded-lg border border-dashed border-line-strong p-3 text-sm text-muted">
+              🔒 {r.deliveredWords} words delivered. Only the poster who paid
+              for this job can read the result.
+            </p>
+          )}
           {r.grade && (
             <div
               className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/40 bg-ok/8" : "border-bad/40 bg-bad/8"}`}
@@ -938,5 +1044,85 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
         )}
       </footer>
     </article>
+  );
+}
+
+function ResultActions({ r }: { r: PublicRound }) {
+  const [copied, setCopied] = useState(false);
+  const text = r.deliverable || "";
+  const download = () => {
+    const md = `# ${r.job.description}\n\n${text}\n\n---\nDelivered by ${r.winner} for round ${r.id} on Swarm-for-Hire. Reviewer: ${r.grade?.passed ? "passed" : "failed"}.\n`;
+    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `swarm-job-${r.id}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <span className="flex gap-1.5">
+      <button
+        className="btn btn-ghost !px-2.5 !py-1 text-xs"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch {}
+        }}
+      >
+        {copied ? "Copied ✓" : "Copy"}
+      </button>
+      <button
+        className="btn btn-ghost !px-2.5 !py-1 text-xs"
+        onClick={download}
+      >
+        Download .md
+      </button>
+    </span>
+  );
+}
+
+function Withdraw({ agent, onDone }: { agent: LiveAgent; onDone: () => void }) {
+  const [state, setState] = useState<{
+    busy?: boolean;
+    error?: string;
+    hash?: string;
+  }>({});
+  if (state.hash)
+    return (
+      <a
+        className="mt-1 block text-ok underline underline-offset-2"
+        href={txUrl(state.hash)}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Sent to you ↗
+      </a>
+    );
+  return (
+    <>
+      <button
+        className="mt-1 block w-full rounded-md border border-ok/40 px-1.5 py-0.5 text-ok hover:bg-ok/10 disabled:opacity-50"
+        disabled={state.busy}
+        onClick={async () => {
+          setState({ busy: true });
+          const res = await fetch(
+            `/api/live/agents/${encodeURIComponent(agent.id)}/withdraw`,
+            { method: "POST" },
+          );
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) {
+            setState({ hash: data.hash });
+            onDone();
+          } else setState({ error: data.error || "Withdrawal failed." });
+        }}
+      >
+        {state.busy ? "Sending…" : "Withdraw"}
+      </button>
+      {state.error && (
+        <span className="mt-1 block text-bad">{state.error}</span>
+      )}
+    </>
   );
 }

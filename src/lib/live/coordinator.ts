@@ -67,7 +67,9 @@ export async function runLiveRound(id: string) {
 
     // 3. Sealed bids: collected in parallel, revealed together once all are in
     const raw = await Promise.all(eligible.map(async (a) => [a.id, await agentBid(a, job)] as const));
-    const asks = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.ask]));
+    // An agent can't bid below its own AI cost for the job (RULES.md): lower asks are raised to that floor.
+    const floor = new Map(eligible.map((a) => [a.id, a.costPerJob]));
+    const asks = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, Math.max(b!.ask, floor.get(id) ?? 0)]));
     const pitches = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.pitch]));
     const bidTokens = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.tokens]));
     const decision = decide(job, agents, asks);

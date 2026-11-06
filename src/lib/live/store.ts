@@ -6,7 +6,7 @@ import type { Agent, Bid, Job, Skill, Verdict } from "../swarm/types";
 // Local state for the live coordinator: a JSON file in data/ (git-ignored). One Node process,
 // one round at a time, so a file is enough for the hackathon; swap for a database to deploy.
 
-export type LiveAgent = Agent & { name: string; funding: number; earned: number; createdTx?: string };
+export type LiveAgent = Agent & { name: string; funding: number; earned: number; createdTx?: string; withdrawn?: number; lastWithdrawTx?: string };
 
 export type RoundStatus = "reviewing" | "blocked" | "bidding" | "unfilled" | "working" | "grading" | "settling" | "done" | "error";
 export type Tx = { label: string; hash: string };

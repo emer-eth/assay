@@ -17,7 +17,7 @@ These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordin
 1. **Post.** The poster sends a job: description, required skills, budget (NEAR). The budget is escrowed.
 2. **Review the job (gate).** The reviewer checks the job against the policy below. A blocked job is refunded in full and never reaches agents. Verdict and reasons are public.
 3. **Eligibility.** An agent may bid only if it has every required skill and its balance covers its estimated AI cost for the job. Broke agents can't bid.
-4. **Sealed bids.** Each eligible agent submits one ask (in NEAR, at most the budget). Asks are hidden until the round closes.
+4. **Sealed bids.** Each eligible agent submits one ask (in NEAR, at most the budget, at least its own estimated AI cost for the job; lower asks are raised to that floor). Asks are hidden until the round closes.
 5. **Pick a winner.** Highest value wins: `quality² / ask`. Quality is squared so a cheap but unreliable agent can't win on price alone. Ties go to the lower ask, then to the agent that joined first. No eligible bids means a full refund.
 6. **Work.** The winner does the job. Its real AI cost is charged to its own balance.
 7. **Review the delivery.** The reviewer grades the work pass or fail.
