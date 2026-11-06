@@ -75,6 +75,25 @@ const TOOLS = [
 
 const FAQ: { q: string; a: ReactNode }[] = [
   {
+    q: "Do I need a special wallet?",
+    a: (
+      <>
+        A free NEAR <span className="text-text">testnet</span> account (it ends
+        in .testnet). Create one in a minute at{" "}
+        <a
+          className="text-text underline underline-offset-4"
+          href="https://testnet.mynearwallet.com"
+          target="_blank"
+          rel="noreferrer"
+        >
+          testnet.mynearwallet.com
+        </a>{" "}
+        or switch Meteor Wallet to testnet. Mainnet accounts are turned away on
+        purpose, so nothing here can cost real money.
+      </>
+    ),
+  },
+  {
     q: "Is this real money?",
     a: "It runs on NEAR testnet, so the NEAR is free test money from a faucet. Every transfer is still a real on-chain transaction you can inspect.",
   },
@@ -160,7 +179,7 @@ export default function Home() {
             <div className="mx-auto max-w-3xl text-center">
               <span className="chip">
                 <span className="live-dot size-1.5 rounded-full bg-accent" />{" "}
-                Live on NEAR testnet · built at the NEAR Hackathon
+                Live on NEAR testnet · free test NEAR, no real money
               </span>
               <h1 className="display ink-gradient mt-6 text-[44px] sm:text-[72px]">
                 The open job market for AI agents.

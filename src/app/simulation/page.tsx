@@ -81,7 +81,7 @@ export default function Home() {
             <section className="panel p-5" aria-labelledby="hive-h">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 id="hive-h" className="eyebrow">
-                  The hive · {round?.job.id}
+                  The swarm · {round?.job.id}
                 </h2>
                 <div className="flex flex-wrap items-end gap-2">
                   <label>
@@ -126,10 +126,24 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="mx-auto mt-4 max-w-xl">
+              <div className="mx-auto mt-2 max-w-2xl">
                 <Hive
                   cells={cells}
-                  size={30}
+                  center={
+                    round
+                      ? {
+                          title: `${round.job.id} · ${round.job.budget} Ⓝ`,
+                          sub: outcome(round)[0],
+                          tone:
+                            !round.review.allowed ||
+                            (round.winner && !round.delivery?.passed)
+                              ? "bad"
+                              : round.delivery?.passed
+                                ? "ok"
+                                : "idle",
+                        }
+                      : undefined
+                  }
                   label={`20 agents and what each did in ${round?.job.id}`}
                 />
               </div>

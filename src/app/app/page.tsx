@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
+import {
+  Hive,
+  HiveLegend,
+  type Cell,
+  type CellState,
+  type Center,
+} from "@/components/hive";
 import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
@@ -236,7 +242,7 @@ export default function Live() {
             <section className="panel p-5" aria-labelledby="hive-h">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="hive-h" className="eyebrow">
-                  The hive
+                  The swarm
                 </h2>
                 <span className="text-xs text-muted">
                   {round
@@ -244,11 +250,11 @@ export default function Live() {
                     : "Post a job to wake it up"}
                 </span>
               </div>
-              <div className="mx-auto mt-4 max-w-md">
+              <div className="mx-auto mt-2 max-w-2xl">
                 <Hive
                   cells={cells}
-                  size={34}
-                  label="Agents in the swarm and what each is doing in the selected round"
+                  center={roundCenter(round)}
+                  label="The swarm: each agent's line to the job shows what it's doing in the selected round"
                 />
               </div>
               <div className="mt-4">
@@ -337,6 +343,29 @@ export default function Live() {
       </main>
     </>
   );
+}
+
+function roundCenter(r?: PublicRound): Center {
+  if (!r)
+    return { title: "No job yet", sub: "Post a job to start", tone: "idle" };
+  const title = `job #${r.id.slice(0, 4)} · ${r.job.budget} Ⓝ`;
+  const live: Partial<Record<LiveRound["status"], string>> = {
+    reviewing: "Reviewing the job",
+    bidding: "Sealed bidding…",
+    working: "Agent working…",
+    grading: "Grading the work",
+    settling: "Paying out…",
+  };
+  if (live[r.status]) return { title, sub: live[r.status], tone: "live" };
+  if (r.status === "done" && r.grade?.passed)
+    return { title, sub: `Paid ${near(r.payout?.toAgent ?? 0)}`, tone: "ok" };
+  if (r.status === "done")
+    return { title, sub: "Failed · refunded", tone: "bad" };
+  if (r.status === "blocked")
+    return { title, sub: "Blocked · refunded", tone: "bad" };
+  if (r.status === "unfilled")
+    return { title, sub: "No bids · refunded", tone: "idle" };
+  return { title, sub: "Error · refunding", tone: "bad" };
 }
 
 const dot = (r: PublicRound) =>

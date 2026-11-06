@@ -55,7 +55,7 @@ export async function verifySignIn(input: { token: string; accountId: string; pu
   const validName = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(input.accountId);
   const testnet = input.accountId.endsWith(".testnet") || /^[0-9a-f]{64}$/.test(input.accountId); // named testnet account, or implicit
   if (!validName || !testnet)
-    return { ok: false as const, error: "Sign in with a testnet account." };
+    return { ok: false as const, error: "That's a mainnet account. Swarm-for-Hire runs on NEAR testnet: connect an account ending in .testnet (free at testnet.mynearwallet.com)." };
 
   const nonce = new Uint8Array(Buffer.from(ch.nonce, "base64"));
   if (!verifyNep413(input.publicKey, input.signature, { message: SIGN_IN_MESSAGE, nonce, recipient: RECIPIENT }))

@@ -211,3 +211,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hex-thinking, .live-dot, .enter, .fill-x { animation: none; }
 }
+
+/* the moving dashes on an agent's line while it writes a sealed bid */
+@keyframes edge-flow {
+  to { stroke-dashoffset: -20; }
+}
+.edge-flow { animation: edge-flow 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .edge-flow { animation: none; }
+}
+
+/* swarm graph on phones: the SVG shrinks to about half size, so names move to the agent list and initials grow */
+@media (max-width: 640px) {
+  .graph-label { display: none; }
+  .graph-initials { font-size: 17px; }
+}

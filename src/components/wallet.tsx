@@ -54,6 +54,16 @@ export const useAuth = () => {
   return ctx;
 };
 
+/** Named testnet accounts end in .testnet; 64-hex implicit accounts exist on every network. */
+export const isTestnetAccount = (id: string) =>
+  id.endsWith(".testnet") || /^[0-9a-f]{64}$/.test(id);
+
+export class WrongNetworkError extends Error {
+  constructor(account: string) {
+    super(`${account} is a mainnet account. This demo runs on NEAR testnet.`);
+  }
+}
+
 /** Decimal NEAR to yoctoNEAR (10^24) as a string, without floating-point error. */
 export function toYocto(near: number) {
   const [whole, frac = ""] = near.toFixed(6).split(".");
@@ -111,6 +121,7 @@ function AuthBridge({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wrongNetwork, setWrongNetwork] = useState<string | null>(null); // a mainnet account that tried to connect
   // Resolves when the wallet picker has connected an account.
   const waiting = useRef<{
     resolve: (id: string) => void;
@@ -182,11 +193,17 @@ function AuthBridge({ children }: { children: ReactNode }) {
     async (onStep?: (s: PayStep) => void) => {
       onStep?.("connect");
       const walletAccount = await connect();
+      if (!isTestnetAccount(walletAccount)) {
+        // A mainnet account: disconnect it before asking for any signature, and explain how to get a testnet one.
+        await wallet.signOut().catch(() => {});
+        setWrongNetwork(walletAccount);
+        throw new WrongNetworkError(walletAccount);
+      }
       if (account && account === walletAccount) return account;
       onStep?.("sign-in");
       return prove();
     },
-    [account, connect, prove],
+    [account, connect, prove, wallet],
   );
 
   const signIn = useCallback(async () => {
@@ -196,7 +213,7 @@ function AuthBridge({ children }: { children: ReactNode }) {
       return await ensure();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Sign-in was cancelled.";
-      setError(msg);
+      if (!(e instanceof WrongNetworkError)) setError(msg);
       throw e;
     } finally {
       setBusy(false);
@@ -270,6 +287,12 @@ function AuthBridge({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {wrongNetwork && (
+        <TestnetHelp
+          account={wrongNetwork}
+          onClose={() => setWrongNetwork(null)}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
@@ -286,7 +309,7 @@ export function WalletButton() {
           onClick={() => signIn().catch(() => {})}
           disabled={busy}
         >
-          {busy ? "Check your wallet…" : "Connect wallet"}
+          {busy ? "Check your wallet…" : "Connect testnet wallet"}
         </button>
         {error && (
           <span
@@ -330,5 +353,94 @@ export function WalletButton() {
         </span>
       )}
     </span>
+  );
+}
+
+/** Shown when someone connects a mainnet wallet: what testnet is and how to get a free account in a minute. */
+function TestnetHelp({
+  account,
+  onClose,
+}: {
+  account: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tn-h"
+      onClick={onClose}
+    >
+      <div
+        className="panel-glow enter w-full max-w-lg p-6 sm:p-7"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="eyebrow">NEAR testnet</p>
+        <h2 id="tn-h" className="headline mt-2 text-2xl text-text">
+          This demo runs on testnet
+        </h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+          You connected <span className="num text-text">{account}</span>, a
+          mainnet account with real NEAR. Swarm-for-Hire uses free test NEAR on
+          testnet, so nothing you do here can cost real money. We&apos;ve
+          disconnected it.
+        </p>
+        <ol className="mt-5 grid gap-3 text-[14px]">
+          {[
+            <>
+              Create a free testnet account in{" "}
+              <a
+                className="text-text underline underline-offset-4"
+                href="https://testnet.mynearwallet.com"
+                target="_blank"
+                rel="noreferrer"
+              >
+                MyNearWallet (testnet)
+              </a>{" "}
+              or{" "}
+              <a
+                className="text-text underline underline-offset-4"
+                href="https://wallet.meteorwallet.app"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Meteor Wallet
+              </a>{" "}
+              (switch it to testnet). It ends in{" "}
+              <span className="num text-text">.testnet</span>.
+            </>,
+            <>
+              Top it up with free test NEAR from the{" "}
+              <a
+                className="text-text underline underline-offset-4"
+                href="https://near-faucet.io"
+                target="_blank"
+                rel="noreferrer"
+              >
+                testnet faucet
+              </a>{" "}
+              if it starts empty.
+            </>,
+            <>Come back and connect that testnet account.</>,
+          ].map((step, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="num grid size-6 shrink-0 place-items-center rounded-full border border-line-strong text-xs text-muted">
+                {i + 1}
+              </span>
+              <span className="pt-0.5 text-muted">{step}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-7 flex flex-wrap gap-2">
+          <button className="btn btn-primary" onClick={onClose}>
+            Got it
+          </button>
+          <a className="btn btn-ghost" href="/simulation">
+            Try the simulation instead
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
