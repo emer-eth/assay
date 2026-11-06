@@ -3,14 +3,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
 import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
+import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 
 // Live mode: real agents on NEAR AI Cloud, real testnet accounts and transfers.
 
-type State = { configured: boolean; needsKey: boolean; coordinator: { id: string | null; near: number | null }; agents: LiveAgent[]; rounds: LiveRound[]; busy: boolean };
+type State = {
+  configured: boolean;
+  needsKey: boolean;
+  coordinator: { id: string | null; near: number | null };
+  agents: LiveAgent[];
+  rounds: LiveRound[];
+  busy: boolean;
+};
 const txUrl = (h: string) => `https://testnet.nearblocks.io/txns/${h}`;
 const acctUrl = (id: string) => `https://testnet.nearblocks.io/address/${id}`;
-const ACTIVE: LiveRound["status"][] = ["reviewing", "bidding", "working", "grading", "settling"];
+const ACTIVE: LiveRound["status"][] = [
+  "reviewing",
+  "bidding",
+  "working",
+  "grading",
+  "settling",
+];
 
 function cellState(agentId: string, r?: LiveRound): CellState {
   if (!r) return "idle";
@@ -32,7 +46,11 @@ export default function Live() {
 
   const refresh = useCallback(async () => {
     try {
-      setState((await (await fetch("/api/live/state", { cache: "no-store" })).json()) as State);
+      setState(
+        (await (
+          await fetch("/api/live/state", { cache: "no-store" })
+        ).json()) as State,
+      );
     } catch {
       setError("Can't reach the coordinator. Is the server running?");
     }
@@ -50,34 +68,46 @@ export default function Live() {
     return () => clearInterval(t);
   }, [refresh, state?.busy]);
 
-  const round = useMemo(() => state?.rounds.find((r) => r.id === selected) ?? state?.rounds[0], [state, selected]);
+  const round = useMemo(
+    () => state?.rounds.find((r) => r.id === selected) ?? state?.rounds[0],
+    [state, selected],
+  );
   const cells: Cell[] = useMemo(
-    () => (state?.agents ?? []).map((a) => ({ id: a.id, label: a.name, rep: a.quality, detail: `${a.skills.join(", ")} · ${a.balance.toFixed(3)} Ⓝ`, state: cellState(a.id, round) })),
+    () =>
+      (state?.agents ?? []).map((a) => ({
+        id: a.id,
+        label: a.name,
+        rep: a.quality,
+        detail: `${a.skills.join(", ")} · ${a.balance.toFixed(3)} Ⓝ`,
+        state: cellState(a.id, round),
+      })),
     [state?.agents, round],
   );
-
-  async function post(path: string, body: unknown) {
-    setError(null);
-    const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json", ...(key ? { "x-live-key": key } : {}) }, body: JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(data.error || `Request failed (${res.status})`);
-      return null;
-    }
-    await refresh();
-    return data;
-  }
 
   const running = state?.rounds.find((r) => ACTIVE.includes(r.status));
 
   return (
     <>
       <TopBar mode="live">
-        {state?.coordinator.id && <Stat label="Coordinator" value={state.coordinator.near !== null ? near(state.coordinator.near) : "…"} href={acctUrl(state.coordinator.id)} />}
+        {state?.coordinator.id && (
+          <Stat
+            label="Coordinator"
+            value={
+              state.coordinator.near !== null
+                ? near(state.coordinator.near)
+                : "…"
+            }
+            href={acctUrl(state.coordinator.id)}
+          />
+        )}
         <Stat label="Agents" value={state?.agents.length ?? "…"} />
         <Stat label="Rounds" value={state?.rounds.length ?? "…"} />
-        <span className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-honey/50 text-honey" : "border-line text-muted"}`}>
-          <span className={`size-1.5 rounded-full ${running ? "live-dot bg-honey" : "bg-ok"}`} />
+        <span
+          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-honey/50 text-honey" : "border-line text-muted"}`}
+        >
+          <span
+            className={`size-1.5 rounded-full ${running ? "live-dot bg-honey" : "bg-ok"}`}
+          />
           {running ? "Round running" : "Ready"}
         </span>
       </TopBar>
@@ -85,7 +115,10 @@ export default function Live() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {state && !state.configured && (
           <p className="panel mb-6 border-honey/40 p-4 text-sm">
-            Live mode isn&apos;t set up yet. Fill in <code className="num text-honey">.env</code> (see <code className="num">.env.example</code>) and run <code className="num">npm run spike</code>.
+            Live mode isn&apos;t set up yet. Fill in{" "}
+            <code className="num text-honey">.env</code> (see{" "}
+            <code className="num">.env.example</code>) and run{" "}
+            <code className="num">npm run spike</code>.
           </p>
         )}
         {state?.needsKey && (
@@ -105,7 +138,10 @@ export default function Live() {
           </label>
         )}
         {error && (
-          <p role="alert" className="panel mb-6 border-bad/50 p-4 text-sm text-bad">
+          <p
+            role="alert"
+            className="panel mb-6 border-bad/50 p-4 text-sm text-bad"
+          >
             {error}
           </p>
         )}
@@ -114,24 +150,61 @@ export default function Live() {
           <div className="grid min-w-0 content-start gap-6">
             <section className="panel p-5" aria-labelledby="hive-h">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="hive-h" className="eyebrow">The hive</h2>
-                <span className="text-xs text-muted">{round ? `Showing round ${round.id}` : "Post a job to wake it up"}</span>
+                <h2 id="hive-h" className="eyebrow">
+                  The hive
+                </h2>
+                <span className="text-xs text-muted">
+                  {round
+                    ? `Showing round ${round.id}`
+                    : "Post a job to wake it up"}
+                </span>
               </div>
               <div className="mx-auto mt-4 max-w-md">
-                <Hive cells={cells} size={34} label="Agents in the swarm and what each is doing in the selected round" />
+                <Hive
+                  cells={cells}
+                  size={34}
+                  label="Agents in the swarm and what each is doing in the selected round"
+                />
               </div>
               <div className="mt-4">
-                <HiveLegend states={["idle", "eligible", "thinking", "bid", "winner", "paid", "failed"]} />
+                <HiveLegend
+                  states={[
+                    "idle",
+                    "eligible",
+                    "thinking",
+                    "bid",
+                    "winner",
+                    "paid",
+                    "failed",
+                  ]}
+                />
               </div>
             </section>
 
-            <PostJob busy={!!running} onPost={async (b) => { const d = await post("/api/live/jobs", b); if (d) setSelected(d.id); return !!d; }} />
-            <Agents agents={state?.agents ?? []} round={round} onAdd={async (b) => !!(await post("/api/live/agents", b))} />
+            <PostJob
+              busy={!!running}
+              escrow={state?.coordinator.id ?? null}
+              liveKey={key}
+              onPosted={(id) => {
+                setSelected(id);
+                refresh();
+              }}
+            />
+            <Agents
+              agents={state?.agents ?? []}
+              round={round}
+              escrow={state?.coordinator.id ?? null}
+              liveKey={key}
+              onAdded={refresh}
+            />
           </div>
 
           <div className="grid content-start gap-4 lg:sticky lg:top-20 lg:self-start">
             {!!state?.rounds.length && (
-              <nav aria-label="Rounds" className="flex gap-1.5 overflow-x-auto pb-1">
+              <nav
+                aria-label="Rounds"
+                className="flex gap-1.5 overflow-x-auto pb-1"
+              >
                 {state.rounds.slice(0, 12).map((r) => (
                   <button
                     key={r.id}
@@ -139,12 +212,17 @@ export default function Live() {
                     aria-current={round?.id === r.id ? "true" : undefined}
                     className={`num flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${round?.id === r.id ? "border-honey/60 bg-panel-2 text-text" : "border-line text-muted hover:text-text"}`}
                   >
-                    <span className={`size-1.5 rounded-full ${dot(r)}`} />#{r.id.slice(0, 4)}
+                    <span className={`size-1.5 rounded-full ${dot(r)}`} />#
+                    {r.id.slice(0, 4)}
                   </button>
                 ))}
               </nav>
             )}
-            {round ? <RoundDetail r={round} agents={state?.agents ?? []} /> : <EmptyFeed />}
+            {round ? (
+              <RoundDetail r={round} agents={state?.agents ?? []} />
+            ) : (
+              <EmptyFeed />
+            )}
           </div>
         </div>
       </main>
@@ -152,87 +230,321 @@ export default function Live() {
   );
 }
 
-const dot = (r: LiveRound) => (ACTIVE.includes(r.status) ? "live-dot bg-honey" : r.status === "done" && r.grade?.passed ? "bg-ok" : r.status === "blocked" || r.status === "error" ? "bg-bad" : "bg-muted");
+const dot = (r: LiveRound) =>
+  ACTIVE.includes(r.status)
+    ? "live-dot bg-honey"
+    : r.status === "done" && r.grade?.passed
+      ? "bg-ok"
+      : r.status === "blocked" || r.status === "error"
+        ? "bg-bad"
+        : "bg-muted";
 
 function EmptyFeed() {
   return (
     <section className="panel p-6 text-sm text-muted">
       <p className="eyebrow mb-2">Round feed</p>
-      Post a job and its round plays out here: the review, the sealed bids, the work, the grade and every payout on chain.
+      Post a job and its round plays out here: the review, the sealed bids, the
+      work, the grade and every payment on chain.
     </section>
   );
 }
 
-function PostJob({ busy, onPost }: { busy: boolean; onPost: (b: unknown) => Promise<boolean> }) {
+/**
+ * Pay-then-submit, kept in one place: connect and sign in if needed, send the payment from the user's
+ * wallet, then hand the transaction hash to the server, which checks it on chain. If the server says no
+ * after the payment went through (e.g. a round is running), the hash is kept so it can be retried, never lost.
+ */
+function usePaidAction(
+  path: string,
+  escrow: string | null,
+  liveKey: string,
+  onDone: (data: { id?: string }) => void,
+) {
+  const { pay } = useAuth();
+  const [step, setStep] = useState<PayStep | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{
+    body: Record<string, unknown>;
+    txHash: string;
+  } | null>(null);
+
+  const submit = async (body: Record<string, unknown>, txHash: string) => {
+    setStep("confirm");
+    // The chain can take a few seconds to show a fresh payment as final: retry briefly before giving up.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(liveKey ? { "x-live-key": liveKey } : {}),
+        },
+        body: JSON.stringify({ ...body, txHash }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPending(null);
+        setStep(null);
+        onDone(data);
+        return true;
+      }
+      if (
+        res.status === 402 &&
+        /find that payment/i.test(data.error || "") &&
+        attempt < 4
+      ) {
+        await new Promise((r) => setTimeout(r, 2500));
+        continue;
+      }
+      setPending({ body, txHash });
+      setError(data.error || `Request failed (${res.status})`);
+      setStep(null);
+      return false;
+    }
+    return false;
+  };
+
+  const run = async (body: Record<string, unknown>, amount: number) => {
+    setError(null);
+    if (!escrow) return (setError("The coordinator isn't set up yet."), false);
+    try {
+      const txHash = await pay(amount, escrow, setStep);
+      return await submit(body, txHash);
+    } catch (e) {
+      setStep(null);
+      setError(e instanceof Error ? e.message : "The payment was cancelled.");
+      return false;
+    }
+  };
+
+  const retry = async () => {
+    if (!pending) return false;
+    setError(null);
+    return submit(pending.body, pending.txHash);
+  };
+
+  return { run, retry, step, error, pending };
+}
+
+function PayStatus({
+  step,
+  error,
+  pending,
+  retry,
+}: {
+  step: PayStep | null;
+  error: string | null;
+  pending: { txHash: string } | null;
+  retry: () => void;
+}) {
+  if (step)
+    return (
+      <p
+        className="mt-3 flex items-center gap-2 text-sm text-honey"
+        role="status"
+      >
+        <span className="live-dot size-1.5 rounded-full bg-honey" />{" "}
+        {PAY_STEP_LABEL[step]}
+      </p>
+    );
+  if (!error) return null;
+  return (
+    <div
+      role="alert"
+      className="mt-3 rounded-lg border border-bad/40 bg-bad/8 p-3 text-sm"
+    >
+      <p className="text-bad">{error}</p>
+      {pending && (
+        <p className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+          Your payment went through (
+          <a
+            className="num underline underline-offset-2"
+            href={txUrl(pending.txHash)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {pending.txHash.slice(0, 8)}…
+          </a>
+          ), so you won&apos;t pay twice.
+          <button
+            type="button"
+            className="btn btn-ghost !px-2.5 !py-1 text-xs"
+            onClick={retry}
+          >
+            Try again with this payment
+          </button>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PostJob({
+  busy,
+  escrow,
+  liveKey,
+  onPosted,
+}: {
+  busy: boolean;
+  escrow: string | null;
+  liveKey: string;
+  onPosted: (id: string) => void;
+}) {
   const [description, setDescription] = useState("");
   const [skills, setSkills] = useState<string[]>(["writing"]);
   const [budget, setBudget] = useState(0.5);
-  const [sending, setSending] = useState(false);
+  const action = usePaidAction("/api/live/jobs", escrow, liveKey, (d) => {
+    setDescription("");
+    if (d.id) onPosted(d.id);
+  });
+  const valid =
+    description.trim().length >= 10 &&
+    skills.length > 0 &&
+    budget >= 0.05 &&
+    budget <= 5;
   return (
     <form
       className="panel p-5"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         e.preventDefault();
-        setSending(true);
-        if (await onPost({ description, skills, budget })) setDescription("");
-        setSending(false);
+        if (valid && !busy && !action.step)
+          action.run({ description, skills, budget }, budget);
       }}
     >
-      <h2 className="eyebrow">Post a job</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="eyebrow">Post a job</h2>
+        <span className="text-xs text-faint">
+          You only pay the winning bid; the rest comes back to your wallet.
+        </span>
+      </div>
       <label className="mt-3 block">
         <span className="sr-only">What should an agent do?</span>
-        <textarea className="field min-h-24 text-[15px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What should an agent do? e.g. Summarise the trade-offs of optimistic vs ZK rollups in 5 bullet points" />
+        <textarea
+          className="field min-h-24 text-[15px]"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What should an agent do? e.g. Summarise the trade-offs of optimistic vs ZK rollups in 5 bullet points"
+        />
       </label>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-        <SkillPicker label="Skills needed" value={skills} onChange={setSkills} />
+        <SkillPicker
+          label="Skills needed"
+          value={skills}
+          onChange={setSkills}
+        />
         <div className="flex items-end gap-3">
           <label>
             <span className="eyebrow">Budget</span>
             <span className="relative mt-1.5 block">
-              <input type="number" step="0.05" min={0.05} max={5} className="field num w-28 pr-7" value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
-              <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">Ⓝ</span>
+              <input
+                type="number"
+                step="0.05"
+                min={0.05}
+                max={5}
+                className="field num w-28 pr-7"
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+              />
+              <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">
+                Ⓝ
+              </span>
             </span>
           </label>
-          <button disabled={busy || sending || description.trim().length < 10 || !skills.length} className="btn btn-honey">
-            {busy ? "Round running…" : sending ? "Posting…" : "Post job ▸"}
+          <button
+            disabled={busy || !!action.step || !valid}
+            className="btn btn-honey"
+          >
+            {busy
+              ? "Round running…"
+              : action.step
+                ? "Working…"
+                : `Post & pay ${budget || 0} Ⓝ`}
           </button>
         </div>
       </div>
+      <PayStatus
+        step={action.step}
+        error={action.error}
+        pending={action.pending}
+        retry={action.retry}
+      />
     </form>
   );
 }
 
-function Agents({ agents, round, onAdd }: { agents: LiveAgent[]; round?: LiveRound; onAdd: (b: unknown) => Promise<boolean> }) {
+function Agents({
+  agents,
+  round,
+  escrow,
+  liveKey,
+  onAdded,
+}: {
+  agents: LiveAgent[];
+  round?: LiveRound;
+  escrow: string | null;
+  liveKey: string;
+  onAdded: () => void;
+}) {
   const [adding, setAdding] = useState(false);
+  const { account } = useAuth();
   return (
     <section className="panel p-5" aria-labelledby="agents-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="agents-h" className="eyebrow">
           Agents <span className="num text-faint">{agents.length}</span>
         </h2>
-        <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setAdding(!adding)} aria-expanded={adding}>
+        <button
+          className="btn btn-ghost !px-3 !py-1.5 text-xs"
+          onClick={() => setAdding(!adding)}
+          aria-expanded={adding}
+        >
           {adding ? "Close" : "+ Back an agent"}
         </button>
       </div>
-      {adding && <AddAgent onAdd={async (b) => { const ok = await onAdd(b); if (ok) setAdding(false); return ok; }} />}
+      {adding && (
+        <AddAgent
+          escrow={escrow}
+          liveKey={liveKey}
+          onAdded={() => {
+            setAdding(false);
+            onAdded();
+          }}
+        />
+      )}
       <ul className="mt-3 divide-y divide-line">
         {agents.map((a) => {
           const st = cellState(a.id, round);
           return (
             <li key={a.id} className="flex items-center gap-3 py-2.5">
-              <span className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-honey" : st === "bid" ? "bg-honey/50" : "bg-line-strong"}`} />
+              <span
+                className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-honey" : st === "bid" ? "bg-honey/50" : "bg-line-strong"}`}
+              />
               <span className="min-w-0 flex-1">
-                <a href={acctUrl(a.id)} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium hover:text-honey">
+                <a
+                  href={acctUrl(a.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-sm font-medium hover:text-honey"
+                >
                   {a.name}
                 </a>
-                <span className="num block truncate text-[11px] text-faint">{a.id}</span>
+                <span className="num block truncate text-[11px] text-faint">
+                  {a.backer === account ? (
+                    <span className="text-honey">yours</span>
+                  ) : (
+                    <>backed by {a.backer}</>
+                  )}
+                </span>
               </span>
-              <span className="hidden text-xs text-muted sm:block">{a.skills.join(" · ")}</span>
+              <span className="hidden text-xs text-muted sm:block">
+                {a.skills.join(" · ")}
+              </span>
               <span className="num w-28 shrink-0 text-right text-xs leading-tight">
                 <span className="text-text">rep {a.quality.toFixed(2)}</span>
                 <br />
                 <span className="text-muted">{near(a.balance, 3)}</span>
-                {a.earned > 0 && <span className="text-ok"> +{a.earned.toFixed(3)}</span>}
+                {a.earned > 0 && (
+                  <span className="text-ok"> +{a.earned.toFixed(3)}</span>
+                )}
               </span>
             </li>
           );
@@ -242,49 +554,97 @@ function Agents({ agents, round, onAdd }: { agents: LiveAgent[]; round?: LiveRou
   );
 }
 
-function AddAgent({ onAdd }: { onAdd: (b: unknown) => Promise<boolean> }) {
+function AddAgent({
+  escrow,
+  liveKey,
+  onAdded,
+}: {
+  escrow: string | null;
+  liveKey: string;
+  onAdded: () => void;
+}) {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [skills, setSkills] = useState<string[]>(["writing", "research"]);
   const [funding, setFunding] = useState(0.5);
-  const [sending, setSending] = useState(false);
+  const action = usePaidAction("/api/live/agents", escrow, liveKey, () =>
+    onAdded(),
+  );
+  const valid =
+    name.trim().length >= 2 &&
+    prompt.trim().length >= 10 &&
+    skills.length > 0 &&
+    funding >= 0.1 &&
+    funding <= 2;
   return (
     <form
       className="enter mt-4 grid gap-3 rounded-xl border border-line bg-bg/60 p-4"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         e.preventDefault();
-        setSending(true);
-        await onAdd({ name, prompt, skills, funding });
-        setSending(false);
+        if (valid && !action.step)
+          action.run({ name, prompt, skills, funding }, funding);
       }}
     >
-      <p className="text-xs text-muted">Creates the agent&apos;s own testnet account, funded with NEAR to pay for its AI. Its profit goes to you, the backer.</p>
+      <p className="text-xs text-muted">
+        Your agent gets its own testnet account, funded from your wallet to pay
+        for its AI. What it earns is yours.
+      </p>
       <label>
         <span className="eyebrow">Name</span>
-        <input className="field mt-1.5" value={name} onChange={(e) => setName(e.target.value)} placeholder="Research Rita" />
+        <input
+          className="field mt-1.5"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Research Rita"
+        />
       </label>
       <label>
         <span className="eyebrow">Its prompt</span>
-        <textarea className="field mt-1.5 min-h-20" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="You are a precise researcher. Say where facts come from and never guess numbers." />
+        <textarea
+          className="field mt-1.5 min-h-20"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="You are a precise researcher. Say where facts come from and never guess numbers."
+        />
       </label>
       <SkillPicker label="Skills" value={skills} onChange={setSkills} />
       <div className="flex items-end justify-between gap-3">
         <label>
           <span className="eyebrow">Funding</span>
           <span className="relative mt-1.5 block">
-            <input type="number" step="0.1" min={0.1} max={2} className="field num w-28 pr-7" value={funding} onChange={(e) => setFunding(Number(e.target.value))} />
-            <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">Ⓝ</span>
+            <input
+              type="number"
+              step="0.1"
+              min={0.1}
+              max={2}
+              className="field num w-28 pr-7"
+              value={funding}
+              onChange={(e) => setFunding(Number(e.target.value))}
+            />
+            <span className="num pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted">
+              Ⓝ
+            </span>
           </span>
         </label>
-        <button disabled={sending || name.trim().length < 2 || prompt.trim().length < 10 || !skills.length} className="btn btn-honey">
-          {sending ? "Creating account…" : "Create agent"}
+        <button disabled={!!action.step || !valid} className="btn btn-honey">
+          {action.step ? "Working…" : `Create & fund ${funding || 0} Ⓝ`}
         </button>
       </div>
+      <PayStatus
+        step={action.step}
+        error={action.error}
+        pending={action.pending}
+        retry={action.retry}
+      />
     </form>
   );
 }
 
-type Stage = { label: string; state: "done" | "active" | "pending" | "failed" | "neutral"; note?: string };
+type Stage = {
+  label: string;
+  state: "done" | "active" | "pending" | "failed" | "neutral";
+  note?: string;
+};
 
 function stages(r: LiveRound): Stage[] {
   const st = r.status;
@@ -292,14 +652,71 @@ function stages(r: LiveRound): Stage[] {
   const after = (s: LiveRound["status"][]) => s.includes(st);
   return [
     { label: "Posted", state: "done", note: `${r.job.budget} Ⓝ in escrow` },
-    { label: "Job review", state: st === "reviewing" ? "active" : blocked ? "failed" : r.review ? "done" : "pending", note: blocked ? "Blocked" : r.review ? "Approved" : undefined },
-    { label: "Sealed bids", state: st === "bidding" ? "active" : st === "unfilled" ? "failed" : r.bids.length ? "done" : blocked ? "neutral" : "pending", note: st === "bidding" ? `${r.eligible.length} agents thinking` : r.bids.length ? `${r.bids.length} revealed` : undefined },
-    { label: "Work", state: st === "working" ? "active" : r.deliverable ? "done" : "pending", note: r.tokens ? `${r.tokens} tokens` : undefined },
-    { label: "Delivery review", state: st === "grading" ? "active" : r.grade ? (r.grade.passed ? "done" : "failed") : "pending", note: r.grade ? (r.grade.passed ? "Passed" : "Failed") : undefined },
+    {
+      label: "Job review",
+      state:
+        st === "reviewing"
+          ? "active"
+          : blocked
+            ? "failed"
+            : r.review
+              ? "done"
+              : "pending",
+      note: blocked ? "Blocked" : r.review ? "Approved" : undefined,
+    },
+    {
+      label: "Sealed bids",
+      state:
+        st === "bidding"
+          ? "active"
+          : st === "unfilled"
+            ? "failed"
+            : r.bids.length
+              ? "done"
+              : blocked
+                ? "neutral"
+                : "pending",
+      note:
+        st === "bidding"
+          ? `${r.eligible.length} agents thinking`
+          : r.bids.length
+            ? `${r.bids.length} revealed`
+            : undefined,
+    },
+    {
+      label: "Work",
+      state: st === "working" ? "active" : r.deliverable ? "done" : "pending",
+      note: r.tokens ? `${r.tokens} tokens` : undefined,
+    },
+    {
+      label: "Delivery review",
+      state:
+        st === "grading"
+          ? "active"
+          : r.grade
+            ? r.grade.passed
+              ? "done"
+              : "failed"
+            : "pending",
+      note: r.grade ? (r.grade.passed ? "Passed" : "Failed") : undefined,
+    },
     {
       label: "Settlement",
-      state: st === "settling" ? "active" : st === "error" ? "failed" : after(["done", "blocked", "unfilled"]) ? (r.grade?.passed ? "done" : "neutral") : "pending",
-      note: r.payout ? (r.grade?.passed ? `Paid ${near(r.payout.toAgent)}` : `Refunded ${near(r.payout.refundToPoster)}`) : undefined,
+      state:
+        st === "settling"
+          ? "active"
+          : st === "error"
+            ? "failed"
+            : after(["done", "blocked", "unfilled"])
+              ? r.grade?.passed
+                ? "done"
+                : "neutral"
+              : "pending",
+      note: r.payout
+        ? r.grade?.passed
+          ? `Paid ${near(r.payout.toAgent)}`
+          : `Refunded ${near(r.payout.refundToPoster)}`
+        : undefined,
     },
   ];
 }
@@ -311,10 +728,17 @@ const STAGE_STYLE: Record<Stage["state"], string> = {
   failed: "border-bad bg-bad text-[#2a0703]",
   neutral: "border-muted text-muted",
 };
-const STAGE_ICON: Record<Stage["state"], string> = { done: "✓", active: "•", pending: "", failed: "✕", neutral: "–" };
+const STAGE_ICON: Record<Stage["state"], string> = {
+  done: "✓",
+  active: "•",
+  pending: "",
+  failed: "✕",
+  neutral: "–",
+};
 
 function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
-  const name = (id?: string) => agents.find((a) => a.id === id)?.name || id?.split(".")[0] || "—";
+  const name = (id?: string) =>
+    agents.find((a) => a.id === id)?.name || id?.split(".")[0] || "—";
   const maxValue = Math.max(...r.bids.map((b) => b.value), 0.0001);
   const [showLog, setShowLog] = useState(false);
   return (
@@ -324,22 +748,44 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
           <span>
             Round <span className="text-text">#{r.id}</span>
           </span>
-          <span className="num normal-case tracking-normal">{new Date(r.createdAt).toLocaleTimeString()}</span>
+          <span className="num normal-case tracking-normal">
+            {new Date(r.createdAt).toLocaleTimeString()}
+          </span>
         </p>
         <p className="mt-2 text-[15px] leading-snug">{r.job.description}</p>
         <p className="num mt-2 text-xs text-muted">
-          {near(r.job.budget)} · {r.job.skills.join(" + ")}
+          {near(r.job.budget)} · {r.job.skills.join(" + ")} · posted by{" "}
+          {r.job.poster}
         </p>
       </header>
 
       <ol className="grid gap-0 p-5">
         {stages(r).map((s, i, all) => (
           <li key={s.label} className="relative flex gap-3 pb-3 last:pb-0">
-            {i < all.length - 1 && <span className="absolute top-6 left-[11px] h-[calc(100%-18px)] w-px bg-line" aria-hidden />}
-            <span className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${STAGE_STYLE[s.state]}`}>{STAGE_ICON[s.state]}</span>
+            {i < all.length - 1 && (
+              <span
+                className="absolute top-6 left-[11px] h-[calc(100%-18px)] w-px bg-line"
+                aria-hidden
+              />
+            )}
+            <span
+              className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${STAGE_STYLE[s.state]}`}
+            >
+              {STAGE_ICON[s.state]}
+            </span>
             <span className="flex min-w-0 flex-1 items-baseline justify-between gap-2 pt-0.5">
-              <span className={`text-sm ${s.state === "pending" ? "text-faint" : "text-text"}`}>{s.label}</span>
-              {s.note && <span className={`num text-xs ${s.state === "failed" ? "text-bad" : s.state === "done" ? "text-ok" : "text-muted"}`}>{s.note}</span>}
+              <span
+                className={`text-sm ${s.state === "pending" ? "text-faint" : "text-text"}`}
+              >
+                {s.label}
+              </span>
+              {s.note && (
+                <span
+                  className={`num text-xs ${s.state === "failed" ? "text-bad" : s.state === "done" ? "text-ok" : "text-muted"}`}
+                >
+                  {s.note}
+                </span>
+              )}
             </span>
           </li>
         ))}
@@ -358,7 +804,9 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
 
       {r.bids.length > 0 && (
         <section className="border-t border-line p-5">
-          <p className="eyebrow">Sealed bids, revealed · value = rep² ÷ price</p>
+          <p className="eyebrow">
+            Sealed bids, revealed · value = rep² ÷ price
+          </p>
           <ul className="mt-3 grid gap-2.5">
             {[...r.bids]
               .sort((a, b) => b.value - a.value)
@@ -367,7 +815,11 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
                 return (
                   <li key={b.agent}>
                     <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span className={won ? "font-semibold text-honey" : "text-text"}>
+                      <span
+                        className={
+                          won ? "font-semibold text-honey" : "text-text"
+                        }
+                      >
                         {won && "★ "}
                         {name(b.agent)}
                       </span>
@@ -376,9 +828,17 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
                       </span>
                     </div>
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panel-2">
-                      <div className={`h-full rounded-full ${won ? "bg-honey" : "bg-line-strong"}`} style={{ width: `${Math.max(4, (b.value / maxValue) * 100)}%`, transition: "width 400ms ease-out" }} />
+                      <div
+                        className={`h-full rounded-full ${won ? "bg-honey" : "bg-line-strong"}`}
+                        style={{
+                          width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
+                          transition: "width 400ms ease-out",
+                        }}
+                      />
                     </div>
-                    {b.pitch && <p className="mt-1 text-xs text-muted">“{b.pitch}”</p>}
+                    {b.pitch && (
+                      <p className="mt-1 text-xs text-muted">“{b.pitch}”</p>
+                    )}
                   </li>
                 );
               })}
@@ -389,10 +849,20 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
       {r.deliverable && (
         <section className="border-t border-line p-5">
           <p className="eyebrow">Delivered by {name(r.winner)}</p>
-          <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-bg p-3 text-sm leading-relaxed whitespace-pre-wrap">{r.deliverable}</div>
+          <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-bg p-3 text-sm leading-relaxed whitespace-pre-wrap">
+            {r.deliverable}
+          </div>
           {r.grade && (
-            <div className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/40 bg-ok/8" : "border-bad/40 bg-bad/8"}`}>
-              <p className={`font-semibold ${r.grade.passed ? "text-ok" : "text-bad"}`}>{r.grade.passed ? "✓ Reviewer passed it" : "✕ Reviewer failed it"}</p>
+            <div
+              className={`mt-3 rounded-lg border p-3 text-sm ${r.grade.passed ? "border-ok/40 bg-ok/8" : "border-bad/40 bg-bad/8"}`}
+            >
+              <p
+                className={`font-semibold ${r.grade.passed ? "text-ok" : "text-bad"}`}
+              >
+                {r.grade.passed
+                  ? "✓ Reviewer passed it"
+                  : "✕ Reviewer failed it"}
+              </p>
               <ul className="mt-1 grid gap-0.5 text-muted">
                 {r.grade.reasons.map((x) => (
                   <li key={x}>— {x}</li>
@@ -424,9 +894,16 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
             <ul className="mt-3 grid gap-1.5">
               {r.txs.map((t) => (
                 <li key={t.hash}>
-                  <a href={txUrl(t.hash)} target="_blank" rel="noreferrer" className="group flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-honey/50">
+                  <a
+                    href={txUrl(t.hash)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-honey/50"
+                  >
                     <span>{t.label}</span>
-                    <span className="num shrink-0 text-muted group-hover:text-honey">{t.hash.slice(0, 6)}… ↗</span>
+                    <span className="num shrink-0 text-muted group-hover:text-honey">
+                      {t.hash.slice(0, 6)}… ↗
+                    </span>
                   </a>
                 </li>
               ))}
@@ -435,17 +912,26 @@ function RoundDetail({ r, agents }: { r: LiveRound; agents: LiveAgent[] }) {
         </section>
       )}
 
-      {r.error && <p className="border-t border-line p-5 text-sm text-bad">{r.error}</p>}
+      {r.error && (
+        <p className="border-t border-line p-5 text-sm text-bad">{r.error}</p>
+      )}
 
       <footer className="border-t border-line px-5 py-3">
-        <button className="text-xs text-muted hover:text-text" onClick={() => setShowLog(!showLog)} aria-expanded={showLog}>
+        <button
+          className="text-xs text-muted hover:text-text"
+          onClick={() => setShowLog(!showLog)}
+          aria-expanded={showLog}
+        >
           {showLog ? "Hide" : "Show"} coordinator log
         </button>
         {showLog && (
           <ol className="num mt-2 grid gap-1 text-[11px] text-muted">
             {r.steps.map((s, i) => (
               <li key={i}>
-                <span className="text-faint">{new Date(s.at).toLocaleTimeString()}</span> {s.text}
+                <span className="text-faint">
+                  {new Date(s.at).toLocaleTimeString()}
+                </span>{" "}
+                {s.text}
               </li>
             ))}
           </ol>

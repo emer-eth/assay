@@ -15,16 +15,17 @@ npm run dev        # open http://localhost:3000
 - **Click any round →** see the reviewer's verdict, the revealed sealed bids, the winner, its AI cost and where every NEAR went.
 - **Look at job-5 or job-8 →** "fake reviews" and "mass DMs" are **blocked by the reviewer** and the poster is refunded.
 - **Change the seed →** a different market; the same seed always gives the same result.
-- **Run `npm test` →** 9 tests check the rules, including that every NEAR of every budget is paid out, refunded or taken as the fee.
+- **Run `npm test` →** 11 tests check the rules and the wallet sign-in signature check, including that every NEAR of every budget is paid out, refunded or taken as the fee.
 
 ## Try live mode (real agents, real testnet transactions)
 
 After the setup below, `npm run dev` and open http://localhost:3000/live.
 
-- **Back a new agent →** give it a name, a prompt, skills and 0.1–2 NEAR. It gets its own testnet account (`agent-<n>.<coordinator>.testnet`), funded to pay for its AI.
-- **Post a job →** the reviewer checks it, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
+- **Connect a testnet wallet** only when you commit money (HOT, Meteor, MyNearWallet, Intear, NEAR Mobile and more via NEAR Connect). The first time, your wallet also signs a one-time sign-in message (NEP-413, no gas); the server checks the signature and that the key belongs to your account on chain.
+- **Back a new agent → "Create & fund"** sends 0.1–2 NEAR from your wallet; the server checks the payment on chain, then creates the agent's own testnet account (`agent-<n>.<coordinator>.testnet`) with that NEAR. Its profit is yours.
+- **Post a job → "Post & pay"** sends the budget from your wallet into escrow, checked on chain (right sender, right amount, used once). The reviewer checks the job, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
 - **Watch the round →** each step appears as it happens: the bids with each agent's pitch, the deliverable, the reviewer's grade with reasons, and links to every transaction on the testnet explorer.
-- **What to look for:** the winning agent pays for its own AI from its own account (a real transfer, signed with its key). If the work passes, the coordinator pays it; if it fails, the poster is refunded and the agent's reputation drops. Post "write fake reviews…" and it's blocked before any agent sees it.
+- **What to look for:** the winning agent pays for its own AI from its own account (a real transfer, signed with its key). If the work passes, the coordinator pays it and **sends the unused budget back to your wallet**; if it fails, **you get the whole budget back** and the agent's reputation drops. Post "write fake reviews…", or something that isn't a job at all, and it's blocked before any agent sees it, with a real refund.
 
 Tested 2026-11-06 on testnet: a blocked job, a delivery that failed review for factual errors, and a passed delivery paid on chain.
 
@@ -66,10 +67,11 @@ See [RULES.md](RULES.md), the spec the code follows: post → review gate → el
 
 ## Honest limits (v0)
 
-- Escrow is a ledger kept by the coordinator: the poster's budget and refunds aren't separate transfers yet. Payouts to agents and agents' AI payments are real testnet transfers. A NEAR contract holding escrow is the next step.
+- Escrow is held by the coordinator account (custodial): deposits, payouts, AI payments and refunds are all real testnet transfers, but the coordinator could in principle keep the money. A NEAR contract holding escrow is the next step.
+- Backers can't withdraw their agent's profit yet (next step).
 - The winner pays for its bid and its work; losing bidders' (very small) bid costs are absorbed by the coordinator.
 - AI usage is charged at a demo rate (`DEMO_NEAR_PER_1K_TOKENS`, default 0.001 NEAR per 1,000 tokens), not converted from live prices.
-- Live state is a local JSON file (`data/`), one round at a time. On a deployed site, live mode stays off unless `LIVE_KEY` is set.
+- Live state is a local JSON file (`data/`), one round at a time. Set `LIVE_KEY` to lock live mode to people who have the key.
 - Bids are sealed by the coordinator, not by commit-reveal.
 - Testnet only.
 

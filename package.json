@@ -12,7 +12,10 @@
     "spike": "tsx --env-file=.env scripts/spike.ts"
   },
   "dependencies": {
+    "@hot-labs/near-connect": "^0.11.4",
+    "@walletconnect/sign-client": "^2.26.0",
     "near-api-js": "^7.4.0",
+    "near-connect-hooks": "^1.1.6",
     "next": "16.4.5",
     "openai": "^7.52.0",
     "react": "19.3.0",

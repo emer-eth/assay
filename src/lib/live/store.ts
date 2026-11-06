@@ -26,9 +26,11 @@ export type LiveRound = {
   payout?: { toAgent: number; toBacker: number; fee: number; refundToPoster: number; aiCost: number };
   txs: Tx[];
   error?: string;
+  deposit?: string; // escrow payment tx hash; absent for rounds funded by the coordinator (before wallet payments)
 };
 
-type State = { agents: LiveAgent[]; rounds: LiveRound[] };
+export type Deposit = { txHash: string; from: string; near: number; purpose: string; at: string };
+type State = { agents: LiveAgent[]; rounds: LiveRound[]; deposits: Deposit[] };
 
 const DIR = join(process.cwd(), "data");
 const FILE = join(DIR, "live.json");
@@ -36,7 +38,8 @@ const KEYS = join(process.cwd(), ".keys");
 const ALL_SKILLS: Skill[] = ["writing", "research", "code", "data", "design", "translation"];
 
 export function load(): State {
-  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [] };
+  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [] };
+  state.deposits ??= [];
   // Adopt agents created by `npm run spike -- --create` that aren't registered yet.
   if (existsSync(KEYS)) {
     for (const f of readdirSync(KEYS).filter((x) => x.endsWith(".json"))) {

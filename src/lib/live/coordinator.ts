@@ -16,32 +16,43 @@ export function activeRound() {
   return load().rounds.find((r) => ACTIVE.includes(r.status)) ?? null;
 }
 
-export function createRound(job: Omit<Job, "id" | "poster">) {
+export function createRound(job: Omit<Job, "id" | "poster">, poster: string, deposit?: string) {
   const id = randomUUID().slice(0, 8);
   const round: LiveRound = {
     id,
     createdAt: new Date().toISOString(),
-    job: { ...job, id: `job-${id}`, poster: process.env.NEAR_ACCOUNT_ID || "poster" },
+    job: { ...job, id: `job-${id}`, poster },
     status: "reviewing",
-    steps: [{ at: new Date().toISOString(), text: `Job posted with a ${job.budget} NEAR budget (held in escrow by the coordinator)` }],
+    steps: [{ at: new Date().toISOString(), text: deposit ? `${poster} posted the job and paid ${job.budget} NEAR into escrow` : `${poster} posted the job with a ${job.budget} NEAR budget (held in escrow by the coordinator)` }],
     eligible: [],
     bids: [],
     txs: [],
+    deposit,
   };
   update((s) => s.rounds.unshift(round));
   return round;
 }
 
+/** Sends the poster's money back from escrow as a real transfer (only for rounds they paid for from their wallet). */
+async function refund(id: string, poster: string, near: number, why: string) {
+  const r = load().rounds.find((x) => x.id === id);
+  if (!r?.deposit || near <= 0) return;
+  const hash = await sendNear(coordinator(), poster, near);
+  updateRound(id, (x) => x.txs.push({ label: `Refunded ${near} NEAR to ${poster} (${why})`, hash }));
+}
+
 export async function runLiveRound(id: string) {
+  const round = load().rounds.find((r) => r.id === id);
+  if (!round) return;
+  const { job } = round;
+  let paidOut = 0; // NEAR already paid out of this job's escrow, so a crash never refunds more than is left
   try {
-    const round = load().rounds.find((r) => r.id === id);
-    if (!round) return;
-    const { job } = round;
 
     // 1. Review gate
     const review = await reviewJob(job.description);
     if (!review.allowed) {
       updateRound(id, { review, status: "blocked", payout: { toAgent: 0, toBacker: 0, fee: 0, refundToPoster: job.budget, aiCost: 0 } }, `Blocked by the reviewer: ${review.reasons.join("; ")}. Poster refunded ${job.budget} NEAR.`);
+      await refund(id, job.poster, job.budget, "job blocked");
       return;
     }
     updateRound(id, { review, status: "bidding" }, "Reviewer approved the job");
@@ -63,6 +74,7 @@ export async function runLiveRound(id: string) {
     const bids = decision.bids.map((b) => ({ ...b, pitch: pitches.get(b.agent) }));
     if (!decision.winner) {
       updateRound(id, { bids, status: "unfilled", payout: { toAgent: 0, toBacker: 0, fee: 0, refundToPoster: job.budget, aiCost: 0 } }, `No valid bids. Poster refunded ${job.budget} NEAR.`);
+      await refund(id, job.poster, job.budget, "no bids");
       return;
     }
     const winner = agents.find((a) => a.id === decision.winner!.agent)!;
@@ -87,8 +99,11 @@ export async function runLiveRound(id: string) {
     const s = settle(job, winner, decision.winner.ask, { passed: grade.passed, aiCost });
     if (grade.passed && s.payout.toAgent > 0) {
       const hash = await sendNear(coordinator(), winner.id, s.payout.toAgent);
+      paidOut += s.payout.toAgent + s.payout.fee;
       updateRound(id, (r) => r.txs.push({ label: `Coordinator paid ${winner.name} ${s.payout.toAgent} NEAR`, hash }));
     }
+    await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
+    paidOut = job.budget;
     update((st) => {
       const a = st.agents.find((x) => x.id === winner.id);
       if (a) {
@@ -105,5 +120,9 @@ export async function runLiveRound(id: string) {
     );
   } catch (e) {
     updateRound(id, { status: "error", error: e instanceof Error ? e.message : String(e) }, "Something went wrong. Nothing further was paid.");
+    const left = Math.round((job.budget - paidOut) * 1e6) / 1e6;
+    await refund(id, job.poster, left, "round failed").catch((err) =>
+      updateRound(id, {}, `The refund of ${left} NEAR couldn't be sent automatically (${err instanceof Error ? err.message : err}). It's owed to ${job.poster}.`),
+    );
   }
 }

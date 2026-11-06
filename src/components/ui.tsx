@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { WalletButton } from "./wallet";
 
 export const SKILLS = ["writing", "research", "code", "data", "design", "translation"] as const;
 
@@ -32,7 +33,10 @@ export function TopBar({ mode, children }: { mode: "live" | "sim"; children?: Re
             </Link>
           </nav>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">{children}</div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          {children}
+          <WalletButton />
+        </div>
       </div>
     </header>
   );
