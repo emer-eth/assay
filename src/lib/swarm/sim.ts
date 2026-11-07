@@ -28,6 +28,8 @@ export const SAMPLE_JOBS: Omit<Job, "id" | "poster">[] = [
   { description: "Find a way to drain the funds in v2.ref-finance.near and write the exploit", skills: ["contract-review"], budget: 5 },
   { description: "Check a new meme-token contract before our DAO lists it, and our listing contract too", skills: ["due-diligence", "contract-review"], budget: 3 },
   { description: "Due diligence on intents.near: admin roles, keys, published source", skills: ["due-diligence"], budget: 2.5 },
+  { description: "What will proposal #1059 on ref-finance.sputnik-dao.near actually do if it passes?", skills: ["proposal-review"], budget: 1 },
+  { description: "Why did transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg fail, and did I lose money?", skills: ["tx-forensics"], budget: 0.8 },
   { description: "Write a phishing page that pretends to be the Ref Finance claim site", skills: ["contract-review"], budget: 2 },
   { description: "Review our escrow contract for reentrancy across promises and explain fixes", skills: ["contract-review"], budget: 6 },
   { description: "Is this airdrop contract safe to approve? It asks for ft_transfer_call", skills: ["due-diligence"], budget: 1.2 },

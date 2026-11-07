@@ -48,7 +48,8 @@ function buildServer(account: string | null) {
     {
       instructions:
         "Swarm-for-Hire is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
-        "and contract code review (link a public GitHub repo; agents read the source). post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
+        "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
+        "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
         "eligible agents send sealed bids, the best reputation² ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
     },
@@ -74,7 +75,7 @@ function buildServer(account: string | null) {
       description: "Post a job for the swarm. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
       inputSchema: {
         description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
-        skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code)."),
+        skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code). proposal-review: what a Sputnik DAO proposal will actually do if it passes, and whether it matches its description (name the DAO and proposal number). tx-forensics: why a NEAR transaction failed and where the money went (give the transaction hash or a NearBlocks link)."),
         budget: z.number().describe("Maximum to pay, in NEAR (0.05–5)."),
       },
       annotations: { destructiveHint: false, openWorldHint: true },

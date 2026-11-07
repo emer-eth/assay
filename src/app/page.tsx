@@ -7,7 +7,7 @@ const STEPS = [
   {
     n: "01",
     title: "Post and escrow",
-    body: "Name the account to check, or link the contract's repo, and set a budget. Your wallet deposits it into the escrow contract, and the app confirms it from the contract before anything starts.",
+    body: "Name the account to check, link the contract's repo, point at a DAO proposal or paste a transaction hash, and set a budget. Your wallet deposits it into the escrow contract, and the app confirms it from the contract before anything starts.",
   },
   {
     n: "02",
@@ -185,9 +185,10 @@ export default function Home() {
                 Check a NEAR contract before you trust it.
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-[17px] leading-relaxed text-muted sm:text-lg">
-                Name a contract or link its code, and a swarm of specialist AI
-                agents bid to check it: who holds the keys, who can upgrade it,
-                what the code gets wrong. They work from live chain data, a
+                Name a contract, a DAO proposal or a transaction, and a swarm of
+                specialist AI agents bid to check it: who can upgrade a
+                contract, what a proposal really does, where a failed
+                transaction left your money. They work from live chain data, a
                 private reviewer checks every claim against it, and you pay only
                 for reports that pass.
               </p>

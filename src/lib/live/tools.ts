@@ -8,6 +8,9 @@ import type { Job } from "../swarm/types";
 //  - due-diligence:   the account's on-chain state (keys, code, its public methods, published source, activity)
 //  - contract-review: the contract's source from a public GitHub repo (or code pasted into the job),
 //                     plus a NEAR-specific pattern scan with file:line references.
+//  - proposal-review: a Sputnik DAO proposal decoded from its payload (not its description), the DAO's voting
+//                     rule, and whether the accounts and methods it touches exist.
+//  - tx-forensics:    a transaction's receipts in order, with failures, refunds, token events and fees.
 
 type Net = "mainnet" | "testnet";
 const RPC: Record<Net, string[]> = {
@@ -51,6 +54,18 @@ export async function targetProblem(job: Pick<Job, "description" | "skills">): P
       if (res && res.status === 404) return `Couldn't open github.com/${repo.owner}/${repo.repo}. Is the repo public?`;
     }
   }
+  if (job.skills.includes("proposal-review")) {
+    const prop = findProposal(job.description);
+    if (!prop) return "Proposal review needs the DAO and the proposal number, e.g. proposal #1059 on ref-finance.sputnik-dao.near.";
+    const p = await viewCallArgs(prop.dao, "get_proposal", { id: prop.id }).catch(() => undefined);
+    if (p === null) return `Couldn't find proposal #${prop.id} on ${prop.dao}. Check the DAO account and the number.`;
+  }
+  if (job.skills.includes("tx-forensics")) {
+    const hash = findTxHash(job.description);
+    if (!hash) return "Transaction forensics needs the transaction hash (or a NearBlocks link to it).";
+    const tx = await findTx(hash, job.description).catch(() => undefined);
+    if (tx === null) return "Couldn't find that transaction on NEAR mainnet or testnet. For a testnet transaction, also name the account that sent it.";
+  }
   return null;
 }
 
@@ -80,7 +95,10 @@ async function rpc(net: Net, params: Record<string, unknown>) {
   throw last;
 }
 
-type AccountView = { amount: string; locked: string; code_hash: string; storage_usage: number };
+type AccountView = { amount: string; locked: string; code_hash: string; storage_usage: number; global_contract_hash?: string; global_contract_account_id?: string };
+/** True if the account runs code: its own, or a shared global contract (NEP-591), where code_hash stays empty. */
+const runsCode = (a: AccountView) => a.code_hash !== NO_CODE || !!a.global_contract_hash || !!a.global_contract_account_id;
+const codeLabel = (a: AccountView) => (a.code_hash !== NO_CODE ? `code hash ${a.code_hash}` : `shared global contract ${a.global_contract_account_id ?? a.global_contract_hash}`);
 /** The account's state, or null if it doesn't exist. */
 async function viewAccount(id: string): Promise<AccountView | null> {
   const r = await rpc(netOf(id), { request_type: "view_account", account_id: id });
@@ -156,7 +174,7 @@ export async function accountReport(id: string): Promise<{ facts: string; summar
   summary.push(full.length ? `${full.length} full-access key${full.length > 1 ? "s" : ""}` : "locked (no full-access keys)");
 
   // Its contract
-  const hasCode = acct.code_hash !== NO_CODE;
+  const hasCode = runsCode(acct);
   if (!hasCode) {
     lines.push("- Contract: none deployed (a plain account).");
     summary.push("no contract");
@@ -170,7 +188,7 @@ export async function accountReport(id: string): Promise<{ facts: string; summar
     let roles: string[] = [];
     const methods = code?.code_base64 ? wasmExports(Buffer.from(code.code_base64, "base64")) : [];
     const admin = methods.filter((m) => ADMIN_RE.test(m));
-    lines.push(`- Contract: deployed, code hash ${acct.code_hash}${code?.code_base64 ? `, ${Math.round((code.code_base64.length * 0.75) / 1024)} KB` : ""}`);
+    lines.push(`- Contract: deployed, ${codeLabel(acct)}${acct.code_hash !== NO_CODE ? "" : acct.global_contract_account_id ? ` (a global contract published by ${acct.global_contract_account_id}: that account can update the code for every account using it)` : " (a global contract pinned by its hash: shared by other accounts, and the code can't be changed upstream)"}${code?.code_base64 ? `, ${Math.round((code.code_base64.length * 0.75) / 1024)} KB` : ""}`);
     if (methods.length) {
       lines.push(`- Public methods (${methods.length}, read from the deployed code): ${methods.slice(0, 120).join(", ")}${methods.length > 120 ? ", …" : ""}`);
       lines.push(`- Methods that look privileged (by name only; check who may call them): ${admin.length ? admin.join(", ") : "none"}`);
@@ -356,6 +374,340 @@ export function scanNear(files: SourceFile[]): string[] {
   return [...head, ...notes.slice(0, 40)];
 }
 
+// ---------- shared helpers for proposals and transactions ----------
+
+/** Any JSON-RPC method (not just "query"), tried on each endpoint in turn. */
+async function rpcMethod(urls: string[], method: string, params: unknown) {
+  let last: unknown;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(TIMEOUT),
+      });
+      const json = await res.json();
+      if (json.error) {
+        const name = json.error.cause?.name || json.error.name;
+        if (name === "UNKNOWN_TRANSACTION" || name === "UNKNOWN_ACCOUNT") return null;
+        throw new Error(json.error.data || json.error.message || name);
+      }
+      return json.result;
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
+async function viewCallArgs(id: string, method: string, args: unknown) {
+  const r = await rpc(netOf(id), { request_type: "call_function", account_id: id, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString("base64") }).catch(() => null);
+  if (!r || r.missing || r.error || !Array.isArray(r.result)) return null;
+  try {
+    return JSON.parse(Buffer.from(r.result).toString());
+  } catch {
+    return null;
+  }
+}
+
+type TokenInfo = { symbol: string; decimals: number } | null;
+const tokenCache = new Map<string, Promise<TokenInfo>>();
+/** A token contract's symbol and decimals, so raw amounts can be written in human units. */
+function tokenInfo(id: string): Promise<TokenInfo> {
+  if (!tokenCache.has(id)) tokenCache.set(id, viewCall(id, "ft_metadata").then((m) => (m?.symbol ? { symbol: m.symbol, decimals: Number(m.decimals) } : null)).catch(() => null));
+  return tokenCache.get(id)!;
+}
+function units(raw: string, decimals: number) {
+  try {
+    const n = BigInt(raw);
+    const base = 10n ** BigInt(decimals);
+    const whole = n / base;
+    const frac = (n % base).toString().padStart(decimals, "0").slice(0, 6).replace(/0+$/, "");
+    return `${whole.toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+  } catch {
+    return raw;
+  }
+}
+/** "1,234.5 USDT (raw 1234500000)" when the token is known, otherwise the raw amount. */
+async function tokenAmount(token: string, raw: string) {
+  const t = await tokenInfo(token);
+  return t ? `${units(raw, t.decimals)} ${t.symbol} (raw ${raw}, token ${token})` : `${raw} raw units of ${token} (token decimals unknown)`;
+}
+const nearExact = (yocto: string) => `${units(yocto, 24)} NEAR`;
+function decodeArgs(b64: string): unknown {
+  try {
+    const text = Buffer.from(b64, "base64").toString();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+    }
+  } catch {
+    return b64;
+  }
+}
+const clip = (v: unknown, n = 600) => {
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+};
+/** Account names that appear as values inside a call's arguments (receivers, owners, new members...). */
+function accountsIn(v: unknown, out = new Set<string>()): Set<string> {
+  if (typeof v === "string") {
+    if (/^[a-z0-9._-]+\.(near|testnet)$|^[0-9a-f]{64}$/.test(v)) out.add(v);
+  } else if (v && typeof v === "object") for (const x of Object.values(v)) accountsIn(x, out);
+  return out;
+}
+async function accountLine(id: string) {
+  const a = await viewAccount(id).catch(() => undefined);
+  if (a === undefined) return `${id}: couldn't be read`;
+  if (a === null) return `${id}: DOES NOT EXIST on NEAR ${netOf(id)}`;
+  return `${id}: exists, ${near(a.amount)} NEAR, ${runsCode(a) ? `has a contract (${codeLabel(a)})` : "plain account (no contract)"}`;
+}
+
+/** What a function call moves, in words: NEAR deposit, and token amounts for the standard token methods. */
+async function describeCall(receiver: string, method: string, args: unknown, deposit: string) {
+  const parts = [`${method}(${clip(args, 500)}) on ${receiver}`];
+  if (deposit && deposit !== "0") parts.push(`attaches ${nearExact(deposit)}`);
+  const a = (args ?? {}) as Record<string, string>;
+  if (/^ft_transfer(_call)?$/.test(method) && a.amount) parts.push(`moves ${await tokenAmount(receiver, a.amount)} to ${a.receiver_id}`);
+  if (method === "storage_deposit") parts.push(`registers ${a.account_id ?? "the caller"} for storage on ${receiver}`);
+  if (/^(mint|ft_mint)$/.test(method) && a.amount) parts.push(`mints ${await tokenAmount(receiver, a.amount)}`);
+  return parts.join("; ");
+}
+
+// ---------- DAO proposal review ----------
+
+const PROPOSAL_NUM_RE = /(?:proposals?\s*(?:#|no\.?|number|id)?\s*|#|[?&]id=|proposals\/[a-z0-9._-]+?-)(\d{1,7})\b/i;
+
+/** The DAO and proposal number a job names, e.g. "proposal #1059 on ref-finance.sputnik-dao.near" or an Astro / NEAR Treasury link. */
+export function findProposal(text: string): { dao: string; id: number } | null {
+  const accounts = [...new Set(text.toLowerCase().match(ACCOUNT_RE) ?? [])];
+  const dao = accounts.find((a) => /sputnik|dao/.test(a)) ?? accounts[0];
+  const num = text.match(PROPOSAL_NUM_RE)?.[1];
+  return dao && num ? { dao, id: Number(num) } : null;
+}
+
+type Proposal = {
+  id: number;
+  proposer: string;
+  description: string;
+  kind: Record<string, unknown> | string;
+  status: string;
+  vote_counts: Record<string, [number, number, number]>;
+  votes: Record<string, string>;
+  submission_time: string;
+};
+
+export async function proposalReport(dao: string, id: number): Promise<{ facts: string; summary: string }> {
+  const p: Proposal | null = await viewCallArgs(dao, "get_proposal", { id });
+  if (!p) return { facts: `PROPOSAL ${id} on ${dao}: not found (the DAO doesn't exist, isn't a Sputnik DAO, or has no proposal with that number).`, summary: `proposal ${id} on ${dao} not found` };
+  const policy = await viewCall(dao, "get_policy");
+  const lines = [
+    `PROPOSAL #${p.id} on ${dao} (Sputnik DAO, NEAR ${netOf(dao)}), read with get_proposal`,
+    `- Proposer: ${p.proposer}`,
+    `- Description, as written by the proposer (unverified claim): ${clip(p.description, 1200)}`,
+    `- Status: ${p.status}${p.status === "InProgress" ? " (voting is open)" : p.status === "Approved" ? " (voting is over: it passed and its actions have already run)" : p.status === "Failed" ? " (it passed but its actions failed when they ran)" : " (voting is over)"}`,
+    `- Submitted: ${date(p.submission_time)}${policy?.proposal_period ? (p.status === "InProgress" ? `; voting closes ${date((BigInt(p.submission_time) + BigInt(policy.proposal_period)).toString())}` : `; its voting window ran to ${date((BigInt(p.submission_time) + BigInt(policy.proposal_period)).toString())}, but it was decided as soon as enough votes came in`) : ""}`,
+    `- Votes so far: ${Object.entries(p.votes).map(([who, v]) => `${who} ${v}`).join(", ") || "none"} (counts by role [approve, reject, remove]: ${JSON.stringify(p.vote_counts)})`,
+  ];
+  const d = await daoPolicy(dao);
+  if (d) lines.push(`- ${d.line.replace(/^Owner DAO/, "DAO")}`);
+
+  // What the proposal actually does if it passes: decoded from its payload, not from the description.
+  const kindName = typeof p.kind === "string" ? p.kind : Object.keys(p.kind)[0];
+  const body = typeof p.kind === "string" ? null : (p.kind as Record<string, Record<string, unknown>>)[kindName];
+  lines.push(`- Kind: ${kindName}`);
+  const named = new Set<string>();
+  const recipients = new Set<string>();
+  let moves = "";
+  if (kindName === "FunctionCall" && body) {
+    const receiver = body.receiver_id as string;
+    named.add(receiver);
+    const actions = (body.actions as { method_name: string; args: string; deposit: string; gas: string }[]) ?? [];
+    const acct = await viewAccount(receiver).catch(() => undefined);
+    let methods: string[] = [];
+    if (acct && runsCode(acct)) {
+      const code = await rpc(netOf(receiver), { request_type: "view_code", account_id: receiver }).catch(() => null);
+      methods = code?.code_base64 ? wasmExports(Buffer.from(code.code_base64, "base64")) : [];
+    }
+    lines.push(`- If it passes, the DAO calls ${receiver} with ${actions.length} action${actions.length === 1 ? "" : "s"}, in order:`);
+    for (const [i, a] of actions.entries()) {
+      const args = decodeArgs(a.args);
+      accountsIn(args, named);
+      const exists = methods.length ? (methods.includes(a.method_name) ? "method exists in the deployed code" : "METHOD NOT FOUND in the deployed code: this action would fail") : acct === null ? "receiver doesn't exist" : acct && !runsCode(acct) ? "receiver has no contract: this action would fail" : "couldn't read the receiver's code";
+      const privileged = ADMIN_RE.test(a.method_name) ? "; privileged-looking method (by name)" : "";
+      lines.push(`  ${i + 1}. ${await describeCall(receiver, a.method_name, args, a.deposit)}; gas ${Number(BigInt(a.gas) / 10n ** 12n)} Tgas; ${exists}${privileged}`);
+      const ta = args as Record<string, string> | null;
+      if (/^ft_transfer(_call)?$/.test(a.method_name) && ta?.amount) {
+        recipients.add(ta.receiver_id);
+        // Only useful before the vote: after it, today's balance says nothing about the balance when it ran.
+        if (p.status === "InProgress") {
+          const bal: string | null = await viewCallArgs(receiver, "ft_balance_of", { account_id: dao });
+          if (bal !== null) lines.push(`     The DAO's balance of this token right now: ${await tokenAmount(receiver, bal)}${BigInt(bal) < BigInt(ta.amount) ? " (LESS than this transfer: it would fail if executed now)" : " (enough for this transfer)"}`);
+        }
+      }
+      if (i === 0) moves = `${a.method_name} on ${receiver}`;
+    }
+  } else if (kindName === "Transfer" && body) {
+    const token = (body.token_id as string) || "";
+    const amount = String(body.amount);
+    named.add(body.receiver_id as string);
+    const what = token ? await tokenAmount(token, amount) : nearExact(amount);
+    lines.push(`- If it passes, the DAO pays ${what} to ${body.receiver_id}${body.msg ? ` with ft_transfer_call message ${clip(body.msg, 200)}` : ""}.`);
+    moves = `pays ${what.split(" (")[0]} to ${body.receiver_id}`;
+    recipients.add(body.receiver_id as string);
+  } else if (/MemberToRole|MemberFromRole/.test(kindName) && body) {
+    named.add(body.member_id as string);
+    lines.push(`- If it passes: ${kindName === "AddMemberToRole" ? "adds" : "removes"} ${body.member_id} ${kindName === "AddMemberToRole" ? "to" : "from"} role "${body.role}". This changes who votes on everything after it.`);
+    moves = `${kindName} ${body.member_id}`;
+  } else if (/ChangePolicy/.test(kindName) && body) {
+    lines.push(`- If it passes, the DAO's voting rules change to: ${clip(body, 2500)}`, "- Compare with the current policy above: who gains or loses votes, and whether the threshold drops.");
+    accountsIn(body, named);
+    moves = "rewrites the DAO's voting policy";
+  } else if (/Upgrade/.test(kindName) && body) {
+    lines.push(`- If it passes: ${kindName === "UpgradeSelf" ? "replaces the DAO's own code" : `deploys new code to ${body.receiver_id} via ${body.method_name}`} with the blob whose hash is ${body.hash}. The new code can do anything the DAO can, including moving its funds. Its source isn't visible from the chain.`);
+    if (body.receiver_id) named.add(body.receiver_id as string);
+    moves = `${kindName} to blob ${body.hash}`;
+  } else {
+    lines.push(`- Payload: ${clip(body ?? p.kind, 2000)}`);
+    if (body) accountsIn(body, named);
+    moves = kindName;
+  }
+  if (recipients.size) lines.push(`- Who receives funds: ${recipients.size} account${recipients.size === 1 ? "" : "s"} (${[...recipients].join(", ")})`);
+  if (named.size) {
+    lines.push("- Accounts this proposal touches:");
+    for (const a of [...named].slice(0, 6)) lines.push(`  - ${await accountLine(a)}`);
+  }
+  // Context: what this proposer and this DAO usually do, so an odd one stands out.
+  const last: number | null = await viewCall(dao, "get_last_proposal_id");
+  if (last) {
+    const from = Math.max(0, Math.min(p.id, last) - 6);
+    const recent: Proposal[] = (await viewCallArgs(dao, "get_proposals", { from_index: from, limit: 6 })) ?? [];
+    const others = recent.filter((x) => x.id !== p.id);
+    if (others.length)
+      lines.push(`- Neighbouring proposals for context (voters not read): ${others.map((x) => `#${x.id} by ${x.proposer}, ${typeof x.kind === "string" ? x.kind : Object.keys(x.kind)[0]}, ${x.status}: "${clip(x.description, 80)}"`).join("; ")}`);
+  }
+  return { facts: lines.join("\n"), summary: `proposal #${p.id} on ${dao}: ${kindName} (${moves}), ${p.status}` };
+}
+
+// ---------- transaction forensics ----------
+
+const TX_HASH_RE = /(?<![1-9A-HJ-NP-Za-km-z])[1-9A-HJ-NP-Za-km-z]{43,44}(?![1-9A-HJ-NP-Za-km-z])/;
+export const findTxHash = (text: string) => text.match(TX_HASH_RE)?.[0] ?? null;
+const ARCHIVE: Record<Net, string[]> = {
+  mainnet: ["https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.fastnear.com"],
+  testnet: ["https://archival-rpc.testnet.fastnear.com", ...RPC_URLS],
+};
+
+type Outcome = { executor_id: string; logs: string[]; status: Record<string, unknown>; gas_burnt: number; tokens_burnt: string; receipt_ids: string[] };
+type TxStatus = {
+  status: Record<string, unknown>;
+  transaction: { hash: string; signer_id: string; receiver_id: string; actions: (Record<string, Record<string, string>> | string)[] };
+  transaction_outcome: { outcome: Outcome };
+  receipts_outcome: { id: string; outcome: Outcome }[];
+  receipts: { receipt_id: string; predecessor_id: string; receiver_id: string; receipt: { Action?: { actions: (Record<string, Record<string, string>> | string)[] } } }[];
+};
+
+/** Finds the transaction on mainnet or testnet. The RPC needs the sender: from the job, or from NearBlocks. */
+export async function findTx(hash: string, text: string): Promise<{ tx: TxStatus; net: Net } | null> {
+  const senders = findAccounts(text);
+  if (!senders.length) {
+    const nb = await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`);
+    const s = nb?.txns?.[0]?.signer_account_id;
+    if (s) senders.push(s);
+  }
+  for (const sender of senders) {
+    const tx = await rpcMethod(ARCHIVE[netOf(sender)], "EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "NONE" }).catch(() => null);
+    if (tx?.transaction) return { tx, net: netOf(sender) };
+  }
+  return null;
+}
+
+const errorText = (status: Record<string, unknown>) => {
+  const f = status.Failure as Record<string, unknown> | undefined;
+  if (!f) return null;
+  const s = JSON.stringify(f);
+  return s.match(/"ExecutionError":"([^"]+)"/)?.[1] ?? s.slice(0, 400);
+};
+
+async function describeActions(receiver: string, actions: (Record<string, Record<string, string>> | string)[]) {
+  return Promise.all(
+    actions.map(async (a) => {
+      if (typeof a === "string") return a;
+      const [kind, v] = Object.entries(a)[0];
+      if (kind === "FunctionCall") return describeCall(receiver, v.method_name, decodeArgs(v.args), v.deposit);
+      if (kind === "Transfer") return `Transfer ${nearExact(v.deposit)} to ${receiver}`;
+      if (kind === "AddKey") return `AddKey ${v.public_key} (${clip(v.access_key, 200)})`;
+      if (kind === "DeleteKey") return `DeleteKey ${v.public_key}`;
+      if (kind === "DeployContract") return "DeployContract (new code)";
+      return `${kind} ${clip(v, 200)}`;
+    }),
+  );
+}
+
+/** Token and NEP-297 events in a receipt's logs, in words. */
+async function describeLogs(logs: string[]) {
+  const out: string[] = [];
+  for (const log of logs.slice(0, 8)) {
+    if (!log.startsWith("EVENT_JSON:")) {
+      out.push(`log: ${clip(log, 200)}`);
+      continue;
+    }
+    try {
+      const e = JSON.parse(log.slice(11));
+      out.push(`event ${e.standard}/${e.event}: ${clip(e.data, 300)}`);
+    } catch {
+      out.push(`log: ${clip(log, 200)}`);
+    }
+  }
+  return out;
+}
+
+export async function txReport(hash: string, text: string): Promise<{ facts: string; summary: string }> {
+  const found = await findTx(hash, text);
+  if (!found) return { facts: `TRANSACTION ${hash}: not found on NEAR mainnet or testnet (if it's on testnet, name the account that sent it).`, summary: `transaction ${hash} not found` };
+  const { tx, net } = found;
+  const t = tx.transaction;
+  const err = errorText(tx.status);
+  const byId = new Map(tx.receipts.map((r) => [r.receipt_id, r]));
+  const failed = tx.receipts_outcome.filter((r) => r.outcome.status.Failure);
+  const lines = [
+    `TRANSACTION ${t.hash} on NEAR ${net}, read with EXPERIMENTAL_tx_status`,
+    `- Signed by ${t.signer_id}, sent to ${t.receiver_id}`,
+    `- Overall result: ${err ? `FAILED: ${err}` : "succeeded"}${failed.length ? ` (${failed.length} of ${tx.receipts_outcome.length} receipts failed)` : ""}`,
+    `- What the signer asked for: ${(await describeActions(t.receiver_id, t.actions)).join(" | ")}`,
+  ];
+  let fees = BigInt(tx.transaction_outcome.outcome.tokens_burnt);
+  // NEAR attached anywhere in the transaction. With none attached, every system refund is unused gas coming back.
+  const attached = t.actions.reduce((sum, a) => {
+    const v = typeof a === "string" ? null : Object.values(a)[0];
+    return sum + BigInt(v?.deposit ?? 0);
+  }, 0n);
+  lines.push(`- NEAR attached by the signer: ${nearExact(attached.toString())}`);
+  // Relayed messages (NEAR Intents, meta-transactions): the account that signed the message isn't the one that sent the transaction.
+  const inner = [...new Set([...JSON.stringify(t.actions.map((x) => (typeof x === "string" ? x : decodeArgs(Object.values(x)[0]?.args ?? "")))).matchAll(/signer_id\\*":\\*"([a-z0-9._-]+)/g)].map((m) => m[1]))].filter((x) => x !== t.signer_id);
+  if (inner.length) lines.push(`- Inside the call, a message signed by ${inner.join(", ")} (signer_id in the arguments). ${t.signer_id} only submitted it, like a relayer; the user behind this is most likely ${inner[0]}, and fees were paid by ${t.signer_id}.`);
+  lines.push("- Receipts, in the order they ran (each runs on its own; a failure does NOT undo receipts that already succeeded, and a failed receipt's attached NEAR is refunded):");
+  for (const [i, r] of tx.receipts_outcome.slice(0, 30).entries()) {
+    const rc = byId.get(r.id);
+    const o = r.outcome;
+    fees += BigInt(o.tokens_burnt);
+    const from = rc?.predecessor_id ?? "?";
+    const acts = rc?.receipt.Action ? await describeActions(o.executor_id, rc.receipt.Action.actions) : ["data receipt"];
+    const refund = from === "system" ? (attached === 0n ? " [system refund of unused gas prepayment, not a deposit]" : " [system refund: unused gas, and/or the deposit of a failed receipt]") : "";
+    const status = o.status.Failure ? `FAILED: ${errorText(o.status)}` : "ok";
+    lines.push(`  ${i + 1}. ${from} -> ${o.executor_id}${refund}: ${acts.join(" | ")} => ${status}`);
+    for (const l of await describeLogs(o.logs)) lines.push(`     ${l}`);
+  }
+  if (tx.receipts_outcome.length > 30) lines.push(`  … ${tx.receipts_outcome.length - 30} more receipts not shown`);
+  lines.push(`- Total gas fees burnt: ${nearExact(fees.toString())}`);
+  const nb = net === "mainnet" ? await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`) : null;
+  const ts = nb?.txns?.[0]?.block_timestamp;
+  if (ts) lines.push(`- Time: ${new Date(Number(BigInt(ts) / 1_000_000n)).toISOString().replace("T", " ").slice(0, 19)} UTC`);
+  return { facts: lines.join("\n"), summary: `transaction ${hash.slice(0, 8)}… from ${t.signer_id} to ${t.receiver_id}: ${err ? `failed (${err.slice(0, 80)})` : "succeeded"}, ${tx.receipts_outcome.length} receipts` };
+}
+
 // ---------- the evidence an agent works from ----------
 
 export type Evidence = { facts: string; summary: string[] };
@@ -385,6 +737,22 @@ export async function gatherEvidence(job: Pick<Job, "description" | "skills">): 
     } catch (e) {
       parts.push(`SOURCE: couldn't be fetched (${e instanceof Error ? e.message : e}).`);
       summary.push("Couldn't fetch the source");
+    }
+  }
+  if (job.skills.includes("proposal-review")) {
+    const prop = findProposal(job.description);
+    if (prop) {
+      const r = await proposalReport(prop.dao, prop.id).catch((e) => ({ facts: `PROPOSAL ${prop.id} on ${prop.dao}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: "couldn't read the proposal" }));
+      parts.push(r.facts);
+      summary.push(`Read ${r.summary}`);
+    }
+  }
+  if (job.skills.includes("tx-forensics")) {
+    const hash = findTxHash(job.description);
+    if (hash) {
+      const r = await txReport(hash, job.description).catch((e) => ({ facts: `TRANSACTION ${hash}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: "couldn't read the transaction" }));
+      parts.push(r.facts);
+      summary.push(`Read ${r.summary}`);
     }
   }
   return parts.length ? { facts: parts.join("\n\n"), summary } : null;

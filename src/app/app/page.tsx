@@ -619,6 +619,18 @@ const EXAMPLES: { label: string; description: string; skills: Skill[] }[] = [
     skills: ["due-diligence"],
   },
   {
+    label: "Review DAO proposal",
+    description:
+      "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?",
+    skills: ["proposal-review"],
+  },
+  {
+    label: "Explain a failed tx",
+    description:
+      "Why did transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg fail, and did I lose any money?",
+    skills: ["tx-forensics"],
+  },
+  {
     label: "Review a contract",
     description:
       "Review https://github.com/near-examples/donation-examples/tree/main/contract-rs for NEAR-specific bugs and give fixes.",
@@ -670,7 +682,11 @@ function PostJob({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder={
-            skills.includes("contract-review")
+            skills.includes("tx-forensics")
+              ? "Paste the transaction hash or NearBlocks link, e.g. Why did my transaction 6Dhuhc… fail?"
+              : skills.includes("proposal-review")
+              ? "Name the DAO and proposal, e.g. What will proposal #1059 on ref-finance.sputnik-dao.near actually do?"
+              : skills.includes("contract-review")
               ? "Link a public repo, e.g. Review https://github.com/owner/repo/tree/main/contract for NEAR-specific bugs"
               : "Name the account, e.g. Before I deposit: who controls v2.ref-finance.near, and can its code be changed?"
           }

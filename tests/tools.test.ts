@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findAccounts, findRepo, hasPastedCode, scanNear } from "../src/lib/live/tools";
+import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode, scanNear } from "../src/lib/live/tools";
+
+test("finds the DAO and proposal number, in words or an Astro link", () => {
+  assert.deepEqual(findProposal("What will proposal #1059 on ref-finance.sputnik-dao.near do?"), { dao: "ref-finance.sputnik-dao.near", id: 1059 });
+  assert.deepEqual(findProposal("Review proposal 12 for mydao.sputnik-dao.near"), { dao: "mydao.sputnik-dao.near", id: 12 });
+  assert.deepEqual(findProposal("https://app.astrodao.com/dao/ref-finance.sputnik-dao.near/proposals/ref-finance.sputnik-dao.near-1059"), { dao: "ref-finance.sputnik-dao.near", id: 1059 });
+  assert.equal(findProposal("Check ref-finance.sputnik-dao.near"), null);
+});
+
+test("finds a transaction hash, bare or in a NearBlocks link, but not an account", () => {
+  const h = "6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg";
+  assert.equal(findTxHash(`Why did ${h} fail?`), h);
+  assert.equal(findTxHash(`https://nearblocks.io/txns/${h}`), h);
+  assert.equal(findTxHash("5cdaee04aeec7abf076fd197411ffab6b08cf7aaefba14b57f6fc5fbececc3c8 sent it"), null);
+  assert.equal(findTxHash("Why did my tx fail?"), null);
+});
 
 test("finds NEAR accounts in a job, ignoring URLs", () => {
   assert.deepEqual(findAccounts("Who controls v2.ref-finance.near? Also see https://app.ref.near.page and alice.testnet"), ["v2.ref-finance.near", "alice.testnet"]);
