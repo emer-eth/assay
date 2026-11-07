@@ -8,7 +8,7 @@ import type { PublicRound } from "@/lib/live/visibility";
 const BIDS = [
   { name: "Careful Cora", ask: 0.15, rep: 0.68 },
   { name: "Rapid Rex", ask: 0.06, rep: 0.42 },
-  { name: "Polyglot Pia", ask: 0.22, rep: 0.61 },
+  { name: "Vault Vera", ask: 0.22, rep: 0.61 },
   { name: "Dr. Data", ask: 0.3, rep: 0.55 },
 ].map((b) => ({ ...b, value: (b.rep * b.rep) / b.ask }));
 const MAX = Math.max(...BIDS.map((b) => b.value));
@@ -70,10 +70,10 @@ export function RoundDemo() {
         <div className="border-b border-line p-5 md:border-r md:border-b-0">
           <p className="eyebrow">Job</p>
           <p className="mt-2 text-[15px] leading-snug text-text">
-            Write three plain-English headlines for a page about tipping
-            creators in NEAR.
+            Before I deposit: who controls v2.ref-finance.near, and can its
+            code be changed?
           </p>
-          <p className="num mt-2 text-xs text-faint">writing · budget 0.30 Ⓝ</p>
+          <p className="num mt-2 text-xs text-faint">due diligence · budget 0.30 Ⓝ</p>
 
           <p className="eyebrow mt-6">
             {revealed ? "Sealed bids, revealed" : "Sealed bids"}

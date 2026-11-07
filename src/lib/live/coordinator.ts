@@ -5,7 +5,8 @@ import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob,
 import { decide, eligibleAgents, settle } from "../swarm/round";
 import type { Job } from "../swarm/types";
 import type { Payment } from "./actions";
-import { agentBid, agentWork, tokensToNear } from "./agent-ai";
+import { agentBid, agentWork, modelOf, usageToNear } from "./agent-ai";
+import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
 import { load, update, updateRound, type LiveRound } from "./store";
 
@@ -86,6 +87,12 @@ export async function runLiveRound(id: string) {
     }
     updateRound(id, { review, status: "bidding" }, "Reviewer approved the job");
 
+    // 1b. Tools read the real target (the account on chain, or the repo), so agents price and work from facts
+    const evidence = await gatherEvidence(job);
+    if (evidence) updateRound(id, { evidence }, `Tools: ${evidence.summary.join("; ")}`);
+    // The least the work can cost each agent in AI, on its own model: reading the evidence plus writing the report.
+    const estimate = { prompt: Math.ceil((evidence?.facts.length ?? 0) / 3.5) + 800, completion: 2500 };
+
     // 2. Eligibility from real on-chain balances
     const agents = await Promise.all(
       load().agents.map(async (a) => ({ ...a, balance: await availableNear(a.id).catch(() => 0) })),
@@ -95,12 +102,12 @@ export async function runLiveRound(id: string) {
     updateRound(id, { eligible: eligible.map((a) => a.id) }, `${eligible.length} of ${agents.length} agents can bid (right skills and enough NEAR for their AI)`);
 
     // 3. Sealed bids: collected in parallel, revealed together once all are in
-    const raw = await Promise.all(eligible.map(async (a) => [a.id, await agentBid(a, job)] as const));
     // An agent can't bid below its own AI cost for the job (RULES.md): lower asks are raised to that floor.
-    const floor = new Map(eligible.map((a) => [a.id, a.costPerJob]));
+    const floor = new Map(eligible.map((a) => [a.id, Math.max(a.costPerJob, usageToNear(estimate, modelOf(a)))]));
+    const raw = await Promise.all(eligible.map(async (a) => [a.id, await agentBid(a, job, evidence, floor.get(a.id)!)] as const));
     const asks = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, Math.max(b!.ask, floor.get(id) ?? 0)]));
     const pitches = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.pitch]));
-    const bidTokens = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.tokens]));
+    const bidUsage = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.usage]));
     const decision = decide(job, agents, asks);
     const bids = decision.bids.map((b) => ({ ...b, pitch: pitches.get(b.agent) }));
     if (!decision.winner) {
@@ -112,9 +119,10 @@ export async function runLiveRound(id: string) {
     updateRound(id, { bids, winner: winner.id, status: "working" }, `Bids revealed. ${winner.name} wins at ${decision.winner.ask} NEAR (best reputation² ÷ price)`);
 
     // 4. Work, paid for from the agent's own account
-    const work = await agentWork(winner, job);
-    const tokens = work.tokens + (bidTokens.get(winner.id) ?? 0);
-    const aiCost = tokensToNear(tokens);
+    const work = await agentWork(winner, job, evidence);
+    const bidU = bidUsage.get(winner.id) ?? { prompt: 0, completion: 0 };
+    const tokens = work.usage.prompt + work.usage.completion + bidU.prompt + bidU.completion;
+    const aiCost = usageToNear({ prompt: work.usage.prompt + bidU.prompt, completion: work.usage.completion + bidU.completion }, modelOf(winner));
     updateRound(id, { deliverable: work.text, tokens }, `${winner.name} delivered (${tokens} AI tokens)`);
     if (aiCost > 0) {
       const hash = await sendNear(agentAccount(winner.id), process.env.NEAR_ACCOUNT_ID!, aiCost);
@@ -123,7 +131,7 @@ export async function runLiveRound(id: string) {
 
     // 5. Delivery review
     updateRound(id, { status: "grading" }, "Reviewer is grading the work");
-    const grade = await gradeDelivery(job.description, work.text);
+    const grade = await gradeDelivery(job.description, work.text, evidence?.facts);
 
     // 6. Settlement
     updateRound(id, { grade, status: "settling" }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);

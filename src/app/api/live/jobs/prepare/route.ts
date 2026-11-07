@@ -10,6 +10,6 @@ export async function POST(request: Request) {
   if (!account) return Response.json({ error: "Connect your wallet to post a job." }, { status: 401 });
   const parsed = jobInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Describe the job (10+ characters), pick at least one skill, and set a budget of 0.05–5 NEAR." }, { status: 400 });
-  const res = prepareJob(account, parsed.data);
+  const res = await prepareJob(account, parsed.data);
   return res.ok ? Response.json({ jobId: res.jobId, contractId: res.contractId, budget: parsed.data.budget }) : Response.json({ error: res.error }, { status: res.status });
 }

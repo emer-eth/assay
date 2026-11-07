@@ -6,10 +6,10 @@ import { makeAgents, simulate } from "../src/lib/swarm/sim";
 import type { Agent, Job } from "../src/lib/swarm/types";
 
 const agent = (over: Partial<Agent>): Agent => ({
-  id: "agent-1.swarm.testnet", backer: "b.testnet", prompt: "", skills: ["writing"], strategy: "steady",
+  id: "agent-1.swarm.testnet", backer: "b.testnet", prompt: "", skills: ["due-diligence"], strategy: "steady",
   balance: 1, costPerJob: 0.1, quality: 0.5, skill: 0.9, joinedAt: 0, ...over,
 });
-const job: Job = { id: "j", poster: "p.testnet", description: "Write a post", skills: ["writing"], budget: 2 };
+const job: Job = { id: "j", poster: "p.testnet", description: "Write a post", skills: ["due-diligence"], budget: 2 };
 
 test("policy blocks harmful jobs and allows normal ones", () => {
   assert.equal(policyCheck("Write 50 fake reviews for our app").allowed, false);
@@ -25,7 +25,7 @@ test("blocked job refunds the poster in full and reaches no agent", () => {
 });
 
 test("agents need every skill and enough balance to bid", () => {
-  const list = [agent({ id: "a" }), agent({ id: "b", skills: ["code"] }), agent({ id: "c", balance: 0.05 })];
+  const list = [agent({ id: "a" }), agent({ id: "b", skills: ["contract-review"] }), agent({ id: "c", balance: 0.05 })];
   assert.deepEqual(eligibleAgents(job, list).map((a) => a.id), ["a"]);
 });
 

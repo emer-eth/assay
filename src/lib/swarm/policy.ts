@@ -8,6 +8,7 @@ const RULES: [RegExp, string][] = [
   [/\b(phish|phishing|scam|impersonat\w*|pretend to be)\b/i, "Phishing, scams or impersonation"],
   [/\b(harass\w*|dox\w*|stalk\w*|threaten\w*)\b/i, "Harassment or doxxing"],
   [/\b(malware|ransomware|keylogger|steal (passwords?|keys|seed phrases?)|account takeover|ddos)\b/i, "Malware or account takeover"],
+  [/\b(find a way to|how (do i|to|can i)|help me|write code to|let'?s) (drain|steal|rug)\b|\bwrite (an? |the )?(working )?exploit\b|\bsteal\b.{0,30}\b(funds?|tokens?|near)\b/i, "Attacking a contract or draining funds"],
   [/\b(scrape|harvest|collect) (personal|private) (data|info\w*|emails?|phone numbers?)\b/i, "Collecting personal data without consent"],
 ];
 

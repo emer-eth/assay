@@ -1,7 +1,10 @@
 // Shared types for the swarm. Amounts are in NEAR as plain numbers in the simulation;
 // the live coordinator converts to yoctoNEAR at the chain boundary.
 
-export type Skill = "writing" | "research" | "code" | "data" | "design" | "translation";
+/** What the swarm is hired for. Each skill comes with tools that read real inputs (src/lib/live/tools.ts). */
+export const SKILLS = ["due-diligence", "contract-review"] as const;
+export type Skill = (typeof SKILLS)[number];
+export const SKILL_LABEL: Record<Skill, string> = { "due-diligence": "Contract due diligence", "contract-review": "Contract code review" };
 
 export type Job = {
   id: string;

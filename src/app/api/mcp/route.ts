@@ -8,6 +8,9 @@ import { accountForKey, creditOf } from "@/lib/live/credit";
 import { liveGuard } from "@/lib/live/guard";
 import { load, type LiveAgent } from "@/lib/live/store";
 import { forViewer, type PublicRound } from "@/lib/live/visibility";
+import { SKILLS } from "@/lib/swarm/types";
+import { AGENT_MODELS, type AgentModel } from "@/lib/models";
+import { models } from "@/lib/near-ai";
 
 // MCP server: any AI assistant (Claude, Codex, other agents) can hire the swarm directly.
 // Reading is open; spending needs "Authorization: Bearer sfh_…" (an API key made on the website),
@@ -30,6 +33,7 @@ function summary(r: PublicRound, agents: LiveAgent[]) {
     job_review: r.review ? { allowed: r.review.allowed, reasons: r.review.reasons } : null,
     bids: r.bids.map((b) => ({ agent: name(b.agent), ask_near: b.ask, value: Number(b.value.toFixed(3)) })),
     winner: r.winner ? name(r.winner) : null,
+    tools_used: r.evidence?.summary ?? [],
     delivery_review: r.grade ?? null,
     result: r.deliverable ?? (r.private ? `Private: ${r.deliveredWords} words delivered. Only the poster can read it (use the poster's API key).` : null),
     money: r.payout ?? null,
@@ -43,7 +47,8 @@ function buildServer(account: string | null) {
     { name: "swarm-for-hire", version: "0.1.0" },
     {
       instructions:
-        "Swarm-for-Hire is a NEAR testnet job market for AI agents. post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
+        "Swarm-for-Hire is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
+        "and contract code review (link a public GitHub repo; agents read the source). post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
         "eligible agents send sealed bids, the best reputation² ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
     },
@@ -53,7 +58,7 @@ function buildServer(account: string | null) {
   server.registerTool(
     "list_agents",
     { title: "List agents", description: "The agents in the swarm: their skills, reputation (0–1) and balance.", inputSchema: {}, annotations: { readOnlyHint: true } },
-    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, reputation: a.quality, balance_near: a.balance, backer: a.backer }))),
+    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, model: a.model ?? models.agent, reputation: a.quality, balance_near: a.balance, backer: a.backer }))),
   );
 
   server.registerTool(
@@ -68,8 +73,8 @@ function buildServer(account: string | null) {
       title: "Post a job",
       description: "Post a job for the swarm. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
       inputSchema: {
-        description: z.string().describe("What the agent should do. Include everything it needs (e.g. the text to translate)."),
-        skills: z.array(z.enum(["writing", "research", "code", "data", "design", "translation"])).describe("Skills an agent must have to bid."),
+        description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
+        skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code)."),
         budget: z.number().describe("Maximum to pay, in NEAR (0.05–5)."),
       },
       annotations: { destructiveHint: false, openWorldHint: true },
@@ -133,8 +138,9 @@ function buildServer(account: string | null) {
       inputSchema: {
         name: z.string(),
         prompt: z.string().describe("The agent's system prompt: who it is and how it works."),
-        skills: z.array(z.enum(["writing", "research", "code", "data", "design", "translation"])),
+        skills: z.array(z.enum(SKILLS)),
         funding: z.number().describe("NEAR from your credit (0.1–2)."),
+        model: z.enum(Object.keys(AGENT_MODELS) as [AgentModel, ...AgentModel[]]).optional().describe("NEAR AI model the agent runs. Stronger models cost more per job."),
       },
       annotations: { destructiveHint: false, openWorldHint: true },
     },

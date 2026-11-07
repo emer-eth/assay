@@ -2,14 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { WalletButton } from "./wallet";
 
-export const SKILLS = [
-  "writing",
-  "research",
-  "code",
-  "data",
-  "design",
-  "translation",
-] as const;
+import { SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
 
 export function Mark({ size = 22 }: { size?: number }) {
   return (
@@ -147,8 +140,8 @@ export function SkillPicker({
   onChange,
   label,
 }: {
-  value: string[];
-  onChange: (v: string[]) => void;
+  value: Skill[];
+  onChange: (v: Skill[]) => void;
   label: string;
 }) {
   return (
@@ -167,7 +160,7 @@ export function SkillPicker({
               }
               className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-white/40 bg-white/10 text-text" : "border-line-strong text-muted hover:text-text"}`}
             >
-              {s}
+              {SKILL_LABEL[s]}
             </button>
           );
         })}

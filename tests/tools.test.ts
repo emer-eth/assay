@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { findAccounts, findRepo, hasPastedCode, scanNear } from "../src/lib/live/tools";
+
+test("finds NEAR accounts in a job, ignoring URLs", () => {
+  assert.deepEqual(findAccounts("Who controls v2.ref-finance.near? Also see https://app.ref.near.page and alice.testnet"), ["v2.ref-finance.near", "alice.testnet"]);
+  assert.deepEqual(findAccounts("Review my contract"), []);
+});
+
+test("parses GitHub links, including a folder or a single file", () => {
+  assert.deepEqual(findRepo("Review https://github.com/near/intents"), { owner: "near", repo: "intents", kind: undefined, ref: undefined, path: undefined });
+  assert.deepEqual(findRepo("see github.com/a/b/tree/main/contract-rs/ please"), { owner: "a", repo: "b", kind: "tree", ref: "main", path: "contract-rs" });
+  assert.equal(findRepo("https://github.com/a/b/blob/dev/src/lib.rs")?.path, "src/lib.rs");
+  assert.ok(hasPastedCode("use near_sdk::near;\n#[near(contract_state)]"));
+});
+
+test("the scan flags NEAR-specific patterns with file:line", () => {
+  const code = [
+    "#[near(contract_state)]",
+    "pub struct C {}",
+    "#[near]",
+    "impl C {",
+    "    pub fn on_transfer_done(&mut self) {}",
+    "    #[private]",
+    "    pub fn on_ok(&mut self) {}",
+    "    #[payable]",
+    "    pub fn deposit(&mut self) { let who = env::signer_account_id(); }",
+    "    pub fn ft_transfer(&mut self) { Promise::new(a).transfer(b); }",
+    "}",
+  ].join("\n");
+  const notes = scanNear([{ path: "Cargo.toml", text: 'near-sdk = "5.30.0"' }, { path: "src/lib.rs", text: code }]);
+  const has = (s: string) => assert.ok(notes.some((n) => n.includes(s)), `expected a note containing "${s}" in:\n${notes.join("\n")}`);
+  has("near-sdk version: 5.30.0");
+  has("src/lib.rs:5: pub fn on_transfer_done looks like a callback but has no #[private]");
+  has("src/lib.rs:9: pub fn deposit is #[payable]");
+  has("src/lib.rs:9: uses env::signer_account_id()");
+  has("src/lib.rs:10: sends NEAR");
+  has("no assert_one_yocto()");
+  assert.ok(!notes.some((n) => n.includes("on_ok")), "a #[private] callback isn't flagged");
+});

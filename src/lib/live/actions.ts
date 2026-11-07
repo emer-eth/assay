@@ -8,12 +8,15 @@ import { activeRound, createRound } from "./coordinator";
 import { addCredit, spendCredit } from "./credit";
 import { claimDeposit } from "./deposit";
 import { LIMITS } from "./guard";
+import { targetProblem } from "./tools";
+import { AGENT_MODELS, type AgentModel } from "../models";
+import { SKILLS } from "../swarm/types";
 import { load, update, type LiveAgent } from "./store";
 
 // The two things that cost money, shared by the website (paid from a wallet) and MCP (paid from credit),
 // so both follow exactly the same rules.
 
-const SKILL = z.enum(["writing", "research", "code", "data", "design", "translation"]);
+const SKILL = z.enum(SKILLS);
 export const jobInput = z.object({
   description: z.string().trim().min(10).max(2000),
   skills: z.array(SKILL).min(1),
@@ -24,6 +27,7 @@ export const agentInput = z.object({
   prompt: z.string().trim().min(10).max(2000),
   skills: z.array(SKILL).min(1),
   funding: z.coerce.number().min(0.1).max(LIMITS.maxFunding),
+  model: z.enum(Object.keys(AGENT_MODELS) as [AgentModel, ...AgentModel[]]).optional(),
 });
 
 export type Payment = { via: "wallet"; txHash: string } | { via: "credit" } | { via: "escrow"; jobId: string; txHash?: string };
@@ -61,8 +65,10 @@ async function take(account: string, near: number, payment: Payment, purpose: st
  * Step 1 of a wallet-paid job: reserve a job id. The wallet then calls post_job(job_id) on the escrow contract
  * with the budget attached, and step 2 (postJob with { via: "escrow", jobId }) confirms it from the contract.
  */
-export function prepareJob(account: string, job: z.infer<typeof jobInput>): { ok: true; jobId: string; contractId: string } | Fail {
+export async function prepareJob(account: string, job: z.infer<typeof jobInput>): Promise<{ ok: true; jobId: string; contractId: string } | Fail> {
   if (activeRound()) return { ok: false, status: 409, error: "A round is already running. Try again when it finishes." };
+  const problem = await targetProblem(job); // before any money moves: the job must name a real account or repo
+  if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-${randomUUID().slice(0, 13)}`;
   update((s) => {
     for (const [k, d] of Object.entries(s.drafts)) if (d.expires < Date.now()) delete s.drafts[k];
@@ -80,6 +86,9 @@ export async function postJob(account: string, job: z.infer<typeof jobInput>, pa
     const draft = load().drafts[payment.jobId];
     if (!draft || draft.account !== account) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
     job = draft.job;
+  } else {
+    const problem = await targetProblem(job);
+    if (problem) return { ok: false, status: 400, error: problem };
   }
   const failed = await take(account, job.budget, payment, "job");
   if (failed) return failed;
@@ -100,7 +109,7 @@ export async function backAgent(account: string, input: z.infer<typeof agentInpu
     mkdirSync(".keys", { recursive: true });
     writeFileSync(`.keys/${created.accountId}.json`, JSON.stringify(created, null, 2), { mode: 0o600 });
     const agent = update((s) => {
-      const a: LiveAgent = { id: created.accountId, name: input.name, backer: account, prompt: input.prompt, skills: input.skills, balance: input.funding, costPerJob: 0.01, quality: 0.5, joinedAt: s.agents.length, funding: input.funding, earned: 0 };
+      const a: LiveAgent = { id: created.accountId, name: input.name, backer: account, prompt: input.prompt, skills: input.skills, model: input.model, balance: input.funding, costPerJob: 0.01, quality: 0.5, joinedAt: s.agents.length, funding: input.funding, earned: 0 };
       // load() may already have adopted the key file written above as a generic agent: replace it, never duplicate.
       s.agents = s.agents.filter((x) => x.id !== a.id);
       s.agents.push(a);

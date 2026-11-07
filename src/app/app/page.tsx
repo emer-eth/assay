@@ -13,6 +13,8 @@ import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
+import { SKILL_LABEL, type Skill } from "@/lib/swarm/types";
+import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 
 // Live mode: real agents on NEAR AI Cloud, real testnet accounts and transfers.
 
@@ -123,7 +125,7 @@ export default function Live() {
         id: a.id,
         label: a.name,
         rep: a.quality,
-        detail: `${a.skills.join(", ")} · ${a.balance.toFixed(3)} Ⓝ`,
+        detail: `${a.skills.map((s) => SKILL_LABEL[s]).join(", ")} · ${AGENT_MODELS[a.model as AgentModel]?.label ?? "Qwen 3.6 35B"} · ${a.balance.toFixed(3)} Ⓝ`,
         state: cellState(a.id, round),
       })),
     [state?.agents, round],
@@ -603,6 +605,27 @@ function useEscrowPost(
   return { run, retry, step, error, pending };
 }
 
+const EXAMPLES: { label: string; description: string; skills: Skill[] }[] = [
+  {
+    label: "Check Ref Finance",
+    description:
+      "Before I deposit: who controls v2.ref-finance.near, can its code be changed, and by whom?",
+    skills: ["due-diligence"],
+  },
+  {
+    label: "Check NEAR Intents",
+    description:
+      "Due diligence on intents.near: admin roles, keys, published source and recent activity.",
+    skills: ["due-diligence"],
+  },
+  {
+    label: "Review a contract",
+    description:
+      "Review https://github.com/near-examples/donation-examples/tree/main/contract-rs for NEAR-specific bugs and give fixes.",
+    skills: ["contract-review"],
+  },
+];
+
 function PostJob({
   busy,
   liveKey,
@@ -613,7 +636,7 @@ function PostJob({
   onPosted: (id: string) => void;
 }) {
   const [description, setDescription] = useState("");
-  const [skills, setSkills] = useState<string[]>(["writing"]);
+  const [skills, setSkills] = useState<Skill[]>(["due-diligence"]);
   const [budget, setBudget] = useState(0.5);
   const action = useEscrowPost(liveKey, (d) => {
     setDescription("");
@@ -646,9 +669,29 @@ function PostJob({
           className="field min-h-24 text-[15px]"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What should an agent do? e.g. Summarise the trade-offs of optimistic vs ZK rollups in 5 bullet points"
+          placeholder={
+            skills.includes("contract-review")
+              ? "Link a public repo, e.g. Review https://github.com/owner/repo/tree/main/contract for NEAR-specific bugs"
+              : "Name the account, e.g. Before I deposit: who controls v2.ref-finance.near, and can its code be changed?"
+          }
         />
       </label>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-faint">Try:</span>
+        {EXAMPLES.map((ex) => (
+          <button
+            type="button"
+            key={ex.label}
+            onClick={() => {
+              setDescription(ex.description);
+              setSkills(ex.skills);
+            }}
+            className="rounded-full border border-line-strong px-2.5 py-1 text-muted transition-colors hover:text-text"
+          >
+            {ex.label}
+          </button>
+        ))}
+      </div>
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <SkillPicker
           label="Skills needed"
@@ -759,8 +802,12 @@ function Agents({
                   )}
                 </span>
               </span>
-              <span className="hidden text-xs text-muted sm:block">
-                {a.skills.join(" · ")}
+              <span className="hidden text-right text-xs leading-tight text-muted sm:block">
+                {a.skills.map((s) => SKILL_LABEL[s]).join(" · ")}
+                <br />
+                <span className="text-faint">
+                  {AGENT_MODELS[a.model as AgentModel]?.label ?? "Qwen 3.6 35B"}
+                </span>
               </span>
               <span className="num w-28 shrink-0 text-right text-xs leading-tight">
                 <span className="text-text">rep {a.quality.toFixed(2)}</span>
@@ -792,8 +839,9 @@ function AddAgent({
 }) {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [skills, setSkills] = useState<string[]>(["writing", "research"]);
+  const [skills, setSkills] = useState<Skill[]>(["due-diligence"]);
   const [funding, setFunding] = useState(0.5);
+  const [model, setModel] = useState<AgentModel>("Qwen/Qwen3.8-27B");
   const action = usePaidAction("/api/live/agents", escrow, liveKey, () =>
     onAdded(),
   );
@@ -809,7 +857,7 @@ function AddAgent({
       onSubmit={(e) => {
         e.preventDefault();
         if (valid && !action.step)
-          action.run({ name, prompt, skills, funding }, funding);
+          action.run({ name, prompt, skills, funding, model }, funding);
       }}
     >
       <p className="text-xs text-muted">
@@ -822,7 +870,7 @@ function AddAgent({
           className="field mt-1.5"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Research Rita"
+          placeholder="Key Watcher Kim"
         />
       </label>
       <label>
@@ -831,10 +879,28 @@ function AddAgent({
           className="field mt-1.5 min-h-20"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="You are a precise researcher. Say where facts come from and never guess numbers."
+          placeholder="You are a cautious NEAR security analyst. Lead with who can change the code or move funds, and never claim more than the evidence shows."
         />
       </label>
       <SkillPicker label="Skills" value={skills} onChange={setSkills} />
+      <label>
+        <span className="eyebrow">Model</span>
+        <select
+          className="field mt-1.5"
+          value={model}
+          onChange={(e) => setModel(e.target.value as AgentModel)}
+        >
+          {Object.entries(AGENT_MODELS).map(([id, m]) => (
+            <option key={id} value={id}>
+              {m.label} · ${m.input} in / ${m.output} out per M tokens
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-faint">
+          Stronger models write better reports but cost your agent more per
+          job, so it has to bid higher.
+        </span>
+      </label>
       <div className="flex items-end justify-between gap-3">
         <label>
           <span className="eyebrow">Funding</span>
@@ -986,7 +1052,8 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
         </p>
         <p className="mt-2 text-[15px] leading-snug">{r.job.description}</p>
         <p className="num mt-2 text-xs text-muted">
-          {near(r.job.budget)} · {r.job.skills.join(" + ")} · posted by{" "}
+          {near(r.job.budget)} ·{" "}
+          {r.job.skills.map((s) => SKILL_LABEL[s]).join(" + ")} · posted by{" "}
           {r.job.poster}
         </p>
       </header>
@@ -1031,6 +1098,24 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
               <li key={x}>— {x}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {r.evidence && r.evidence.summary.length > 0 && (
+        <section className="border-t border-line p-5">
+          <p className="eyebrow">What the tools read</p>
+          <ul className="mt-2 grid gap-1 text-sm text-text">
+            {r.evidence.summary.map((x) => (
+              <li key={x} className="flex gap-2">
+                <span className="text-ok">✓</span>
+                <span className="min-w-0 break-words">{x}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-faint">
+            Agents bid and work from these facts, and the reviewer checks the
+            report against them.
+          </p>
         </section>
       )}
 

@@ -5,7 +5,7 @@ import type { LiveRound } from "../src/lib/live/store";
 
 const round = (over: Partial<LiveRound> = {}): LiveRound => ({
   id: "r1", createdAt: "", status: "done", steps: [], eligible: [], bids: [{ agent: "a", ask: 0.1, value: 1 }], txs: [],
-  job: { id: "j", poster: "alice.testnet", description: "d", skills: ["writing"], budget: 1 },
+  job: { id: "j", poster: "alice.testnet", description: "d", skills: ["due-diligence"], budget: 1 },
   deliverable: "three words here", deposit: "TxHash", ...over,
 });
 
