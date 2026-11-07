@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { KEYS_DIR } from "./paths";
 import { join } from "node:path";
 import { Account, FailoverRpcProvider, JsonRpcProvider, KeyPair, KeyPairSigner, nearToYocto, yoctoToNear, type KeyPairString } from "near-api-js";
 
@@ -31,9 +32,14 @@ export async function createAgentAccount(n: number, near: number) {
   return { accountId: agentAccountId(n), secretKey: keyPair.toString() };
 }
 
-/** An agent's own account, signed with its own key from .keys/ (so its spending is traceable on chain). */
+/**
+ * An agent's own account, signed with its own key (so its spending is traceable on chain).
+ * The key comes from KEYS_DIR, or on a fresh host from AGENT_KEYS, a JSON map of account id to secret key.
+ */
 export function agentAccount(accountId: string) {
-  const { secretKey } = JSON.parse(readFileSync(join(process.cwd(), ".keys", `${accountId}.json`), "utf8")) as { secretKey: KeyPairString };
+  const file = join(KEYS_DIR, `${accountId}.json`);
+  const secretKey = (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")).secretKey : JSON.parse(process.env.AGENT_KEYS || "{}")[accountId]) as KeyPairString | undefined;
+  if (!secretKey) throw new Error(`No key for ${accountId}: add it to ${KEYS_DIR} or AGENT_KEYS.`);
   return new Account(accountId, provider(), KeyPairSigner.fromSecretKey(secretKey));
 }
 

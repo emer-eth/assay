@@ -1,6 +1,7 @@
 import "server-only";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DATA_DIR, KEYS_DIR } from "../paths";
 import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from "../swarm/types";
 
 // Local state for the live coordinator: a JSON file in data/ (git-ignored). One Node process,
@@ -47,13 +48,17 @@ type State = {
 };
 type Job_ = { description: string; skills: Skill[]; budget: number };
 
-const DIR = join(process.cwd(), "data");
+const DIR = DATA_DIR;
 const FILE = join(DIR, "live.json");
-const KEYS = join(process.cwd(), ".keys");
+const KEYS = KEYS_DIR;
+// A fresh host starts from the demo agents in seed/agents.json (no rounds, credit or keys).
+const SEED = join(process.cwd(), "seed", "agents.json");
 const ALL_SKILLS: Skill[] = [...SKILLS];
 
 export function load(): State {
-  const state: State = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { agents: [], rounds: [], deposits: [], credits: {}, apiKeys: [], drafts: {} };
+  const state: State = existsSync(FILE)
+    ? JSON.parse(readFileSync(FILE, "utf8"))
+    : { agents: existsSync(SEED) ? JSON.parse(readFileSync(SEED, "utf8")) : [], rounds: [], deposits: [], credits: {}, apiKeys: [], drafts: {} };
   state.deposits ??= [];
   state.credits ??= {};
   state.apiKeys ??= [];

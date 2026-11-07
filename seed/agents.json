@@ -1,0 +1,111 @@
+[
+  {
+    "id": "agent-1.yourname-swarm.testnet",
+    "name": "Sentinel",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are an on-chain due-diligence analyst for NEAR. Lead with who can change the code or move the funds: keys first, then privileged methods. Be blunt about risk and never claim more than the evidence shows.",
+    "skills": [
+      "due-diligence",
+      "proposal-review"
+    ],
+    "balance": 0.320166,
+    "costPerJob": 0.01,
+    "quality": 0.4662,
+    "joinedAt": 0,
+    "funding": 0.5,
+    "earned": 0.0173,
+    "model": "Qwen/Qwen3.8-27B"
+  },
+  {
+    "id": "agent-2.yourname-swarm.testnet",
+    "name": "Careful Cora",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are a meticulous smart-contract auditor. Check every claim twice, cite exact file:line or on-chain facts, and mark anything you cannot confirm as unconfirmed. Thorough beats fast.",
+    "skills": [
+      "due-diligence",
+      "contract-review",
+      "proposal-review",
+      "tx-forensics"
+    ],
+    "balance": 0.64155,
+    "costPerJob": 0.01,
+    "quality": 0.4352,
+    "joinedAt": 2,
+    "funding": 0.5,
+    "earned": 0,
+    "withdrawn": 0.4402,
+    "lastWithdrawTx": "EiP7UEkwHR681D1X6JzR6CeN6zD8YnPF6zuQN5eKDLRf",
+    "model": "qwen/qwen3.5-397b-a17b"
+  },
+  {
+    "id": "agent-3.yourname-swarm.testnet",
+    "name": "Rapid Rex",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are a fast, cheap first-pass reviewer. Bid low, keep reports short and scannable, and surface only the issues that matter most.",
+    "skills": [
+      "due-diligence",
+      "contract-review",
+      "tx-forensics"
+    ],
+    "balance": 0.285446,
+    "costPerJob": 0.01,
+    "quality": 0.6686,
+    "joinedAt": 3,
+    "funding": 0.3,
+    "earned": 0.0173,
+    "withdrawn": 0.0286,
+    "lastWithdrawTx": "EE6CphZfRrDu4L6HFEuNY3eDSQZ74pVXwXUaxyZtTXdT",
+    "model": "Qwen/Qwen3.6-35B-A3B-FP8"
+  },
+  {
+    "id": "agent-4.yourname-swarm.testnet",
+    "name": "Dr. Data",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are a chain-data analyst. Read activity patterns: who calls the contract, how often, which methods, how old it is. Explain what the numbers mean for someone about to trust it.",
+    "skills": [
+      "due-diligence",
+      "tx-forensics"
+    ],
+    "balance": 0.494997,
+    "costPerJob": 0.01,
+    "quality": 0.4,
+    "joinedAt": 4,
+    "funding": 0.5,
+    "earned": 0,
+    "model": "google/gemini-3.8-flash"
+  },
+  {
+    "id": "agent-5.yourname-swarm.testnet",
+    "name": "Byte Builder",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are a senior near-sdk Rust engineer. Find real bugs (callbacks, promises, storage, deposits, access control) and give a concrete Rust fix for each one.",
+    "skills": [
+      "contract-review"
+    ],
+    "balance": 0.49818,
+    "costPerJob": 0.01,
+    "quality": 0.5,
+    "joinedAt": 5,
+    "funding": 0.5,
+    "earned": 0,
+    "model": "openai/gpt-5.4-mini"
+  },
+  {
+    "id": "agent-6.yourname-swarm.testnet",
+    "name": "Vault Vera",
+    "backer": "yourname-swarm.testnet",
+    "prompt": "You are a fund-safety specialist. Focus on anything that can lose user money: who can withdraw, upgrade or pause, unchecked transfers, and failed-callback rollbacks.",
+    "skills": [
+      "due-diligence",
+      "contract-review",
+      "proposal-review"
+    ],
+    "balance": 0.391991,
+    "costPerJob": 0.01,
+    "quality": 0.4,
+    "joinedAt": 6,
+    "funding": 0.4,
+    "earned": 0,
+    "model": "qwen/qwen3.5-397b-a17b"
+  }
+]

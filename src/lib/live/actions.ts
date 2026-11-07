@@ -1,4 +1,6 @@
 import "server-only";
+import { KEYS_DIR } from "../paths";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { z } from "zod";
@@ -106,8 +108,8 @@ export async function backAgent(account: string, input: z.infer<typeof agentInpu
   const n = Math.max(0, ...agents.map((a) => Number(a.id.match(/^agent-(\d+)\./)?.[1] || 0))) + 1;
   try {
     const created = await createAgentAccount(n, input.funding);
-    mkdirSync(".keys", { recursive: true });
-    writeFileSync(`.keys/${created.accountId}.json`, JSON.stringify(created, null, 2), { mode: 0o600 });
+    mkdirSync(KEYS_DIR, { recursive: true });
+    writeFileSync(join(KEYS_DIR, `${created.accountId}.json`), JSON.stringify(created, null, 2), { mode: 0o600 });
     const agent = update((s) => {
       const a: LiveAgent = { id: created.accountId, name: input.name, backer: account, prompt: input.prompt, skills: input.skills, model: input.model, balance: input.funding, costPerJob: 0.01, quality: 0.5, joinedAt: s.agents.length, funding: input.funding, earned: 0 };
       // load() may already have adopted the key file written above as a generic agent: replace it, never duplicate.
