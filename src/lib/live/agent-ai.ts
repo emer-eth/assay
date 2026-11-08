@@ -88,6 +88,6 @@ export async function agentWork(agent: LiveAgent, job: Job, evidence: Evidence |
       },
       { role: "user", content: `JOB:\n"""${job.description}"""${evidence ? `\n\nEVIDENCE (read by the swarm's tools just now):\n"""${evidence.facts}"""` : ""}` },
     ],
-  });
+  }, { timeout: 150_000, maxRetries: 1 });
   return { text: answer(res.choices[0]?.message?.content || ""), usage: usage(res.usage) };
 }

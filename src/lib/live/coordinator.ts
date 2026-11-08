@@ -158,7 +158,7 @@ export async function runLiveRound(id: string) {
     update((st) => {
       const a = st.agents.find((x) => x.id === winner.id);
       if (a) {
-        a.quality = s.quality;
+        if (!grade.unavailable) a.quality = s.quality;
         a.earned = Math.round((a.earned + s.payout.toBacker) * 1e6) / 1e6;
       }
     });
@@ -167,7 +167,7 @@ export async function runLiveRound(id: string) {
       { status: "done", payout: { ...s.payout, aiCost } }, // the exact amount the agent sent on chain
       grade.passed
         ? `Settled: ${s.payout.toAgent} NEAR to ${winner.name} (backer profit ${s.payout.toBacker}, fee ${s.payout.fee}); ${s.payout.refundToPoster} NEAR refunded to the poster. Reputation now ${s.quality}.`
-        : `Settled: poster refunded ${s.payout.refundToPoster} NEAR; ${winner.name} paid its own AI cost and earned nothing. Reputation now ${s.quality}.`,
+        : `Settled: poster refunded ${s.payout.refundToPoster} NEAR; ${winner.name} paid its own AI cost and earned nothing. ${grade.unavailable ? `Reputation unchanged at ${winner.quality}.` : `Reputation now ${s.quality}.`}`,
     );
   } catch (e) {
     updateRound(id, { status: "error", error: e instanceof Error ? e.message : String(e) }, "Something went wrong. Nothing further was paid.");

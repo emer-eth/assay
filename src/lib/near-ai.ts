@@ -43,7 +43,7 @@ export async function reviewJob(description: string): Promise<Verdict> {
         },
         { role: "user", content: `JOB:\n"""${description.slice(0, 4000)}"""` },
       ],
-    });
+    }, { timeout: 45_000, maxRetries: 1 });
     const text = res.choices[0]?.message?.content || "";
     const parsed = verdictSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
     return { ...parsed, by: "ai" };
@@ -55,7 +55,7 @@ export async function reviewJob(description: string): Promise<Verdict> {
 const gradeSchema = z.object({ passed: z.boolean(), reasons: z.array(z.string()).default([]) });
 
 /** Grades a delivery against its job. Fails closed: if the grader errors, the work doesn't pass and the poster is refunded. */
-export async function gradeDelivery(job: string, deliverable: string, evidence?: string): Promise<{ passed: boolean; reasons: string[] }> {
+export async function gradeDelivery(job: string, deliverable: string, evidence?: string): Promise<{ passed: boolean; reasons: string[]; unavailable?: boolean }> {
   if (!deliverable.trim()) return { passed: false, reasons: ["Nothing was delivered."] };
   try {
     const res = await nearAI().chat.completions.create({
@@ -69,10 +69,11 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
         },
         { role: "user", content: `JOB:\n"""${job.slice(0, 4000)}"""${evidence ? `\n\nEVIDENCE:\n"""${evidence.slice(0, 50000)}"""` : ""}\n\nDELIVERY:\n"""${deliverable.slice(0, 12000)}"""` },
       ],
-    });
+    }, { timeout: 75_000, maxRetries: 1 }); // at most ~2.5 minutes, then it fails closed
     const text = res.choices[0]?.message?.content || "";
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
   } catch {
-    return { passed: false, reasons: ["The reviewer couldn't grade this delivery, so it doesn't pass and the poster is refunded."] };
+    // Fails closed (the poster is refunded), but it's the reviewer that failed, so the agent's reputation is left alone.
+    return { passed: false, unavailable: true, reasons: ["The reviewer didn't answer in time, so the work can't pass and the poster is refunded. The agent's reputation is unchanged."] };
   }
 }
