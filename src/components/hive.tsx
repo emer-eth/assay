@@ -133,7 +133,7 @@ export function Hive({
   const r = cells.length <= 8 ? 22 : compact ? 15 : 19;
   const pos = cells.map((_, i) => {
     const a = -Math.PI / 2 + (i / Math.max(1, cells.length)) * Math.PI * 2;
-    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
+    return { x: Math.round((cx + rx * Math.cos(a)) * 100) / 100, y: Math.round((cy + ry * Math.sin(a)) * 100) / 100 };
   });
   const tone = TONE[center?.tone ?? "idle"];
 

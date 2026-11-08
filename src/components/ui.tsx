@@ -30,7 +30,7 @@ export function Logo() {
 }
 
 /** One header for every page: brand, a capsule of links, live state, and the main action. */
-export function TopBar({ mode, children }: { mode: "home" | "app" | "sim" | "record"; children?: ReactNode }) {
+export function TopBar({ mode }: { mode: "home" | "app" | "sim" | "record" }) {
   return (
     <HeaderShell>
       <div className="mx-auto grid h-16 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6">
@@ -45,10 +45,7 @@ export function TopBar({ mode, children }: { mode: "home" | "app" | "sim" | "rec
               </Link>
             </>
           ) : (
-            <>
-              <div className="hidden items-center gap-5 xl:flex">{children}</div>
-              <WalletButton />
-            </>
+            <WalletButton />
           )}
         </div>
       </div>

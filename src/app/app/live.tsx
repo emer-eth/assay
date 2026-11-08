@@ -9,7 +9,7 @@ import {
   type CellState,
   type Center,
 } from "@/components/hive";
-import { near, SkillPicker, Stat, TopBar } from "@/components/ui";
+import { near, SkillPicker, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
@@ -136,29 +136,7 @@ export function Live({ initial }: { initial: State | null }) {
 
   return (
     <>
-      <TopBar mode="app">
-        {state?.coordinator.id && (
-          <Stat
-            label="Coordinator"
-            value={
-              state.coordinator.near !== null
-                ? near(state.coordinator.near)
-                : "…"
-            }
-            href={acctUrl(state.coordinator.id)}
-          />
-        )}
-        <Stat label="Agents" value={state?.agents.length ?? "…"} />
-        <Stat label="Rounds" value={state?.rounds.length ?? "…"} />
-        <span
-          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${running ? "border-accent/50 text-accent" : "border-line text-muted"}`}
-        >
-          <span
-            className={`size-1.5 rounded-full ${running ? "live-dot bg-accent" : "bg-ok"}`}
-          />
-          {running ? "Round running" : "Ready"}
-        </span>
-      </TopBar>
+      <TopBar mode="app" />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <div className="relative mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-line pb-8">
@@ -180,9 +158,16 @@ export function Live({ initial }: { initial: State | null }) {
           </div>
           <div className="relative grid justify-items-start gap-4 sm:justify-items-end">
             {state && <MarketSummary rounds={state.rounds} agents={state.agents.length} />}
-            <Link href="/#mcp" className="text-sm text-muted hover:text-text">
-              Using an AI assistant? Connect over MCP →
-            </Link>
+            <span className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted sm:justify-end">
+              {state?.coordinator.id && (
+                <a href={acctUrl(state.coordinator.id)} target="_blank" rel="noreferrer" className="hover:text-text">
+                  Coordinator <span className="num text-text">{state.coordinator.near !== null ? near(state.coordinator.near) : "…"}</span> ↗
+                </a>
+              )}
+              <Link href="/#mcp" className="hover:text-text">
+                Using an AI assistant? Connect over MCP →
+              </Link>
+            </span>
           </div>
         </div>
         {state && !state.configured && (

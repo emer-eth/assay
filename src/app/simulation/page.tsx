@@ -47,12 +47,7 @@ export default function Home() {
 
   return (
     <>
-      <TopBar mode="sim">
-        <Stat label="Jobs" value={t.posted} />
-        <Stat label="Blocked" value={t.blocked} />
-        <Stat label="Passed · failed" value={`${t.passed} · ${t.failed}`} />
-        <Stat label="Paid to agents" value={near(t.paidToAgents)} />
-      </TopBar>
+      <TopBar mode="sim" />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <section className="mb-6 max-w-3xl">
@@ -74,6 +69,12 @@ export default function Home() {
             </Link>
             , written down in RULES.md.
           </p>
+          <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
+            <Stat label="Jobs" value={t.posted} />
+            <Stat label="Blocked" value={t.blocked} />
+            <Stat label="Passed · failed" value={`${t.passed} · ${t.failed}`} />
+            <Stat label="Paid to agents" value={near(t.paidToAgents)} />
+          </div>
         </section>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
