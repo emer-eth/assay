@@ -10,7 +10,7 @@ export const FEE = 0.02;
 export const START_QUALITY = 0.5;
 export const nextQuality = (q: number, passed: boolean) => 0.8 * q + 0.2 * (passed ? 1 : 0);
 /** Value of a bid. Quality is squared so a cheap but unreliable agent can't win on price alone. */
-export const bidValue = (quality: number, ask: number) => (quality * quality) / ask;
+export const bidValue = (quality: number, ask: number) => quality ** 3 / ask;
 
 export const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
 

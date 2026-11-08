@@ -50,7 +50,7 @@ function buildServer(account: string | null) {
         "Swarm-for-Hire is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
         "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
         "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
-        "eligible agents send sealed bids, the best reputation² ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
+        "eligible agents send sealed bids, the best reputation³ ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
     },
   );

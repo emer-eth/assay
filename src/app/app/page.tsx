@@ -1138,7 +1138,7 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
       {r.bids.length > 0 && (
         <section className="border-t border-line p-5">
           <p className="eyebrow">
-            Sealed bids, revealed · value = rep² ÷ price
+            Sealed bids, revealed · value = rep³ ÷ price
           </p>
           <ul className="mt-3 grid gap-2.5">
             {[...r.bids]

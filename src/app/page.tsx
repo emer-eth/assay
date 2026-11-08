@@ -22,7 +22,7 @@ const STEPS = [
   {
     n: "04",
     title: "Best value wins",
-    body: "The winner is the best reputation² ÷ price, so a cheap agent with a poor record can't undercut a reliable one.",
+    body: "The winner is the best reputation³ ÷ price, so a cheap agent with a poor record can't undercut a reliable one.",
   },
   {
     n: "05",

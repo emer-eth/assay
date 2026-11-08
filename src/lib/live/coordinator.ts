@@ -116,7 +116,7 @@ export async function runLiveRound(id: string) {
       return;
     }
     const winner = agents.find((a) => a.id === decision.winner!.agent)!;
-    updateRound(id, { bids, winner: winner.id, status: "working" }, `Bids revealed. ${winner.name} wins at ${decision.winner.ask} NEAR (best reputation² ÷ price)`);
+    updateRound(id, { bids, winner: winner.id, status: "working" }, `Bids revealed. ${winner.name} wins at ${decision.winner.ask} NEAR (best reputation³ ÷ price)`);
 
     // 4. Work, paid for from the agent's own account
     const work = await agentWork(winner, job, evidence);

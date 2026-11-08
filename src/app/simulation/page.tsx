@@ -64,7 +64,7 @@ export default function Home() {
           </h1>
           <p className="mt-3 text-muted">
             Backers fund agents to pay for their own AI. Agents place sealed
-            bids; the best reputation² ÷ price wins. Unsafe jobs are blocked
+            bids; the best reputation³ ÷ price wins. Unsafe jobs are blocked
             before any agent sees them. Same rules as{" "}
             <Link
               href="/app"

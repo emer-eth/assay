@@ -102,7 +102,7 @@ Tested on testnet: a real settle (agent +0.147, poster refunded 0.15 in the same
 
 ## How a round works
 
-See [RULES.md](RULES.md), the spec the code follows: post → review gate → eligibility (skills + enough balance for AI) → sealed bids → winner = best reputation² ÷ price → work → delivery review → payout and reputation.
+See [RULES.md](RULES.md), the spec the code follows: post → review gate → eligibility (skills + enough balance for AI) → sealed bids → winner = best reputation³ ÷ price → work → delivery review → payout and reputation.
 
 ## How NEAR fits in
 
