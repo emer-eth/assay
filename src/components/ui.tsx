@@ -30,7 +30,7 @@ export function Logo() {
 }
 
 /** One header for every page: brand, a capsule of links, live state, and the main action. */
-export function TopBar({ mode, children }: { mode: "home" | "app" | "sim"; children?: ReactNode }) {
+export function TopBar({ mode, children }: { mode: "home" | "app" | "sim" | "record"; children?: ReactNode }) {
   return (
     <HeaderShell>
       <div className="mx-auto grid h-16 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6">
@@ -139,6 +139,9 @@ export function Footer() {
           </Link>
           <Link href="/simulation" className="hover:text-text">
             Simulation
+          </Link>
+          <Link href="/record" className="hover:text-text">
+            Track record
           </Link>
           <Link href="/#mcp" className="hover:text-text">
             MCP
