@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { SectionNav } from "./story";
+import { HeaderShell, MarketPill, PageNav, SectionNav } from "./header";
 import { WalletButton } from "./wallet";
 
 import { SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
@@ -8,14 +8,9 @@ import { SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
 export function Mark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M12 1.8 21 7v10l-9 5.2L3 17V7z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M12 7.6 16.2 10v4.8L12 17.2 7.8 14.8V10z" fill="var(--accent)" />
+      <path d="M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z" fill="#141418" stroke="currentColor" strokeOpacity=".9" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M12 7.4 15.4 9.4v3.9L12 15.3 8.6 13.3V9.4z" fill="var(--accent)" />
+      <path d="M12 15.3v3.6M15.4 13.3l3.1 1.8M8.6 13.3l-3.1 1.8" stroke="var(--accent)" strokeOpacity=".45" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
   );
 }
@@ -27,87 +22,41 @@ export function Logo() {
       className="flex items-center gap-2 text-text"
       aria-label="Swarm-for-Hire home"
     >
-      <Mark />
-      <span className="text-[15px] font-semibold tracking-[-0.02em]">
-        Swarm-for-Hire
-      </span>
+      <Mark size={24} />
+      <span className="headline text-[17px] tracking-[-0.025em]">Swarm-for-Hire</span>
+      <span className="num hidden rounded border border-accent/30 px-1.5 py-px text-[9px] tracking-[0.16em] text-accent uppercase sm:inline">Testnet</span>
     </Link>
   );
 }
 
-const NAV = [
-  { href: "/", label: "Overview", key: "home" },
-  { href: "/app", label: "App", key: "app" },
-  { href: "/simulation", label: "Simulation", key: "sim" },
-  { href: "/#mcp", label: "MCP", key: "mcp" },
-] as const;
-
-/** One header for every page: brand, navigation, optional live stats, wallet. */
-export function TopBar({
-  mode,
-  children,
-}: {
-  mode: "home" | "app" | "sim";
-  children?: ReactNode;
-}) {
+/** One header for every page: brand, a capsule of links, live state, and the main action. */
+export function TopBar({ mode, children }: { mode: "home" | "app" | "sim"; children?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-bg/75 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-6">
-          <Logo />
-          {mode === "home" && <SectionNav />}
-          <nav
-            className={`hidden items-center gap-1 text-[13px] md:flex ${mode === "home" ? "lg:hidden" : ""}`}
-            aria-label="Main"
-          >
-            {NAV.map((n) => (
-              <Link
-                key={n.key}
-                href={n.href}
-                aria-current={mode === n.key ? "page" : undefined}
-                className={`rounded-md px-2.5 py-1.5 transition-colors ${mode === n.key ? "text-text" : "text-muted hover:text-text"}`}
-              >
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden items-center gap-5 lg:flex">{children}</div>
-          {mode === "home" && (
-            <span className="hidden items-center gap-4 text-[13px] lg:flex">
-              <Link href="/simulation" className="text-muted hover:text-text">Simulation</Link>
-            </span>
-          )}
+    <HeaderShell>
+      <div className="mx-auto grid h-16 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6">
+        <Logo />
+        <div className="hidden justify-center lg:flex">{mode === "home" ? <SectionNav /> : <PageNav mode={mode} />}</div>
+        <div className="flex items-center justify-end gap-3 lg:col-auto">
           {mode === "home" ? (
-            <Link
-              href="/app"
-              className="btn btn-primary !px-3.5 !py-1.5 text-[13px]"
-            >
-              Launch app
-            </Link>
+            <>
+              <MarketPill />
+              <Link href="/app" className="btn btn-primary !rounded-full !px-4 !py-1.5 text-[13px]">
+                Launch app <span aria-hidden>→</span>
+              </Link>
+            </>
           ) : (
-            <WalletButton />
+            <>
+              <div className="hidden items-center gap-5 xl:flex">{children}</div>
+              <WalletButton />
+            </>
           )}
         </div>
       </div>
-      {/* phone navigation */}
-      <nav
-        className="flex gap-1 overflow-x-auto border-t border-line px-3 py-1.5 text-[13px] md:hidden"
-        aria-label="Main"
-      >
-        {NAV.map((n) => (
-          <Link
-            key={n.key}
-            href={n.href}
-            aria-current={mode === n.key ? "page" : undefined}
-            className={`shrink-0 rounded-md px-2.5 py-1 ${mode === n.key ? "bg-panel-2 text-text" : "text-muted"}`}
-          >
-            {n.label}
-          </Link>
-        ))}
-      </nav>
-    </header>
+      {/* below the large breakpoint the links move to a scrollable row */}
+      <div className="border-t border-line px-3 py-1.5 lg:hidden">
+        <PageNav mode={mode} compact />
+      </div>
+    </HeaderShell>
   );
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import Lenis from "lenis";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { PublicRound } from "@/lib/live/visibility";
 import { RoundDemo } from "./landing";
@@ -280,41 +279,5 @@ export function MoneySplit() {
         ))}
       </dl>
     </div>
-  );
-}
-
-const SECTIONS = [
-  ["how", "How it works"],
-  ["fair", "Fair bidding"],
-  ["live", "Live"],
-  ["mcp", "MCP"],
-  ["faq", "FAQ"],
-] as const;
-
-/** The landing page's section links, highlighting the one you're in. */
-export function SectionNav() {
-  const [at, setAt] = useState<string | null>(null);
-  useEffect(() => {
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) if (e.isIntersecting) setAt(e.target.id);
-      },
-      { rootMargin: "-40% 0px -55% 0px" },
-    );
-    SECTIONS.forEach(([id]) => {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    });
-    return () => io.disconnect();
-  }, []);
-  return (
-    <nav className="hidden items-center gap-0.5 text-[13px] lg:flex" aria-label="Sections">
-      {SECTIONS.map(([id, label]) => (
-        <Link key={id} href={`/#${id}`} aria-current={at === id ? "true" : undefined} className={`relative rounded-md px-2.5 py-1.5 transition-colors ${at === id ? "text-text" : "text-muted hover:text-text"}`}>
-          {label}
-          <span className={`absolute inset-x-2.5 -bottom-[13px] h-px bg-accent transition-opacity ${at === id ? "opacity-100" : "opacity-0"}`} />
-        </Link>
-      ))}
-    </nav>
   );
 }
