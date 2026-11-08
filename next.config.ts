@@ -22,7 +22,11 @@ const nextConfig: NextConfig = {
   },
   // The live app moved from /live to /app.
   async redirects() {
-    return [{ source: "/live", destination: "/app", permanent: false }];
+    return [
+      { source: "/live", destination: "/app", permanent: false },
+      // Old bookmarks and checkers still ask for /favicon.ico.
+      { source: "/favicon.ico", destination: "/icon.svg", permanent: true },
+    ];
   },
   turbopack: {
     rules: {
