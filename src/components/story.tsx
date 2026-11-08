@@ -29,7 +29,8 @@ export function SmoothScroll() {
 }
 
 type Agent = { id: string; name: string; quality: number };
-type State = { agents: Agent[]; rounds: PublicRound[] };
+export type LiveSnapshot = { agents: Agent[]; rounds: PublicRound[] };
+type State = LiveSnapshot;
 
 let statePromise: Promise<State> | null = null;
 /** One fetch of the live state, shared by every component on the page. */
@@ -37,12 +38,14 @@ function liveState() {
   statePromise ??= fetch("/api/live/state", { cache: "no-store" }).then((r) => r.json());
   return statePromise;
 }
-function useLive() {
-  const [s, setS] = useState<State | null>(null);
+/** Live state: the server's snapshot when the page was rendered, otherwise fetched in the browser. */
+function useLive(initial?: State | null) {
+  const [s, setS] = useState<State | null>(initial ?? null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
+    if (initial) return;
     liveState().then(setS).catch(() => setFailed(true));
-  }, []);
+  }, [initial]);
   return { s, failed };
 }
 
@@ -59,8 +62,8 @@ function describe(r: PublicRound, names: Map<string, string>) {
 }
 
 /** A ticker of the real rounds on testnet, newest first. */
-export function RoundTicker() {
-  const { s } = useLive();
+export function RoundTicker({ initial }: { initial?: State | null }) {
+  const { s } = useLive(initial);
   if (!s?.rounds?.length) return <div className="h-[46px]" aria-hidden />;
   const names = new Map(s.agents.map((a) => [a.id, a.name]));
   const items = s.rounds.slice(0, 14).map((r) => ({ r, d: describe(r, names) }));
@@ -223,8 +226,8 @@ export function CountUp({ to, decimals = 0, suffix = "" }: { to: number; decimal
 }
 
 /** Real numbers from the running testnet coordinator. */
-export function LiveNumbers() {
-  const { s, failed } = useLive();
+export function LiveNumbers({ initial }: { initial?: State | null }) {
+  const { s, failed } = useLive(initial);
   const done = s?.rounds.filter((r) => r.status === "done") ?? [];
   const stats = s
     ? [

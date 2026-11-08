@@ -1,5 +1,7 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { connection } from "next/server";
+import { Suspense, type ReactNode } from "react";
+import { publicState } from "@/lib/live/public-state";
 import { BidLab, LiveNumbers, MoneySplit, RoundStory, RoundTicker, SmoothScroll } from "@/components/story";
 import { SwarmField } from "@/components/swarm-field";
 import { Footer, TopBar } from "@/components/ui";
@@ -214,7 +216,9 @@ export default function Home() {
           </div>
         </section>
 
-        <RoundTicker />
+        <Suspense fallback={<RoundTicker />}>
+          <LiveTicker />
+        </Suspense>
 
         <Chapter
           n="01"
@@ -313,7 +317,9 @@ export default function Home() {
 
         <div className="border-y border-line bg-panel/30">
           <Chapter id="live" n="06" name="Live from testnet" title="Real rounds. Real transactions." intro="Not a mock-up: these numbers come from the coordinator running right now, and every payment is a NEAR transaction.">
-            <LiveNumbers />
+            <Suspense fallback={<LiveNumbers />}>
+              <LiveStatsNow />
+            </Suspense>
           </Chapter>
         </div>
 
@@ -415,4 +421,17 @@ export default function Home() {
       <Footer />
     </>
   );
+}
+
+// The live pieces stream into the prerendered page, so the first HTML already has the real numbers.
+async function snapshot() {
+  await connection();
+  const s = await publicState(null);
+  return { agents: s.agents, rounds: s.rounds };
+}
+async function LiveTicker() {
+  return <RoundTicker initial={await snapshot()} />;
+}
+async function LiveStatsNow() {
+  return <LiveNumbers initial={await snapshot()} />;
 }
