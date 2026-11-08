@@ -150,6 +150,13 @@ export function wasmExports(wasm: Uint8Array): string[] {
 
 const near = (yocto: string) => (Number(BigInt(yocto) / 10n ** 20n) / 1e4).toLocaleString("en-US", { maximumFractionDigits: 4 });
 const date = (ns: string | number) => new Date(Number(BigInt(String(ns).split(".")[0]) / 1_000_000n)).toISOString().slice(0, 10);
+/** Contract views report NEAR in yoctoNEAR and time in nanoseconds; spell both out so nobody misreads 10^23 as 100 NEAR. */
+function readableUnits(key: string, v: unknown) {
+  if (typeof v === "string" && /^\d{19,}$/.test(v)) return `${nearExact(v)} (${v} yocto)`;
+  if (typeof v === "number" && /_ns$/.test(key)) return `${v / 6e10} minutes (${v} ns)`;
+  return v;
+}
+
 const ROLE_VIEW_RE = /^(get_)?(owner(_id)?|admins?|super_admins?|guardians?|operators?|managers?|dao(_id)?|governance|council|acl_get_super_admins|acl_get_admins|config|settings|agents)$/;
 // withdraw/storage_withdraw are left out on purpose: on most contracts they're how users take their own funds out.
 const ADMIN_RE = /upgrade|migrate|deploy|set_code|update_contract|owner|admin|pause|guardian|manager|set_fee|modify_.*fee|blacklist|frozen|freeze|mint|force_|add_full_access_key|add_public_key|delete_key/i;
@@ -198,7 +205,7 @@ export async function accountReport(id: string): Promise<{ facts: string; summar
       const found = answers.filter(([, v]) => v !== null && v !== undefined);
       lines.push(
         found.length
-          ? `- Roles, as the contract reports them: ${found.map(([m, v]) => `${m}() = ${JSON.stringify(v).slice(0, 300)}`).join("; ")}`
+          ? `- Roles, as the contract reports them: ${found.map(([m, v]) => `${m}() = ${JSON.stringify(v, readableUnits).slice(0, 400)}`).join("; ")}`
           : "- Roles: the contract has no no-argument owner/admin view that answered, so who holds the privileged methods isn't visible from here.",
       );
       roles = found.map(([m, v]) => `${m.replace(/^get_/, "")}: ${typeof v === "string" ? v : Array.isArray(v) ? v.slice(0, 3).join(", ") + (v.length > 3 ? "…" : "") : "set"}`);
@@ -338,7 +345,10 @@ export function scanNear(files: SourceFile[]): string[] {
       sdk ??= f.text.match(/near-sdk\s*=\s*(?:\{[^}]*?version\s*=\s*)?"([^"]+)"/)?.[1] ?? null;
       continue;
     }
-    const lines = f.text.split("\n");
+    // Unit tests (a #[cfg(test)] module) never run on chain: leave them out of the scan.
+    const all = f.text.split("\n");
+    const testAt = all.findIndex((l, i) => /^\s*#\[cfg\(test\)\]/.test(l) && /^\s*(pub\s+)?mod\s/.test(all[i + 1] ?? ""));
+    const lines = testAt >= 0 ? all.slice(0, testAt) : all;
     let attrs: string[] = [];
     lines.forEach((line, i) => {
       const at = `${f.path}:${i + 1}`;
