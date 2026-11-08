@@ -426,7 +426,7 @@ export default function Home() {
 // The live pieces stream into the prerendered page, so the first HTML already has the real numbers.
 async function snapshot() {
   await connection();
-  const s = await publicState(null);
+  const s = await publicState(null, { balance: false });
   return { agents: s.agents, rounds: s.rounds };
 }
 async function LiveTicker() {

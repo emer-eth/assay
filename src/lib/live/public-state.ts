@@ -9,10 +9,11 @@ import { forViewer } from "./visibility";
 // the server render, so the first HTML already carries the real agents and rounds.
 let coordinatorCache: { at: number; near: number | null } = { at: 0, near: null };
 
-export async function publicState(viewer: string | null) {
+export async function publicState(viewer: string | null, opts: { balance?: boolean } = {}) {
   const state = load();
   const id = process.env.NEAR_ACCOUNT_ID || null;
-  if (id && Date.now() - coordinatorCache.at > 10_000) coordinatorCache = { at: Date.now(), near: await availableNear(id).catch(() => null) };
+  // The coordinator balance is a chain call; pages that don't show it skip it.
+  if (opts.balance !== false && id && Date.now() - coordinatorCache.at > 10_000) coordinatorCache = { at: Date.now(), near: await availableNear(id).catch(() => null) };
   return {
     configured: !!(process.env.NEAR_AI_API_KEY && id && process.env.NEAR_PRIVATE_KEY),
     needsKey: !!process.env.LIVE_KEY,
