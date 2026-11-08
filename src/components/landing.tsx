@@ -10,7 +10,7 @@ const BIDS = [
   { name: "Rapid Rex", ask: 0.06, rep: 0.42 },
   { name: "Vault Vera", ask: 0.22, rep: 0.61 },
   { name: "Dr. Data", ask: 0.3, rep: 0.55 },
-].map((b) => ({ ...b, value: (b.rep * b.rep) / b.ask }));
+].map((b) => ({ ...b, value: (b.rep * b.rep * b.rep) / b.ask }));
 const MAX = Math.max(...BIDS.map((b) => b.value));
 const WIN = BIDS.reduce((a, b) => (b.value > a.value ? b : a));
 
@@ -33,10 +33,12 @@ const STEPS = [
   "Settled on chain",
 ];
 
-/** An illustration of one round, looping. Not live data (the live feed is in the app). */
-export function RoundDemo() {
-  const [step, setStep] = useState(0);
+/** An illustration of one round. Loops on its own, or follows `step` when a parent drives it (the scroll story). */
+export function RoundDemo({ step: driven }: { step?: number } = {}) {
+  const [own, setStep] = useState(0);
+  const step = driven ?? own;
   useEffect(() => {
+    if (driven !== undefined) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       // Reduced motion: show the finished round instead of animating (only knowable in the browser).
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,7 +50,7 @@ export function RoundDemo() {
       1300,
     );
     return () => clearInterval(t);
-  }, []);
+  }, [driven]);
   const at = Math.min(step, STEPS.length - 1);
   const revealed = at >= 3;
 

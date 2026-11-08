@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import { WalletProvider } from "@/components/wallet";
 import "./globals.css";
 
 const display = Geist({ variable: "--font-display", subsets: ["latin"] });
+const headline = Bricolage_Grotesque({ variable: "--font-headline", subsets: ["latin"], weight: ["500", "600", "700"] });
 const code = Geist_Mono({ variable: "--font-code", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export const viewport: Viewport = { themeColor: "#08080a" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${code.variable} h-full`}>
+    <html lang="en" className={`${display.variable} ${headline.variable} ${code.variable} h-full`}>
       <body className="flex min-h-full flex-col">
         <WalletProvider>{children}</WalletProvider>
       </body>

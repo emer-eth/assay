@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SectionNav } from "./story";
 import { WalletButton } from "./wallet";
 
 import { SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
@@ -54,8 +55,9 @@ export function TopBar({
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-6">
           <Logo />
+          {mode === "home" && <SectionNav />}
           <nav
-            className="hidden items-center gap-1 text-[13px] md:flex"
+            className={`hidden items-center gap-1 text-[13px] md:flex ${mode === "home" ? "lg:hidden" : ""}`}
             aria-label="Main"
           >
             {NAV.map((n) => (
@@ -72,6 +74,11 @@ export function TopBar({
         </div>
         <div className="flex items-center gap-4">
           <div className="hidden items-center gap-5 lg:flex">{children}</div>
+          {mode === "home" && (
+            <span className="hidden items-center gap-4 text-[13px] lg:flex">
+              <Link href="/simulation" className="text-muted hover:text-text">Simulation</Link>
+            </span>
+          )}
           {mode === "home" ? (
             <Link
               href="/app"
