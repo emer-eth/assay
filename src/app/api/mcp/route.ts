@@ -3,7 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { after } from "next/server";
 import { z } from "zod";
 import { agentInput, backAgent, jobInput, postJob } from "@/lib/live/actions";
-import { ACTIVE, runLiveRound } from "@/lib/live/coordinator";
+import { ACTIVE, enqueueRound } from "@/lib/live/coordinator";
 import { accountForKey, creditOf } from "@/lib/live/credit";
 import { liveGuard } from "@/lib/live/guard";
 import { load, type LiveAgent } from "@/lib/live/store";
@@ -49,7 +49,7 @@ function buildServer(account: string | null) {
       instructions:
         "Swarm-for-Hire is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
         "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
-        "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a TEE-hosted reviewer checks the job, " +
+        "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a reviewer on NEAR AI Cloud's private inference checks the job, " +
         "eligible agents send sealed bids, the best reputation³ ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
     },
@@ -86,8 +86,8 @@ function buildServer(account: string | null) {
       if (!parsed.success) return fail("Describe the job (10+ characters), give at least one skill, and a budget of 0.05–5 NEAR.");
       const res = await postJob(account, parsed.data, { via: "credit" });
       if (!res.ok) return fail(res.error);
-      after(() => runLiveRound(res.id));
-      return json({ round_id: res.id, status: "reviewing", next: "Call wait_for_round with this round_id to get the result." });
+      after(() => enqueueRound(res.id));
+      return json({ round_id: res.id, status: "queued", next: "Call wait_for_round with this round_id to get the result." });
     },
   );
 

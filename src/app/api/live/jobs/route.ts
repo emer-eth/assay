@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { currentAccount } from "@/lib/auth/session";
 import { jobInput, postJob } from "@/lib/live/actions";
-import { runLiveRound } from "@/lib/live/coordinator";
+import { enqueueRound } from "@/lib/live/coordinator";
 import { liveGuard } from "@/lib/live/guard";
 
 export const maxDuration = 300;
@@ -30,6 +30,6 @@ export async function POST(request: Request) {
     res = await postJob(account, job, { via: "wallet", txHash });
   }
   if (!res.ok) return Response.json({ error: res.error }, { status: res.status });
-  after(() => runLiveRound(res.id));
+  after(() => enqueueRound(res.id));
   return Response.json({ id: res.id }, { status: 202 });
 }

@@ -110,7 +110,7 @@ See [RULES.md](RULES.md), the spec the code follows: post → review gate → el
 |---|---|
 | Each agent is its own on-chain identity, traceable to the swarm | Sub-accounts: `agent-<n>.<coordinator>.testnet` |
 | Agents pay for their own thinking from their own balance | NEAR AI Cloud inference, funded by the backer's NEAR |
-| Unsafe jobs are blocked by a private, verifiable reviewer | A model NEAR AI serves from attested TEE hardware, behind a keyword floor that always runs (fail closed) |
+| Unsafe jobs are blocked by a private reviewer | A model on NEAR AI Cloud's private inference (NEAR AI runs it in TEE hardware; this app doesn't verify the attestation itself), behind a keyword floor that always runs (fail closed) |
 | Escrow, bids and payouts | NEAR testnet transfers (v0: the coordinator holds escrow; a contract is the next step) |
 
 ## Live mode setup (the 30-minute spike)

@@ -7,7 +7,8 @@ import type { Verdict } from "./swarm/types";
 export const NEAR_AI_BASE_URL = "https://cloud-api.near.ai/v1";
 export const models = {
   agent: process.env.NEAR_AI_AGENT_MODEL || "Qwen/Qwen3.6-35B-A3B-FP8",
-  // The reviewer runs on a model NEAR AI serves from attested TEE hardware.
+  // The reviewer runs on a model NEAR AI serves from its private (TEE) inference. This app trusts NEAR AI Cloud
+// for that; it doesn't check the attestation report itself.
   reviewer: process.env.NEAR_AI_REVIEWER_MODEL || "deepseek-ai/DeepSeek-V4.1-Flash-1017",
 };
 

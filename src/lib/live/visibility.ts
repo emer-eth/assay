@@ -6,7 +6,7 @@ import type { LiveRound } from "./store";
 export type PublicRound = LiveRound & { private?: boolean; deliveredWords?: number; mine?: boolean };
 
 export function forViewer(r: LiveRound, viewer: string | null): PublicRound {
-  const out: PublicRound = r.status === "reviewing" || r.status === "bidding" ? { ...r, bids: [] } : { ...r };
+  const out: PublicRound = r.status === "queued" || r.status === "reviewing" || r.status === "bidding" ? { ...r, bids: [] } : { ...r };
   out.mine = !!viewer && r.job.poster === viewer;
   // The raw facts the tools read are large and only needed by the agent and reviewer; the summary is enough to show.
   if (r.evidence) out.evidence = { summary: r.evidence.summary, facts: "" };

@@ -11,13 +11,10 @@ import { addCredit } from "./credit";
 import { load, update, updateRound, type LiveRound } from "./store";
 
 // Runs one live round, following RULES.md step by step. Every step is written to the store as it
-// happens, so the page can show progress. One round at a time (nonces and budgets stay simple).
+// happens, so the page can show progress. Rounds run one at a time through a queue, so the coordinator never
+// signs two transactions at once; anyone can post while another round runs, and theirs starts next.
 
-export const ACTIVE: LiveRound["status"][] = ["reviewing", "bidding", "working", "grading", "settling"];
-
-export function activeRound() {
-  return load().rounds.find((r) => ACTIVE.includes(r.status)) ?? null;
-}
+export const ACTIVE: LiveRound["status"][] = ["queued", "reviewing", "bidding", "working", "grading", "settling"];
 
 export function createRound(job: Omit<Job, "id" | "poster">, poster: string, payment: Payment) {
   const deposit = payment.via === "wallet" ? payment.txHash : payment.via === "escrow" ? payment.txHash : undefined;
@@ -26,7 +23,7 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
     id,
     createdAt: new Date().toISOString(),
     job: { ...job, id: `job-${id}`, poster },
-    status: "reviewing",
+    status: "queued",
     steps: [
       {
         at: new Date().toISOString(),
@@ -71,9 +68,46 @@ async function refund(id: string, poster: string, near: number, why: string) {
   updateRound(id, (x) => x.txs.push({ label: `Refunded ${near} NEAR to ${poster} (${why})`, hash }));
 }
 
+// Kept on globalThis so every route (the app, MCP, page renders) shares one queue even if bundled separately.
+const Q = globalThis as unknown as { __sfhQueue?: { tail: Promise<void>; recovered: boolean; bootedAt: number } };
+Q.__sfhQueue ??= { tail: Promise.resolve(), recovered: false, bootedAt: Date.now() };
+const queue = Q.__sfhQueue;
+
+/** Adds a paid round to the queue. It runs after every round posted before it. */
+export function enqueueRound(id: string) {
+  recoverInterrupted();
+  const ahead = load().rounds.filter((r) => r.id !== id && ACTIVE.includes(r.status)).length;
+  if (ahead) updateRound(id, {}, `Queued behind ${ahead} round${ahead > 1 ? "s" : ""}; it starts by itself`);
+  queue.tail = queue.tail.then(() => runLiveRound(id)).catch(() => {});
+  return queue.tail;
+}
+
+/**
+ * After a restart (a redeploy), rounds the old process was running are stuck mid-way. Queued ones never
+ * started, so they go back in the queue; ones cut off mid-round are closed and refunded. An escrow refund
+ * only goes through while the job is still open on the contract, so a round that was already paid can't
+ * be refunded twice.
+ */
+export function recoverInterrupted() {
+  if (queue.recovered) return;
+  queue.recovered = true;
+  // Only rounds from before this process started, oldest first: anything newer belongs to this process.
+  const left = load().rounds.filter((x) => ACTIVE.includes(x.status) && Date.parse(x.createdAt) < queue.bootedAt).reverse();
+  for (const r of left) {
+    if (r.status === "queued") {
+      queue.tail = queue.tail.then(() => runLiveRound(r.id)).catch(() => {});
+      continue;
+    }
+    const unpaid = r.status !== "settling"; // before settling, nothing has been paid out of the budget
+    updateRound(r.id, { status: "error", error: "The server restarted during this round." }, "The server restarted mid-round. The round was closed and the poster refunded.");
+    if (unpaid || r.paidWith === "escrow") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
+  }
+}
+
 export async function runLiveRound(id: string) {
   const round = load().rounds.find((r) => r.id === id);
-  if (!round) return;
+  if (!round || round.status !== "queued") return;
+  updateRound(id, { status: "reviewing" });
   const { job } = round;
   let paidOut = 0; // NEAR already paid out of this job's escrow, so a crash never refunds more than is left
   try {

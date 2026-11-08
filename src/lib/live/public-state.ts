@@ -1,6 +1,6 @@
 import "server-only";
 import { availableNear } from "../near";
-import { ACTIVE } from "./coordinator";
+import { ACTIVE, recoverInterrupted } from "./coordinator";
 import { load } from "./store";
 import { forViewer } from "./visibility";
 
@@ -10,6 +10,7 @@ import { forViewer } from "./visibility";
 let coordinatorCache: { at: number; near: number | null } = { at: 0, near: null };
 
 export async function publicState(viewer: string | null, opts: { balance?: boolean } = {}) {
+  recoverInterrupted();
   const state = load();
   const id = process.env.NEAR_ACCOUNT_ID || null;
   // The coordinator balance is a chain call; pages that don't show it skip it.

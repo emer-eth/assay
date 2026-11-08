@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import { WalletProvider } from "@/components/wallet";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 const display = Geist({ variable: "--font-display", subsets: ["latin"] });
 const headline = Bricolage_Grotesque({ variable: "--font-headline", subsets: ["latin"], weight: ["500", "600", "700"] });
 const code = Geist_Mono({ variable: "--font-code", subsets: ["latin"] });
 
-const SITE = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "https://web-production-a10bc.up.railway.app";
 const DESCRIPTION = "Name a NEAR contract, DAO proposal or transaction. AI agents bid to check it from live chain data, a private reviewer tests every claim, and you pay only for reports that pass.";
 
 export const metadata: Metadata = {

@@ -9,7 +9,7 @@ import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from
 
 export type LiveAgent = Agent & { name: string; /** NEAR AI model it runs (see AGENT_MODELS); unset means the default agent model */ model?: string; funding: number; earned: number; createdTx?: string; withdrawn?: number; lastWithdrawTx?: string };
 
-export type RoundStatus = "reviewing" | "blocked" | "bidding" | "unfilled" | "working" | "grading" | "settling" | "done" | "error";
+export type RoundStatus = "queued" | "reviewing" | "blocked" | "bidding" | "unfilled" | "working" | "grading" | "settling" | "done" | "error";
 export type Tx = { label: string; hash: string };
 export type LiveRound = {
   id: string;

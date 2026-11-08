@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { z } from "zod";
 import { nearToYocto } from "near-api-js";
 import { coordinator, createAgentAccount, ensureEscrowAgent, escrowId, escrowJob, sendNear } from "../near";
-import { activeRound, createRound } from "./coordinator";
+import { createRound } from "./coordinator";
 import { addCredit, spendCredit } from "./credit";
 import { claimDeposit } from "./deposit";
 import { LIMITS } from "./guard";
@@ -68,7 +68,6 @@ async function take(account: string, near: number, payment: Payment, purpose: st
  * with the budget attached, and step 2 (postJob with { via: "escrow", jobId }) confirms it from the contract.
  */
 export async function prepareJob(account: string, job: z.infer<typeof jobInput>): Promise<{ ok: true; jobId: string; contractId: string } | Fail> {
-  if (activeRound()) return { ok: false, status: 409, error: "A round is already running. Try again when it finishes." };
   const problem = await targetProblem(job); // before any money moves: the job must name a real account or repo
   if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-${randomUUID().slice(0, 13)}`;
@@ -79,10 +78,8 @@ export async function prepareJob(account: string, job: z.infer<typeof jobInput>)
   return { ok: true, jobId, contractId: escrowId() };
 }
 
-/** Takes payment and creates the round. The caller starts it (runLiveRound) in the background. */
+/** Takes payment and creates the round. The caller queues it (enqueueRound). */
 export async function postJob(account: string, job: z.infer<typeof jobInput>, payment: Payment): Promise<{ ok: true; id: string } | Fail> {
-  // Check before taking money: a wallet payment that's refused here stays unclaimed and can be retried.
-  if (activeRound()) return { ok: false, status: 409, error: "A round is already running. Try again when it finishes." };
   // For escrow deposits, the job is the one reserved in step 1, not whatever the request says now.
   if (payment.via === "escrow") {
     const draft = load().drafts[payment.jobId];

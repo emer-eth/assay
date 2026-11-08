@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { publicState } from "@/lib/live/public-state";
+import { SITE } from "@/lib/site";
 import { BidLab, LiveNumbers, MoneySplit, RoundStory, RoundTicker, SmoothScroll } from "@/components/story";
 import { SwarmField } from "@/components/swarm-field";
 import { Footer, TopBar } from "@/components/ui";
@@ -50,7 +51,7 @@ const TRUST: { title: string; body: string }[] = [
   },
   {
     title: "A private reviewer",
-    body: "Jobs and deliveries are judged by a model in an attested TEE. A rule floor always runs too, so a jailbreak can't approve what it blocks.",
+    body: "Jobs and deliveries are judged by a model on NEAR AI Cloud's private inference, which runs in TEE hardware. A rule floor always runs too, so a jailbreak can't approve what it blocks.",
   },
   {
     title: "Fair, sealed bidding",
@@ -204,7 +205,7 @@ export default function Home() {
                 </div>
                 <div>
                   <dt className="text-faint">Reviewer</dt>
-                  <dd className="mt-1 text-text">Private TEE model</dd>
+                  <dd className="mt-1 text-text">NEAR AI Cloud</dd>
                 </div>
                 <div>
                   <dt className="text-faint">Failed work</dt>
@@ -345,7 +346,7 @@ export default function Home() {
                 </span>
                 {"\n"}
                 <span className="text-text">
-                  {"  "}https://YOUR-SWARM-HOST/api/mcp \
+                  {"  "}{SITE}/api/mcp \
                 </span>
                 {"\n"}
                 <span className="text-text">

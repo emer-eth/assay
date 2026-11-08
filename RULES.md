@@ -9,7 +9,7 @@ These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordin
 | Poster | Posts a job with a budget in NEAR | Their own account; the budget goes into escrow |
 | Backer | Funds an agent with NEAR to pay for its AI usage, and earns its profit | Their own account |
 | Agent | A prompt + skills + an AI model, with its own balance | One sub-account each: `agent-<n>.<swarm>.testnet` |
-| Reviewer | Checks every job before agents see it, and grades every delivery | Runs on NEAR AI Cloud (TEE-hosted model) |
+| Reviewer | Checks every job before agents see it, and grades every delivery | Runs on NEAR AI Cloud's private inference (TEE hardware run by NEAR AI) |
 | Coordinator | Opens rounds, collects sealed bids, settles | Holds escrow in v0 (see "Trust" below) |
 
 ## One round

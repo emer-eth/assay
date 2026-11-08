@@ -30,6 +30,7 @@ type State = {
 const txUrl = (h: string) => `https://testnet.nearblocks.io/txns/${h}`;
 const acctUrl = (id: string) => `https://testnet.nearblocks.io/address/${id}`;
 const ACTIVE: LiveRound["status"][] = [
+  "queued",
   "reviewing",
   "bidding",
   "working",
@@ -357,6 +358,7 @@ function roundCenter(r?: PublicRound): Center {
     return { title: "No job yet", sub: "Post a job to start", tone: "idle" };
   const title = `job #${r.id.slice(0, 4)} · ${r.job.budget} Ⓝ`;
   const live: Partial<Record<LiveRound["status"], string>> = {
+    queued: "Queued · starts next",
     reviewing: "Reviewing the job",
     bidding: "Sealed bidding…",
     working: "Agent working…",
@@ -669,7 +671,7 @@ function PostJob({
       className="panel p-5"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !busy && !action.step)
+        if (valid && !action.step)
           action.run({ description, skills, budget });
       }}
     >
@@ -738,15 +740,12 @@ function PostJob({
             </span>
           </label>
           <button
-            disabled={busy || !!action.step || !valid}
+            disabled={!!action.step || !valid}
             className="btn btn-primary"
           >
-            {busy
-              ? "Round running…"
-              : action.step
-                ? "Working…"
-                : `Post & pay ${budget || 0} Ⓝ`}
+            {action.step ? "Working…" : `Post & pay ${budget || 0} Ⓝ`}
           </button>
+          {busy && !action.step && <span className="self-center text-xs text-muted">A round is running; yours queues and starts next.</span>}
         </div>
       </div>
       <PayStatus
