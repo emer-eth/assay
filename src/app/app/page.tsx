@@ -160,25 +160,29 @@ export default function Live() {
       </TopBar>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
-          <div>
+        <div className="relative mb-8 flex flex-wrap items-end justify-between gap-6 border-b border-line pb-8">
+          <div className="honeycomb pointer-events-none absolute inset-0 -top-8 [mask-image:radial-gradient(ellipse_45%_90%_at_85%_30%,#000_15%,transparent_70%)]" aria-hidden />
+          <div className="relative">
             <p className="eyebrow flex items-center gap-2">
               <span
                 className={`size-1.5 rounded-full ${running ? "live-dot bg-accent" : "bg-ok"}`}
               />
               {running ? "Round running" : "Market open"} · NEAR testnet
             </p>
-            <h1 className="headline mt-2 text-3xl text-text sm:text-4xl">
-              Live market
+            <h1 className="display mt-4 text-[44px] text-text sm:text-[64px]">
+              Live <span className="text-accent">market</span>
             </h1>
             <p className="mt-2 max-w-xl text-[15px] text-muted">
               Post a job and watch the swarm review it, bid, do the work and
               settle it on chain. You pay only for work that passes.
             </p>
           </div>
-          <Link href="/#mcp" className="text-sm text-muted hover:text-text">
-            Using an AI assistant? Connect over MCP →
-          </Link>
+          <div className="relative grid justify-items-start gap-4 sm:justify-items-end">
+            {state && <MarketSummary rounds={state.rounds} agents={state.agents.length} />}
+            <Link href="/#mcp" className="text-sm text-muted hover:text-text">
+              Using an AI assistant? Connect over MCP →
+            </Link>
+          </div>
         </div>
         {state && !state.configured && (
           <p className="panel mb-6 border-accent/40 p-4 text-sm">
@@ -241,9 +245,10 @@ export default function Live() {
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
-            <section className="panel p-5" aria-labelledby="hive-h">
+            <section className="panel relative overflow-hidden p-5" aria-labelledby="hive-h">
+              <div className="honeycomb pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_10%,transparent_75%)]" aria-hidden />
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="hive-h" className="eyebrow">
+                <h2 id="hive-h" className="headline text-[19px] text-text">
                   The swarm
                 </h2>
                 <span className="text-xs text-muted">
@@ -252,7 +257,7 @@ export default function Live() {
                     : "Post a job to wake it up"}
                 </span>
               </div>
-              <div className="mx-auto mt-2 max-w-2xl">
+              <div className="relative mx-auto mt-2 max-w-2xl">
                 <Hive
                   cells={cells}
                   center={roundCenter(round)}
@@ -669,7 +674,7 @@ function PostJob({
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="eyebrow">Post a job</h2>
+        <h2 className="headline text-[19px] text-text">Post a job</h2>
         <span className="text-xs text-faint">
           Your budget is held by the escrow contract. You only pay the winning
           bid.
@@ -754,6 +759,43 @@ function PostJob({
   );
 }
 
+/** An agent's hexagon, coloured by what it's doing in the selected round (the same colours as the swarm graph). */
+function AgentHex({ name, state }: { name: string; state: CellState }) {
+  const tone = state === "paid" ? "var(--ok)" : state === "failed" ? "var(--bad)" : state === "winner" || state === "thinking" ? "var(--accent)" : state === "bid" ? "color-mix(in srgb, var(--accent) 55%, transparent)" : "var(--line-strong)";
+  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <svg viewBox="0 0 40 44" className="size-10 shrink-0" aria-hidden>
+      <path d="M20 2 37 11.5v21L20 42 3 32.5v-21z" fill="var(--bg)" stroke={tone} strokeWidth="1.5" strokeLinejoin="round" />
+      <text x="20" y="26" textAnchor="middle" className="num" fontSize="11" fill={state === "idle" ? "var(--muted)" : tone}>
+        {initials}
+      </text>
+    </svg>
+  );
+}
+
+/** The market at a glance: rounds, how many passed, NEAR paid to agents. */
+function MarketSummary({ rounds, agents }: { rounds: PublicRound[]; agents: number }) {
+  const done = rounds.filter((r) => r.status === "done");
+  const passed = done.filter((r) => r.grade?.passed).length;
+  const paid = done.reduce((a, r) => a + (r.payout?.toAgent ?? 0), 0);
+  const cells = [
+    ["Agents", String(agents)],
+    ["Rounds", String(rounds.length)],
+    ["Passed", String(passed)],
+    ["Paid to agents", near(paid, 3)],
+  ];
+  return (
+    <dl className="flex overflow-hidden rounded-xl border border-line bg-panel/70 backdrop-blur">
+      {cells.map(([k, v]) => (
+        <div key={k} className="border-r border-line px-4 py-2.5 last:border-r-0">
+          <dt className="text-[10px] tracking-[0.08em] text-faint uppercase">{k}</dt>
+          <dd className="num mt-0.5 text-[15px] text-text">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function Agents({
   agents,
   round,
@@ -772,8 +814,8 @@ function Agents({
   return (
     <section className="panel p-5" aria-labelledby="agents-h">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="agents-h" className="eyebrow">
-          Agents <span className="num text-faint">{agents.length}</span>
+        <h2 id="agents-h" className="headline text-[19px] text-text">
+          Agents <span className="num text-sm font-normal text-faint">{agents.length}</span>
         </h2>
         <button
           className="btn btn-ghost !px-3 !py-1.5 text-xs"
@@ -797,44 +839,38 @@ function Agents({
         {agents.map((a) => {
           const st = cellState(a.id, round);
           return (
-            <li key={a.id} className="flex items-center gap-3 py-2.5">
-              <span
-                className={`size-2 shrink-0 rounded-full ${st === "paid" ? "bg-ok" : st === "failed" ? "bg-bad" : st === "winner" || st === "thinking" ? "bg-accent" : st === "bid" ? "bg-accent/50" : "bg-line-strong"}`}
-              />
+            <li key={a.id} className="flex items-center gap-4 py-3.5">
+              <AgentHex name={a.name} state={st} />
               <span className="min-w-0 flex-1">
-                <a
-                  href={acctUrl(a.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block truncate text-sm font-medium hover:text-accent"
-                >
-                  {a.name}
-                </a>
-                <span className="num block truncate text-[11px] text-faint">
-                  {a.backer === account ? (
-                    <span className="text-accent">yours</span>
-                  ) : (
-                    <>backed by {a.backer}</>
-                  )}
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                  <a href={acctUrl(a.id)} target="_blank" rel="noreferrer" className="truncate text-[15px] font-medium hover:text-accent">
+                    {a.name}
+                  </a>
+                  <span className="num text-[11px] text-faint">
+                    {a.backer === account ? <span className="text-accent">yours</span> : <>backed by {a.backer}</>}
+                  </span>
+                </span>
+                <span className="mt-1.5 flex flex-wrap gap-1">
+                  {a.skills.map((sk) => (
+                    <span key={sk} className="rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted">
+                      {SKILL_LABEL[sk]}
+                    </span>
+                  ))}
+                  <span className="px-1 py-0.5 text-[11px] text-faint">{AGENT_MODELS[a.model as AgentModel]?.label ?? "Qwen 3.6 35B"}</span>
                 </span>
               </span>
-              <span className="hidden text-right text-xs leading-tight text-muted sm:block">
-                {a.skills.map((s) => SKILL_LABEL[s]).join(" · ")}
-                <br />
-                <span className="text-faint">
-                  {AGENT_MODELS[a.model as AgentModel]?.label ?? "Qwen 3.6 35B"}
+              <span className="num w-32 shrink-0 text-right text-xs leading-tight">
+                <span className="flex items-center justify-end gap-2">
+                  <span className="h-1 w-12 overflow-hidden rounded-full bg-white/5" aria-hidden>
+                    <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round(a.quality * 100)}%` }} />
+                  </span>
+                  <span className="text-text">rep {a.quality.toFixed(2)}</span>
                 </span>
-              </span>
-              <span className="num w-28 shrink-0 text-right text-xs leading-tight">
-                <span className="text-text">rep {a.quality.toFixed(2)}</span>
-                <br />
-                <span className="text-muted">{near(a.balance, 3)}</span>
-                {a.earned > 0 && (
-                  <span className="text-ok"> +{a.earned.toFixed(3)}</span>
-                )}
-                {a.backer === account && a.earned > 0 && (
-                  <Withdraw agent={a} onDone={onAdded} />
-                )}
+                <span className="mt-1.5 block text-muted">
+                  {near(a.balance, 3)}
+                  {a.earned > 0 && <span className="text-ok"> +{a.earned.toFixed(3)}</span>}
+                </span>
+                {a.backer === account && a.earned > 0 && <Withdraw agent={a} onDone={onAdded} />}
               </span>
             </li>
           );
@@ -1409,9 +1445,9 @@ function UseFromAI({
   return (
     <section className="panel p-5" aria-labelledby="ai-h">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="ai-h" className="eyebrow">
+        <h2 id="ai-h" className="headline text-[19px] text-text">
           Use from your AI{" "}
-          <span className="text-faint normal-case tracking-normal">· MCP</span>
+          <span className="num text-sm font-normal text-faint">· MCP</span>
         </h2>
         <button
           className="btn btn-ghost !px-3 !py-1.5 text-xs"
