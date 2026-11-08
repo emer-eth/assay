@@ -150,7 +150,7 @@ export function wasmExports(wasm: Uint8Array): string[] {
 
 const near = (yocto: string) => (Number(BigInt(yocto) / 10n ** 20n) / 1e4).toLocaleString("en-US", { maximumFractionDigits: 4 });
 const date = (ns: string | number) => new Date(Number(BigInt(String(ns).split(".")[0]) / 1_000_000n)).toISOString().slice(0, 10);
-const ROLE_VIEW_RE = /^(get_)?(owner(_id)?|admins?|super_admins?|guardians?|operators?|managers?|dao(_id)?|governance|council|acl_get_super_admins|acl_get_admins)$/;
+const ROLE_VIEW_RE = /^(get_)?(owner(_id)?|admins?|super_admins?|guardians?|operators?|managers?|dao(_id)?|governance|council|acl_get_super_admins|acl_get_admins|config|settings|agents)$/;
 // withdraw/storage_withdraw are left out on purpose: on most contracts they're how users take their own funds out.
 const ADMIN_RE = /upgrade|migrate|deploy|set_code|update_contract|owner|admin|pause|guardian|manager|set_fee|modify_.*fee|blacklist|frozen|freeze|mint|force_|add_full_access_key|add_public_key|delete_key/i;
 
@@ -710,30 +710,53 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
 
 // ---------- the evidence an agent works from ----------
 
+type Source = Awaited<ReturnType<typeof repoSource>>;
+const sourceParts = (src: Source) => {
+  const scan = scanNear(src.files);
+  const code = src.files.map((f) => `=== ${f.path} ===\n${f.text.split("\n").map((l, i) => `${String(i + 1).padStart(4)}| ${l}`).join("\n")}`).join("\n\n");
+  return [
+    `SOURCE: ${src.label}. Files read: ${src.files.map((f) => f.path).join(", ") || "none"}${src.skipped ? ` (${src.skipped} more skipped to stay within budget)` : ""}`,
+    `STATIC SCAN (pattern matches to verify, not verdicts):\n${scan.map((s) => `- ${s}`).join("\n")}`,
+    `CODE (with line numbers):\n${code}`,
+  ];
+};
+const sourceSummary = (src: Source) => {
+  const n = scanNear(src.files).length;
+  return `Read ${src.files.length} file${src.files.length === 1 ? "" : "s"} from ${src.label}; the scan flagged ${n} pattern${n === 1 ? "" : "s"}`;
+};
+
 export type Evidence = { facts: string; summary: string[] };
 
 /** Runs the tools a job's skills call for. Returns null if the job needs no tools. */
 export async function gatherEvidence(job: Pick<Job, "description" | "skills">): Promise<Evidence | null> {
   const parts: string[] = [];
   const summary: string[] = [];
+  let sourceRead = false;
   if (job.skills.includes("due-diligence")) {
     for (const id of findAccounts(job.description)) {
       const r = await accountReport(id).catch((e) => ({ facts: `ACCOUNT ${id}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: `${id}: couldn't be read` }));
       parts.push(r.facts);
       summary.push(`Read ${r.summary}`);
+      // Due diligence on a contract needs its code: if the contract publishes a GitHub link (NEP-330), read that source too.
+      const link = r.facts.match(/Published source \(NEP-330\):[^\n]*?link (https:\/\/github\.com\/\S+?),/)?.[1];
+      if (link && !job.skills.includes("contract-review") && !sourceRead) {
+        try {
+          const src = await repoSource(link);
+          parts.push(...sourceParts(src));
+          summary.push(sourceSummary(src));
+          sourceRead = true;
+        } catch (e) {
+          parts.push(`SOURCE: the contract links ${link}, but it couldn't be read (${e instanceof Error ? e.message : e}). Is the repo public?`);
+          summary.push(`Couldn't read the linked source (${link.replace("https://", "")})`);
+        }
+      }
     }
   }
   if (job.skills.includes("contract-review")) {
     try {
       const src = await repoSource(job.description);
-      const scan = scanNear(src.files);
-      const code = src.files.map((f) => `=== ${f.path} ===\n${f.text.split("\n").map((l, i) => `${String(i + 1).padStart(4)}| ${l}`).join("\n")}`).join("\n\n");
-      parts.push(
-        `SOURCE: ${src.label}. Files read: ${src.files.map((f) => f.path).join(", ") || "none"}${src.skipped ? ` (${src.skipped} more skipped to stay within budget)` : ""}`,
-        `STATIC SCAN (pattern matches to verify, not verdicts):\n${scan.map((s) => `- ${s}`).join("\n")}`,
-        `CODE (with line numbers):\n${code}`,
-      );
-      summary.push(`Read ${src.files.length} file${src.files.length === 1 ? "" : "s"} from ${src.label}; the scan flagged ${scan.length} pattern${scan.length === 1 ? "" : "s"}`);
+      parts.push(...sourceParts(src));
+      summary.push(sourceSummary(src));
     } catch (e) {
       parts.push(`SOURCE: couldn't be fetched (${e instanceof Error ? e.message : e}).`);
       summary.push("Couldn't fetch the source");

@@ -63,7 +63,7 @@ export async function agentBid(agent: LiveAgent, job: Job, evidence: Evidence | 
         },
         { role: "user", content: `JOB (budget ${job.budget} NEAR, skills: ${job.skills.join(", ")}):\n"""${job.description}"""${evidence ? `\n\nWHAT THE TOOLS FOUND:\n${evidence.summary.join("\n")}` : ""}` },
       ],
-    });
+    }, { timeout: 30_000, maxRetries: 1 }); // a slow model misses the round instead of holding up every other bidder
     const parsed = bidSchema.parse(json(answer(res.choices[0]?.message?.content || "")));
     return { ask: parsed.ask, pitch: parsed.pitch, usage: usage(res.usage) };
   } catch {
