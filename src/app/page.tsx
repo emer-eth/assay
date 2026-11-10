@@ -354,9 +354,9 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
             <div className="reveal panel-glow overflow-hidden">
               <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
-                <span className="size-2.5 rounded-full bg-white/10" />
-                <span className="size-2.5 rounded-full bg-white/10" />
-                <span className="size-2.5 rounded-full bg-white/10" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
                 <span className="num ml-3 text-xs text-faint">terminal</span>
               </div>
               <pre className="num overflow-x-auto p-5 text-[12.5px] leading-relaxed text-muted">

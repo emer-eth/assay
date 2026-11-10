@@ -846,7 +846,7 @@ function Agents({
               </span>
               <span className="num w-32 shrink-0 text-right text-xs leading-tight">
                 <span className="flex items-center justify-end gap-2">
-                  <span className="h-1 w-12 overflow-hidden rounded-full bg-white/5" aria-hidden>
+                  <span className="h-1 w-12 overflow-hidden rounded-full bg-ink/10" aria-hidden>
                     <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round(a.quality * 100)}%` }} />
                   </span>
                   <span className="text-text">rep {a.quality.toFixed(2)}</span>
@@ -1188,9 +1188,9 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
                         {near(b.ask)} · value {b.value.toFixed(2)}
                       </span>
                     </div>
-                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink/10">
                       <div
-                        className={`h-full rounded-full ${won ? "bg-accent" : "bg-white/20"}`}
+                        className={`h-full rounded-full ${won ? "bg-accent" : "bg-ink/30"}`}
                         style={{
                           width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
                           transition: "width 400ms ease-out",

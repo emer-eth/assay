@@ -171,7 +171,7 @@ export default function Home() {
                       <button
                         onClick={() => setPick(i)}
                         aria-current={i === pick ? "true" : undefined}
-                        className={`flex w-full items-start gap-3 px-5 py-2.5 text-left ${i === pick ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
+                        className={`flex w-full items-start gap-3 px-5 py-2.5 text-left ${i === pick ? "bg-tint" : "hover:bg-tint/60"}`}
                       >
                         <span className="num w-14 shrink-0 pt-0.5 text-xs text-faint">
                           {r.job.id}
@@ -260,9 +260,9 @@ function SimRound({ r }: { r: RoundResult }) {
                           {near(b.ask)} · {b.value.toFixed(2)}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink/10">
                         <div
-                          className={`h-full rounded-full ${won ? "bg-accent" : "bg-white/20"}`}
+                          className={`h-full rounded-full ${won ? "bg-accent" : "bg-ink/30"}`}
                           style={{
                             width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
                           }}

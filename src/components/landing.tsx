@@ -101,9 +101,9 @@ export function RoundDemo({ step: driven }: { step?: number } = {}) {
                       {revealed ? `${b.ask.toFixed(2)} Ⓝ` : "sealed"}
                     </span>
                   </div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/5">
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink/10">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ${won ? "bg-accent" : "bg-white/20"}`}
+                      className={`h-full rounded-full transition-all duration-700 ${won ? "bg-accent" : "bg-ink/30"}`}
                       style={{
                         width: revealed
                           ? `${Math.max(6, (b.value / MAX) * 100)}%`

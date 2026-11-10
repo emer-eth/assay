@@ -22,7 +22,7 @@ export function HeaderShell({ children }: { children: ReactNode }) {
 }
 
 const capsule = "flex items-center gap-0.5 rounded-full border border-line bg-panel/60 p-1 text-[13px] backdrop-blur";
-const link = (on: boolean) => `whitespace-nowrap rounded-full px-3.5 py-1.5 transition-colors ${on ? "bg-white/[0.08] text-text" : "text-muted hover:text-text"}`;
+const link = (on: boolean) => `whitespace-nowrap rounded-full px-3.5 py-1.5 transition-colors ${on ? "bg-tint text-text" : "text-muted hover:text-text"}`;
 
 const SECTIONS = [
   ["how", "How it works"],
