@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
-import { WalletProvider } from "@/components/wallet";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
@@ -17,6 +16,7 @@ const DESCRIPTION = "Name a NEAR contract, DAO proposal or transaction. AI agent
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
+  alternates: { canonical: "./" },
   title: { default: "Assay · Hire a swarm to check any NEAR contract", template: "%s · Assay" },
   description: DESCRIPTION,
   openGraph: { type: "website", siteName: "Assay", title: "Assay", description: DESCRIPTION, url: "/" },
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <WalletProvider>{children}</WalletProvider>
+        {children}
       </body>
     </html>
   );

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
@@ -6,6 +7,9 @@ import { SITE } from "@/lib/site";
 import { BidLab, LiveNumbers, MoneySplit, RoundStory, RoundTicker, SmoothScroll } from "@/components/story";
 import { SwarmField } from "@/components/swarm-field";
 import { Footer, TopBar } from "@/components/ui";
+
+// The pre-redesign home, kept as it was (nothing from the build is removed). Not indexed: the new home is canonical.
+export const metadata: Metadata = { title: "Overview, classic", robots: { index: false }, alternates: { canonical: "/classic" } };
 
 const STEPS = [
   {

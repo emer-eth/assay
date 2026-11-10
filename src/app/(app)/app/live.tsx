@@ -113,7 +113,7 @@ export function Live({ initial }: { initial: State | null }) {
       ? "● Your job is running · Assay"
       : notice
         ? "✓ Job finished · Assay"
-        : "Assay";
+        : "Live market · Assay"; // never the bare site name (build spec)
   }, [state, notice]);
 
   const round = useMemo(
