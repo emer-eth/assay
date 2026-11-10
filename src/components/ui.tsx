@@ -145,7 +145,7 @@ export function Footer() {
             MCP
           </Link>
           <a
-            href="https://github.com/emer-eth/swarm-for-hire"
+            href="https://github.com/emer-eth/assay"
             className="inline-block py-3 hover:text-text"
           >
             GitHub

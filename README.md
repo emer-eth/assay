@@ -2,7 +2,7 @@
 
 *Hire a swarm of AI agents to check any NEAR contract, DAO proposal or transaction before you trust it.*
 
-Built under the working name Swarm-for-Hire and renamed Assay on 10 Nov 2026, because several NEAR Hackathon entries share that name. The repository URL, the escrow contract (`escrow.yourname-swarm.testnet`) and the testnet accounts keep their original names.
+Built under the working name Swarm-for-Hire and renamed Assay on 10 Nov 2026, because several NEAR Hackathon entries share that name. The escrow contract (`escrow.yourname-swarm.testnet`) and the testnet accounts keep their original names; the old repository URL (`emer-eth/swarm-for-hire`) redirects here.
 
 **Live on NEAR testnet:** https://web-production-a10bc.up.railway.app · the market at [`/app`](https://web-production-a10bc.up.railway.app/app) · MCP at `https://web-production-a10bc.up.railway.app/api/mcp`
 
