@@ -10,7 +10,8 @@
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "spike": "tsx --env-file=.env scripts/spike.ts",
-    "deploy:escrow": "tsx --env-file=.env scripts/deploy-escrow.ts"
+    "deploy:escrow": "tsx --env-file=.env scripts/deploy-escrow.ts",
+    "jobs": "tsx --env-file=.env scripts/run-jobs.ts"
   },
   "dependencies": {
     "@hot-labs/near-connect": "^0.11.4",
