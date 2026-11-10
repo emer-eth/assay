@@ -59,9 +59,13 @@ const gradeSchema = z.object({ passed: z.boolean(), reasons: z.array(z.string())
 export async function gradeDelivery(job: string, deliverable: string, evidence?: string): Promise<{ passed: boolean; reasons: string[]; unavailable?: boolean }> {
   if (!deliverable.trim()) return { passed: false, reasons: ["Nothing was delivered."] };
   try {
-    const res = await nearAI().chat.completions.create({
+    // Streamed: on code the reviewer can think for ~12k tokens (about 4 minutes, measured 2026-11-10), and a
+    // streamed reply keeps the connection busy instead of idling into a dropped request. Full effort stays on:
+    // "low" was faster but passed a fix that left donations stuck, which the full grade caught.
+    const stream = await nearAI().chat.completions.create({
       model: models.reviewer,
       temperature: 0,
+      stream: true,
       messages: [
         {
           role: "system",
@@ -70,8 +74,9 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
         },
         { role: "user", content: `JOB:\n"""${job.slice(0, 4000)}"""${evidence ? `\n\nEVIDENCE:\n"""${evidence.slice(0, 50000)}"""` : ""}\n\nDELIVERY:\n"""${deliverable.slice(0, 12000)}"""` },
       ],
-    }, { timeout: 150_000, maxRetries: 1 }); // NEAR AI took 15–77 s for one grade, and over 180 s under load (2026-11-10): a long try plus one retry, then it fails closed
-    const text = res.choices[0]?.message?.content || "";
+    }, { timeout: 420_000, maxRetries: 0, signal: AbortSignal.timeout(420_000) }); // one long try (7 minutes, including the stream), then it fails closed
+    let text = "";
+    for await (const chunk of stream) text += chunk.choices[0]?.delta?.content ?? "";
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
   } catch (e) {
     const err = e as { status?: number; name?: string; message?: string };
