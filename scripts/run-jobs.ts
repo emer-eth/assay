@@ -1,6 +1,6 @@
 // Runs a fixed batch of real jobs against the live market over MCP, one skill at a time, so the
 // public track record shows every skill working (or failing honestly). Reads ASSAY_KEY from .env;
-// the key is never printed. Usage: npm run jobs [-- --dry] [-- --only=tx-forensics]
+// the key is never printed. Usage: npm run jobs [-- --dry] [-- --only=tx-forensics] [-- --jobs=2,3,10]
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -30,7 +30,9 @@ const JOBS: { skill: string; description: string }[] = [
 const args = process.argv.slice(2);
 const dry = args.includes("--dry");
 const only = args.find((a) => a.startsWith("--only="))?.slice(7);
-const jobs = JOBS.filter((j) => !only || j.skill === only);
+// --jobs=2,3,10 reruns just those (numbered as in the list above, from 1)
+const picked = args.find((a) => a.startsWith("--jobs="))?.slice(7).split(",").map(Number);
+const jobs = JOBS.filter((j, i) => (!only || j.skill === only) && (!picked || picked.includes(i + 1)));
 
 type Out = { content?: { type: string; text?: string }[]; isError?: boolean };
 const text = (r: Out) => r.content?.map((c) => c.text ?? "").join("\n") ?? "";
