@@ -13,6 +13,7 @@ import { near, SkillPicker, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
+import { refetchMarket, useMarket } from "@/lib/market";
 import { SKILL_LABEL, type Skill } from "@/lib/swarm/types";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 
@@ -51,18 +52,16 @@ function cellState(agentId: string, r?: LiveRound): CellState {
 }
 
 export function Live({ initial }: { initial: State | null }) {
-  const [state, setState] = useState<State | null>(initial);
+  // One live view per tab, pushed over the event stream (lib/market.ts) instead of polling every 1.2 s.
+  const state = useMarket((s) => s, initial) as State | null;
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState("");
 
+  // After an action (posting, backing an agent) fetch the snapshot at once rather than wait for its events.
   const refresh = useCallback(async () => {
     try {
-      setState(
-        (await (
-          await fetch("/api/live/state", { cache: "no-store" })
-        ).json()) as State,
-      );
+      await refetchMarket();
     } catch {
       setError("Can't reach the coordinator. Is the server running?");
     }
@@ -73,12 +72,7 @@ export function Live({ initial }: { initial: State | null }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setKey(localStorage.getItem("swarm-live-key") || "");
     } catch {}
-    refresh();
-  }, [refresh]);
-  useEffect(() => {
-    const t = setInterval(refresh, state?.busy ? 1200 : 6000);
-    return () => clearInterval(t);
-  }, [refresh, state?.busy]);
+  }, []);
 
   // Tell posters when their job finishes, even if they're looking at another round; show progress in the tab title.
   const [notice, setNotice] = useState<{

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMarket } from "@/lib/market";
 import { useEffect, useState, type ReactNode } from "react";
 
 // The header's moving parts: it floats clear at the top and turns solid once you scroll, a capsule
@@ -87,21 +88,10 @@ export function PageNav({ mode, compact = false }: { mode: string; compact?: boo
 
 /** Whether the market is working right now, from the live coordinator. */
 export function MarketPill() {
-  const [s, setS] = useState<{ agents: number; busy: boolean } | null>(null);
-  useEffect(() => {
-    let stop = false;
-    const get = () =>
-      fetch("/api/live/state", { cache: "no-store" })
-        .then((r) => r.json())
-        .then((d) => !stop && setS({ agents: d.agents?.length ?? 0, busy: !!d.busy }))
-        .catch(() => {});
-    get();
-    const t = setInterval(get, 20_000);
-    return () => {
-      stop = true;
-      clearInterval(t);
-    };
-  }, []);
+  // Live from the shared market store (one event stream per tab) instead of its own 20 s poll.
+  const agents = useMarket((m) => m?.agents.length ?? null);
+  const busy = useMarket((m) => m?.busy ?? false);
+  const s = agents === null ? null : { agents, busy };
   return (
     <Link href="/app" className="group hidden items-center gap-2 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-text sm:flex lg:hidden xl:flex">
       <span className={`size-1.5 rounded-full ${s?.busy ? "live-dot bg-accent" : "bg-ok"}`} />

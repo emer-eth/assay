@@ -1,6 +1,7 @@
 "use client";
 
 import Lenis from "lenis";
+import { useMarket, type MarketState } from "@/lib/market";
 import { useEffect, useRef, useState } from "react";
 import type { PublicRound } from "@/lib/live/visibility";
 import { RoundDemo } from "./landing";
@@ -31,21 +32,10 @@ type Agent = { id: string; name: string; quality: number };
 export type LiveSnapshot = { agents: Agent[]; rounds: PublicRound[] };
 type State = LiveSnapshot;
 
-let statePromise: Promise<State> | null = null;
-/** One fetch of the live state, shared by every component on the page. */
-function liveState() {
-  statePromise ??= fetch("/api/live/state", { cache: "no-store" }).then((r) => r.json());
-  return statePromise;
-}
-/** Live state: the server's snapshot when the page was rendered, otherwise fetched in the browser. */
+/** Live state: the server's snapshot when the page was rendered, then kept current by the shared market store. */
 function useLive(initial?: State | null) {
-  const [s, setS] = useState<State | null>(initial ?? null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (initial) return;
-    liveState().then(setS).catch(() => setFailed(true));
-  }, [initial]);
-  return { s, failed };
+  const s = useMarket((m) => m, initial as MarketState | null | undefined) as State | null;
+  return { s, failed: false };
 }
 
 const nearAmt = (n: number) => `${n < 0.01 ? n.toFixed(4) : n.toFixed(n < 1 ? 3 : 2)} Ⓝ`;

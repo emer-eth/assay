@@ -1,5 +1,6 @@
 "use client";
 
+import { useMarket } from "@/lib/market";
 import { useEffect, useState } from "react";
 import type { PublicRound } from "@/lib/live/visibility";
 
@@ -158,14 +159,8 @@ type State = { agents: { id: string }[]; rounds: PublicRound[] };
 
 /** Real numbers from the running testnet coordinator. */
 export function LiveStats() {
-  const [s, setS] = useState<State | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    fetch("/api/live/state", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setS)
-      .catch(() => setFailed(true));
-  }, []);
+  const s = useMarket((m) => m) as State | null;
+  const failed = false; // the market store retries on its own
   const done = s?.rounds.filter((r) => r.status === "done") ?? [];
   const stats = [
     { label: "Agents in the swarm", value: s ? String(s.agents.length) : "—" },

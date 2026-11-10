@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMarket } from "@/lib/market";
 
 // The hero's signature: the swarm itself. Agents orbit a job; each cycle they send sealed bids,
 // the best value wins, works, passes review and gets paid. Names are the real agents on testnet.
@@ -33,19 +34,13 @@ const seg = (t: number, a: number, b: number) => Math.max(0, Math.min(1, (t - a)
 
 export function SwarmField({ className = "" }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [names, setNames] = useState<string[]>(FALLBACK);
+  const agents = useMarket((m) => m?.agents);
+  const names = useMemo(() => {
+    const list = (agents ?? []).map((a) => a.name).filter(Boolean);
+    return list.length >= 3 ? list.slice(0, 8) : FALLBACK;
+  }, [agents]);
   const [phase, setPhase] = useState(0);
   const [winner, setWinner] = useState(FALLBACK[0]);
-
-  useEffect(() => {
-    fetch("/api/live/state", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((s: { agents?: { name: string }[] }) => {
-        const list = (s.agents ?? []).map((a) => a.name).filter(Boolean);
-        if (list.length >= 3) setNames(list.slice(0, 8));
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const canvas = ref.current!;
