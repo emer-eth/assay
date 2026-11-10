@@ -56,8 +56,12 @@ export async function reviewJob(description: string): Promise<Verdict> {
 const gradeSchema = z.object({ passed: z.boolean(), reasons: z.array(z.string()).default([]) });
 
 /** Grades a delivery against its job. Fails closed: if the grader errors, the work doesn't pass and the poster is refunded. */
-export async function gradeDelivery(job: string, deliverable: string, evidence?: string): Promise<{ passed: boolean; reasons: string[]; unavailable?: boolean }> {
+/** Code reviews get 10 minutes: the reviewer traces the code at full effort (decided 2026-11-10: slow and right over fast and lenient). */
+export const GRADE_TIMEOUT_MS = { code: 600_000, other: 420_000 };
+
+export async function gradeDelivery(job: string, deliverable: string, evidence?: string, opts: { code?: boolean } = {}): Promise<{ passed: boolean; reasons: string[]; unavailable?: boolean }> {
   if (!deliverable.trim()) return { passed: false, reasons: ["Nothing was delivered."] };
+  const limit = opts.code ? GRADE_TIMEOUT_MS.code : GRADE_TIMEOUT_MS.other;
   try {
     // Streamed: on code the reviewer can think for ~12k tokens (about 4 minutes, measured 2026-11-10), and a
     // streamed reply keeps the connection busy instead of idling into a dropped request. Full effort stays on:
@@ -74,7 +78,7 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
         },
         { role: "user", content: `JOB:\n"""${job.slice(0, 4000)}"""${evidence ? `\n\nEVIDENCE:\n"""${evidence.slice(0, 50000)}"""` : ""}\n\nDELIVERY:\n"""${deliverable.slice(0, 12000)}"""` },
       ],
-    }, { timeout: 420_000, maxRetries: 0, signal: AbortSignal.timeout(420_000) }); // one long try (7 minutes, including the stream), then it fails closed
+    }, { timeout: limit, maxRetries: 0, signal: AbortSignal.timeout(limit) }); // one long try (including the stream), then it fails closed
     let text = "";
     for await (const chunk of stream) text += chunk.choices[0]?.delta?.content ?? "";
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));

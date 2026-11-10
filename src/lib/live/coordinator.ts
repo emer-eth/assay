@@ -167,7 +167,7 @@ export async function runLiveRound(id: string) {
 
     // 5. Delivery review
     updateRound(id, { status: "grading" }, "Reviewer is grading the work");
-    const grade = await gradeDelivery(job.description, work.text, evidence?.facts);
+    const grade = await gradeDelivery(job.description, work.text, evidence?.facts, { code: job.skills.includes("contract-review") });
 
     // 6. Settlement
     updateRound(id, { grade, status: "settling" }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);
