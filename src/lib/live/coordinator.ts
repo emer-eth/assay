@@ -194,7 +194,10 @@ export async function runLiveRound(id: string) {
     update((st) => {
       const a = st.agents.find((x) => x.id === winner.id);
       if (a) {
-        if (!grade.unavailable) a.quality = s.quality;
+        if (!grade.unavailable) {
+          a.quality = s.quality;
+          if (s.skillQuality) a.skillQuality = s.skillQuality;
+        }
         a.earned = Math.round((a.earned + s.payout.toBacker) * 1e6) / 1e6;
       }
     });

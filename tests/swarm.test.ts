@@ -73,3 +73,35 @@ test("quality counts more than price: a reliable agent beats a cheap unreliable 
   const { winner } = decide(job, agents, new Map([["cheap", 0.5], ["solid", 1.2]]));
   assert.equal(winner?.agent, "solid"); // 0.64/1.2 = 0.53 beats 0.09/0.5 = 0.18
 });
+
+test("reputation is per skill: passing one skill doesn't win jobs in another the agent keeps failing", async () => {
+  const { decide, jobQuality } = await import("../src/lib/swarm/round");
+  const review: Job = { ...job, skills: ["contract-review"], budget: 0.3 };
+  // The live market on 2026-11-10: a cheap agent strong at tx-forensics but 0 for 4 at code review (0.2048),
+  // asking 0.01 NEAR, against a stronger agent with no code-review record yet asking 0.12.
+  const cheap = agent({ id: "cheap", skills: ["contract-review", "tx-forensics"], quality: 0.58, skillQuality: { "tx-forensics": 0.8, "contract-review": 0.2048 } });
+  const strong = agent({ id: "strong", skills: ["contract-review"], quality: 0.5, skillQuality: {}, joinedAt: 1 });
+  assert.equal(jobQuality(strong, review), 0.5); // no record yet: starts at the default
+  const { winner } = decide(review, [cheap, strong], new Map([["cheap", 0.01], ["strong", 0.12]]));
+  assert.equal(winner?.agent, "strong");
+  // On its strong skill the cheap agent still wins on price.
+  const forensics: Job = { ...review, skills: ["tx-forensics"] };
+  const strong2 = { ...strong, skills: ["tx-forensics" as const] };
+  assert.equal(decide(forensics, [cheap, strong2], new Map([["cheap", 0.01], ["strong", 0.1]])).winner?.agent, "cheap");
+});
+
+test("per-skill reputation rebuilds from the ledger and settles only the job's skills", async () => {
+  const { skillQualityFrom, settle } = await import("../src/lib/swarm/round");
+  const r = (at: string, skill: "contract-review" | "tx-forensics", passed: boolean, extra: object = {}) =>
+    ({ winner: "a", status: "done", createdAt: at, job: { skills: [skill] }, grade: { passed, ...extra } });
+  const rounds = [
+    r("2026-11-10T03", "contract-review", false), r("2026-11-10T01", "tx-forensics", true),
+    r("2026-11-10T02", "contract-review", false, { unavailable: true }), // the reviewer was down: doesn't count
+    { ...r("2026-11-10T04", "tx-forensics", true), winner: "someone-else" },
+  ];
+  const q = skillQualityFrom(rounds, "a", ["contract-review", "tx-forensics"]);
+  assert.deepEqual(q, { "tx-forensics": 0.6, "contract-review": 0.4 });
+  const s = settle({ ...job, skills: ["contract-review"] }, agent({ skillQuality: q }), 0.1, { passed: true, aiCost: 0 });
+  assert.equal(s.skillQuality?.["tx-forensics"], q["tx-forensics"]);
+  assert.equal(s.skillQuality?.["contract-review"], Math.round(nextQuality(q["contract-review"]!, true) * 1e4) / 1e4);
+});

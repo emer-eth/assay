@@ -2,6 +2,7 @@ import "server-only";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR, KEYS_DIR } from "../paths";
+import { skillQualityFrom } from "../swarm/round";
 import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from "../swarm/types";
 
 // Local state for the live coordinator: a JSON file in data/ (git-ignored). One Node process,
@@ -88,6 +89,8 @@ export function load(): State {
     a.skills = a.skills.filter((s) => ALL_SKILLS.includes(s));
     if (!a.skills.length) a.skills = [...ALL_SKILLS];
   }
+  // Per-skill reputation arrived after the market opened: rebuild it once from the ledger for agents that lack it.
+  for (const a of state.agents) a.skillQuality ??= skillQualityFrom(state.rounds, a.id, ALL_SKILLS);
   // One entry per account, whatever happened before: the last write for an id wins.
   state.agents = state.agents.filter((a, i, all) => all.findLastIndex((x) => x.id === a.id) === i);
   return state;

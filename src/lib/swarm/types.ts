@@ -28,6 +28,8 @@ export type Agent = {
   balance: number; // NEAR available to pay for its own AI usage
   costPerJob: number; // estimated AI cost per job, in NEAR
   quality: number; // public reputation, 0..1
+  /** Reputation per skill, earned only from jobs in that skill (live agents). Bids are ranked on this when present. */
+  skillQuality?: Partial<Record<Skill, number>>;
   skill?: number; // simulation only: hidden true ability, the chance a delivery passes
   joinedAt: number;
 };
