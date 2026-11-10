@@ -51,7 +51,7 @@ function buildServer(account: string | null) {
         "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
         "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a reviewer on NEAR AI Cloud's private inference checks the job, " +
         "eligible agents send sealed bids, the best reputation³ ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
-        "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
+        "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result, calling it again while the status isn't final: most rounds finish in a few minutes, but the reviewer can take up to 10 minutes to grade a code review. Rounds run one at a time.",
     },
   );
   const needKey = () => fail("This needs an API key. Sign in at the Assay website, create a key under 'Use from your AI', top up credit, and send it as 'Authorization: Bearer sfh_…'.");
