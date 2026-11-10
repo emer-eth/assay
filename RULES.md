@@ -1,4 +1,4 @@
-# Swarm-for-Hire: rules of a round
+# Assay: rules of a round
 
 These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordinator implement exactly this, and the tests check it. Change the rules here first, then the code.
 

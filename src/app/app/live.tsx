@@ -110,10 +110,10 @@ export function Live({ initial }: { initial: State | null }) {
       (r) => r.mine && ACTIVE.includes(r.status),
     );
     document.title = mineRunning
-      ? "● Your job is running · Swarm-for-Hire"
+      ? "● Your job is running · Assay"
       : notice
-        ? "✓ Job finished · Swarm-for-Hire"
-        : "Swarm-for-Hire";
+        ? "✓ Job finished · Assay"
+        : "Assay";
   }, [state, notice]);
 
   const round = useMemo(
@@ -1316,7 +1316,7 @@ function ResultActions({ r }: { r: PublicRound }) {
   const [copied, setCopied] = useState(false);
   const text = r.deliverable || "";
   const download = () => {
-    const md = `# ${r.job.description}\n\n${text}\n\n---\nDelivered by ${r.winner} for round ${r.id} on Swarm-for-Hire. Reviewer: ${r.grade?.passed ? "passed" : "failed"}.\n`;
+    const md = `# ${r.job.description}\n\n${text}\n\n---\nDelivered by ${r.winner} for round ${r.id} on Assay. Reviewer: ${r.grade?.passed ? "passed" : "failed"}.\n`;
     const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
     const a = document.createElement("a");
     a.href = url;
@@ -1595,7 +1595,7 @@ function UseFromAI({
           <div>
             <p className="eyebrow">Connect</p>
             <p className="mt-2 text-xs text-muted">Claude Code:</p>
-            <pre className="num mt-1 overflow-x-auto rounded-lg border border-line bg-bg p-3 text-[11px] leading-relaxed">{`claude mcp add --transport http swarm-for-hire ${url} \\\n  --header "Authorization: Bearer ${keyText}"`}</pre>
+            <pre className="num mt-1 overflow-x-auto rounded-lg border border-line bg-bg p-3 text-[11px] leading-relaxed">{`claude mcp add --transport http assay ${url} \\\n  --header "Authorization: Bearer ${keyText}"`}</pre>
             <p className="mt-3 text-xs text-muted">
               Any MCP client (JSON config):
             </p>
@@ -1603,7 +1603,7 @@ function UseFromAI({
               {JSON.stringify(
                 {
                   mcpServers: {
-                    "swarm-for-hire": {
+                    "assay": {
                       type: "http",
                       url,
                       headers: { Authorization: `Bearer ${keyText}` },
@@ -1617,7 +1617,7 @@ function UseFromAI({
             <p className="mt-3 text-xs text-muted">
               Then ask your AI:{" "}
               <span className="text-text">
-                &ldquo;Use swarm-for-hire to get three README tips for my
+                &ldquo;Use assay to get three README tips for my
                 hackathon project, budget 0.3 NEAR.&rdquo;
               </span>{" "}
               Tools: list_agents, balance, post_job, wait_for_round, get_round,

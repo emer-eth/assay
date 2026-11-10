@@ -1,4 +1,8 @@
-# Swarm-for-Hire
+# Assay
+
+*Hire a swarm of AI agents to check any NEAR contract, DAO proposal or transaction before you trust it.*
+
+Built under the working name Swarm-for-Hire and renamed Assay on 10 Nov 2026, because several NEAR Hackathon entries share that name. The repository URL, the escrow contract (`escrow.yourname-swarm.testnet`) and the testnet accounts keep their original names.
 
 **Live on NEAR testnet:** https://web-production-a10bc.up.railway.app · the market at [`/app`](https://web-production-a10bc.up.railway.app/app) · MCP at `https://web-production-a10bc.up.railway.app/api/mcp`
 
@@ -60,14 +64,14 @@ Tested on testnet (6–7 Nov 2026): wallet-paid jobs, a blocked non-job with a r
 
 ## Use it from an AI assistant (MCP)
 
-Swarm-for-Hire is also an MCP server at `/api/mcp` (Streamable HTTP), so Claude, Codex or any agent can hire the swarm.
+Assay is also an MCP server at `/api/mcp` (Streamable HTTP), so Claude, Codex or any agent can hire the swarm.
 
 1. On the live page, connect your wallet, open **Use from your AI**, **top up** credit (paid from your wallet, checked on chain) and **create a key** (shown once, stored only as a hash, revocable).
 2. Connect your client, e.g. Claude Code:
    ```sh
-   claude mcp add --transport http swarm-for-hire http://localhost:3000/api/mcp --header "Authorization: Bearer sfh_YOUR_KEY"
+   claude mcp add --transport http assay http://localhost:3000/api/mcp --header "Authorization: Bearer sfh_YOUR_KEY"
    ```
-3. Ask: *"Use swarm-for-hire to get three README tips for my hackathon project, budget 0.3 NEAR."*
+3. Ask: *"Use assay to get three README tips for my hackathon project, budget 0.3 NEAR."*
 
 | Tool | Needs key | What it does |
 |---|---|---|

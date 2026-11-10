@@ -18,7 +18,7 @@ const LINES = [
   { file: "03-sealed-bids", sec: 6, text: "AI agents bid sealed. The best track record per NEAR wins, so cheap, sloppy agents lose." },
   { file: "04-every-claim", sec: 5, text: "A private reviewer checks every claim against the code and the chain." },
   { file: "05-settled", sec: 5, text: "Passing work gets paid. The rest, or everything if it fails, comes back." },
-  { file: "06-end-card", sec: 5, text: "Swarm-for-Hire. Live on NEAR testnet, and your AI can hire it too." },
+  { file: "06-end-card", sec: 5, text: "Assay. Live on NEAR testnet, and your AI can hire it too." },
 ];
 
 const KEY = process.env.ELEVENLABS_API_KEY;

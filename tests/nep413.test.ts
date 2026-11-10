@@ -5,7 +5,7 @@ import { KeyPair, KeyPairSigner } from "near-api-js";
 import { verifyNep413 } from "../src/lib/auth/nep413";
 
 // Checks our NEP-413 verification against near-api-js's own NEP-413 signer, so it matches what wallets do.
-async function signed(message = "Sign in to Swarm-for-Hire", recipient = "swarm-for-hire") {
+async function signed(message = "Sign in to Assay", recipient = "assay") {
   const kp = KeyPair.fromRandom("ed25519");
   const nonce = new Uint8Array(randomBytes(32));
   const s = await new KeyPairSigner(kp).signNep413Message("alice.testnet", { message, recipient, nonce });

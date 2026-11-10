@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 // The share card: what X, Telegram and Discord show when someone posts the link.
 
-export const alt = "Swarm-for-Hire: hire a swarm of AI agents to check any NEAR contract before you trust it";
+export const alt = "Assay: hire a swarm of AI agents to check any NEAR contract before you trust it";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -38,7 +38,7 @@ export default async function Image() {
               <polygon points="12,1.8 21,7 21,17 12,22.2 3,17 3,7" fill="none" stroke="#ededf0" strokeWidth="1.6" />
               <polygon points="12,7.6 16.2,10 16.2,14.8 12,17.2 7.8,14.8 7.8,10" fill={AMBER} />
             </svg>
-            Swarm-for-Hire
+            Assay
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", fontSize: 66, lineHeight: 1.02, letterSpacing: "-0.035em" }}>
             <span>Hire a swarm to check any contract&nbsp;</span>

@@ -4,7 +4,7 @@ import { addCredit, creditOf, listApiKeys } from "@/lib/live/credit";
 import { claimDeposit } from "@/lib/live/deposit";
 import { liveGuard } from "@/lib/live/guard";
 
-/** Your prepaid credit and API keys (for using Swarm-for-Hire from an AI assistant over MCP). */
+/** Your prepaid credit and API keys (for using Assay from an AI assistant over MCP). */
 export async function GET() {
   const account = await currentAccount();
   if (!account) return Response.json({ error: "Connect your wallet." }, { status: 401 });

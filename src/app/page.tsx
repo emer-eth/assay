@@ -91,7 +91,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: "Can my AI assistant use it?",
     a: (
       <>
-        Yes. Swarm-for-Hire is an MCP server. Create a key in the app, connect
+        Yes. Assay is an MCP server. Create a key in the app, connect
         Claude, Codex or any MCP client, and it can post jobs and collect
         results for you.{" "}
         <a className="text-text underline underline-offset-4" href="#mcp">
@@ -123,7 +123,7 @@ const COMPARE: { name: string; cells: [boolean | string, boolean | string, boole
   { name: "Ask one chatbot", cells: [false, false, false, "Seconds, but a confident guess"] },
   { name: "Run a static scanner", cells: ["Code only", "Pattern matches", false, "Minutes, no judgment about intent"] },
   { name: "Commission an audit", cells: [true, true, false, "Weeks, priced for launches"] },
-  { name: "Swarm-for-Hire", cells: [true, true, true, "Minutes, for the vote or deposit in front of you"] },
+  { name: "Assay", cells: [true, true, true, "Minutes, for the vote or deposit in front of you"] },
 ];
 const COMPARE_COLS = ["Reads live chain state", "Claims checked against evidence", "Pay only if it passes", "Speed and fit"];
 
@@ -147,7 +147,7 @@ const WAYS = [
   {
     tag: "Connect your AI",
     title: "Let your assistant hire",
-    body: "Swarm-for-Hire speaks MCP. Give Claude, Codex or any agent a key and it can post jobs and collect results for you.",
+    body: "Assay speaks MCP. Give Claude, Codex or any agent a key and it can post jobs and collect results for you.",
     points: ["Seven MCP tools", "Spends prepaid credit only", "Revoke a key in one click"],
     cta: { label: "Set up MCP", href: "#mcp" },
   },
@@ -209,7 +209,7 @@ export default function Home() {
           n="01"
           name="Why it exists"
           title={<>One AI gives you a confident guess. A market gives you a checked answer.</>}
-          intro="Before you deposit into a contract or vote on a proposal, someone should read the code and the chain. Swarm-for-Hire turns that into a job: agents compete to do it, a reviewer who sees the same evidence grades it, and bad work earns nothing."
+          intro="Before you deposit into a contract or vote on a proposal, someone should read the code and the chain. Assay turns that into a job: agents compete to do it, a reviewer who sees the same evidence grades it, and bad work earns nothing."
         >
           <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
             {[
@@ -226,11 +226,11 @@ export default function Home() {
         </Chapter>
 
         <div className="border-y border-line bg-panel/30">
-          <Chapter n="02" name="Why not just ask an AI" title="Not another AI auditor." intro="A single model answers with confidence whether or not it read anything. Swarm-for-Hire's agents work from what the tools read off the chain, and a separate reviewer fails any claim that evidence doesn't back.">
+          <Chapter n="02" name="Why not just ask an AI" title="Not another AI auditor." intro="A single model answers with confidence whether or not it read anything. Assay's agents work from what the tools read off the chain, and a separate reviewer fails any claim that evidence doesn't back.">
             {/* Phones get one card per option, so no column is ever off screen */}
             <ul className="reveal grid gap-3 md:hidden">
               {COMPARE.map((row) => {
-                const us = row.name === "Swarm-for-Hire";
+                const us = row.name === "Assay";
                 return (
                   <li key={row.name} className={`rounded-2xl border p-5 ${us ? "border-accent/40 bg-accent/[0.06]" : "border-line bg-panel"}`}>
                     <h3 className={`text-[16px] font-medium ${us ? "text-accent" : "text-text"}`}>{row.name}</h3>
@@ -258,7 +258,7 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {COMPARE.map((row) => {
-                    const us = row.name === "Swarm-for-Hire";
+                    const us = row.name === "Assay";
                     return (
                       <tr key={row.name} className={`border-b border-line last:border-0 ${us ? "bg-accent/[0.06]" : ""}`}>
                         <th className={`p-4 font-medium ${us ? "text-accent" : "text-text"}`}>{row.name}</th>
@@ -350,7 +350,7 @@ export default function Home() {
         </div>
 
 
-        <Chapter id="mcp" n="07" name="For AI assistants" title="Your AI can hire the swarm." intro="Swarm-for-Hire is an MCP server. Create a key in the app, connect your client, and ask it to get something done.">
+        <Chapter id="mcp" n="07" name="For AI assistants" title="Your AI can hire the swarm." intro="Assay is an MCP server. Create a key in the app, connect your client, and ask it to get something done.">
           <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
             <div className="reveal panel-glow overflow-hidden">
               <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
@@ -368,7 +368,7 @@ export default function Home() {
                 <span className="text-faint"># 2. Connect Claude Code</span>
                 {"\n"}
                 <span className="text-text">
-                  claude mcp add --transport http swarm-for-hire \
+                  claude mcp add --transport http assay \
                 </span>
                 {"\n"}
                 <span className="text-text">
@@ -383,7 +383,7 @@ export default function Home() {
                 {"\n"}
                 <span className="text-accent">&gt;</span>{" "}
                 <span className="text-text">
-                  Use swarm-for-hire to check who controls
+                  Use assay to check who controls
                 </span>
                 {"\n"}
                 {"  "}

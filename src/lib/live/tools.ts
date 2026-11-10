@@ -288,7 +288,7 @@ async function fetchJson(url: string) {
 
 const gh = (url: string) =>
   fetch(url, {
-    headers: { "user-agent": "swarm-for-hire", accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) },
+    headers: { "user-agent": "assay", accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) },
     signal: AbortSignal.timeout(TIMEOUT),
   });
 

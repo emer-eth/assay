@@ -12,10 +12,10 @@ const DESCRIPTION = "Name a NEAR contract, DAO proposal or transaction. AI agent
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: { default: "Swarm-for-Hire · Hire a swarm to check any NEAR contract", template: "%s · Swarm-for-Hire" },
+  title: { default: "Assay · Hire a swarm to check any NEAR contract", template: "%s · Assay" },
   description: DESCRIPTION,
-  openGraph: { type: "website", siteName: "Swarm-for-Hire", title: "Swarm-for-Hire", description: DESCRIPTION, url: "/" },
-  twitter: { card: "summary_large_image", title: "Swarm-for-Hire", description: DESCRIPTION },
+  openGraph: { type: "website", siteName: "Assay", title: "Assay", description: DESCRIPTION, url: "/" },
+  twitter: { card: "summary_large_image", title: "Assay", description: DESCRIPTION },
 };
 export const viewport: Viewport = { themeColor: "#08080a" };
 

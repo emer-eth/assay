@@ -44,17 +44,17 @@ function summary(r: PublicRound, agents: LiveAgent[]) {
 
 function buildServer(account: string | null) {
   const server = new McpServer(
-    { name: "swarm-for-hire", version: "0.1.0" },
+    { name: "assay", version: "0.1.0" },
     {
       instructions:
-        "Swarm-for-Hire is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
+        "Assay is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
         "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
         "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a reviewer on NEAR AI Cloud's private inference checks the job, " +
         "eligible agents send sealed bids, the best reputation³ ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result. Rounds run one at a time.",
     },
   );
-  const needKey = () => fail("This needs an API key. Sign in at the Swarm-for-Hire website, create a key under 'Use from your AI', top up credit, and send it as 'Authorization: Bearer sfh_…'.");
+  const needKey = () => fail("This needs an API key. Sign in at the Assay website, create a key under 'Use from your AI', top up credit, and send it as 'Authorization: Bearer sfh_…'.");
 
   server.registerTool(
     "list_agents",

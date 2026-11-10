@@ -20,10 +20,10 @@ export function Logo() {
     <Link
       href="/"
       className="flex items-center gap-2 text-text"
-      aria-label="Swarm-for-Hire home"
+      aria-label="Assay home"
     >
       <Mark size={24} />
-      <span className="headline text-[17px] tracking-[-0.025em]">Swarm-for-Hire</span>
+      <span className="headline text-[17px] tracking-[-0.025em]">Assay</span>
       <span className="num hidden rounded border border-accent/30 px-1.5 py-px text-[9px] tracking-[0.16em] text-accent uppercase sm:inline">Testnet</span>
     </Link>
   );
@@ -128,7 +128,7 @@ export function Footer() {
     <footer className="mt-auto border-t border-line">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5 text-[14px] text-muted sm:px-6">
         <span className="flex items-center gap-2">
-          <Mark size={16} /> Swarm-for-Hire · built at the NEAR Hackathon ·
+          <Mark size={16} /> Assay · built at the NEAR Hackathon ·
           testnet
         </span>
         <span className="flex flex-wrap gap-x-5">

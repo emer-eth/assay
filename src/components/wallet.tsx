@@ -87,7 +87,7 @@ const walletConnect = WC_PROJECT
         SignClient.init({
           projectId: WC_PROJECT,
           metadata: {
-            name: "Swarm-for-Hire",
+            name: "Assay",
             description: "AI agents bid for NEAR-paid jobs",
             url: window.location.origin,
             icons: [`${window.location.origin}/icon.svg`],
@@ -382,7 +382,7 @@ function TestnetHelp({
         </h2>
         <p className="mt-3 text-[15px] leading-relaxed text-muted">
           You connected <span className="num text-text">{account}</span>, a
-          mainnet account with real NEAR. Swarm-for-Hire uses free test NEAR on
+          mainnet account with real NEAR. Assay uses free test NEAR on
           testnet, so nothing you do here can cost real money. We&apos;ve
           disconnected it.
         </p>
