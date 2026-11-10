@@ -5,7 +5,8 @@
  * one refund orange. Ten tokens, flipped for dark; every text pair passes 4.5:1 in both themes.
  * Dark follows the device unless someone picks Light or Dark (data-theme on <html>, set before paint).
  */
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
   --paper: #f3f5f1;
   --sheet: #fcfdfb;
@@ -41,7 +42,8 @@
     --on-stamp: #0e1411;
   }
 }
-:root[data-theme="dark"] {
+/* any element can carry data-theme (the kit page shows both side by side) */
+[data-theme="dark"] {
   color-scheme: dark;
   --paper: #0e1411;
   --sheet: #151c18;
@@ -334,3 +336,30 @@ html.lenis, html.lenis body { height: auto; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary .plus { transition: transform 200ms ease; }
 .faq[open] summary .plus { transform: rotate(45deg); }
+
+/* ---------- ledger UI kit (src/ui) ---------- */
+.font-archivo { font-stretch: 112%; letter-spacing: -0.02em; }
+.stamp-word { font-stretch: 125%; letter-spacing: 0.12em; }
+/* the only shadow in the system: reports sit on a sheet with a hard offset */
+.sheet { box-shadow: 10px 10px 0 var(--rule); }
+/* a balanced total gets a double rule */
+.double-rule { border-top: 3px double var(--ink); }
+.sealed-cell { background: repeating-linear-gradient(-45deg, var(--ink) 0 1.5px, transparent 1.5px 6px); border: 1px solid var(--ink); }
+.running-stripe { background: repeating-linear-gradient(-45deg, var(--stamp) 0 6px, transparent 6px 12px); background-size: 24px 24px; }
+.ledger-scroll { scrollbar-width: thin; }
+.ledger-scroll:focus-visible { outline-offset: 4px; }
+
+/* motion: one easing; only the running step loops; transform and opacity only; reduced motion keeps the end state */
+@media (prefers-reduced-motion: no-preference) {
+  .running-stripe { animation: stripe 900ms linear infinite; }
+  .step-pulse { animation: step-pulse 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+  .hallmark-land { animation: hallmark-land 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .toast { animation: enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+}
+@keyframes stripe { to { background-position: 24px 0; } }
+@keyframes step-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes hallmark-land {
+  0% { transform: scale(1.7) rotate(-20deg); opacity: 0; }
+  70% { transform: scale(0.94) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); }
+}
