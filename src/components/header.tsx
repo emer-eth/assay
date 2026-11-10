@@ -22,7 +22,7 @@ export function HeaderShell({ children }: { children: ReactNode }) {
 }
 
 const capsule = "flex items-center gap-0.5 rounded-full border border-line bg-panel/60 p-1 text-[13px] backdrop-blur";
-const link = (on: boolean) => `rounded-full px-3.5 py-1.5 transition-colors ${on ? "bg-white/[0.08] text-text" : "text-muted hover:text-text"}`;
+const link = (on: boolean) => `whitespace-nowrap rounded-full px-3.5 py-1.5 transition-colors ${on ? "bg-white/[0.08] text-text" : "text-muted hover:text-text"}`;
 
 const SECTIONS = [
   ["how", "How it works"],
@@ -103,7 +103,7 @@ export function MarketPill() {
     };
   }, []);
   return (
-    <Link href="/app" className="group hidden items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-text sm:flex">
+    <Link href="/app" className="group hidden items-center gap-2 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-text sm:flex lg:hidden xl:flex">
       <span className={`size-1.5 rounded-full ${s?.busy ? "live-dot bg-accent" : "bg-ok"}`} />
       <span className="num">{!s ? "Market" : s.busy ? "Round running" : "Market open"}</span>
       {s && <span className="num text-faint group-hover:text-muted">· {s.agents} agents</span>}
