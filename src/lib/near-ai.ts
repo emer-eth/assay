@@ -81,6 +81,8 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
     }, { timeout: limit, maxRetries: 0, signal: AbortSignal.timeout(limit) }); // one long try (including the stream), then it fails closed
     let text = "";
     for await (const chunk of stream) text += chunk.choices[0]?.delta?.content ?? "";
+    // An abort can end the stream quietly: say so, rather than failing on empty JSON.
+    if (!text.trim()) throw new Error(`no verdict within ${limit / 60_000} minutes`);
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
   } catch (e) {
     const err = e as { status?: number; name?: string; message?: string };
