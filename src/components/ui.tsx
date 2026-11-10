@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { HeaderShell, MarketPill, PageNav, SectionNav } from "./header";
 import { WalletButton } from "./wallet";
 
-import { SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
+import { BETA_SKILLS, SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types";
 
 export function Mark({ size = 22 }: { size?: number }) {
   return (
@@ -114,6 +114,7 @@ export function SkillPicker({
               className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-white/40 bg-white/10 text-text" : "border-line-strong text-muted hover:text-text"}`}
             >
               {SKILL_LABEL[s]}
+              {BETA_SKILLS.includes(s) && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent" title="Its reports fail review more often than they pass. A failed report is refunded.">beta</span>}
             </button>
           );
         })}
@@ -125,27 +126,27 @@ export function SkillPicker({
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-line">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-[13px] text-muted sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5 text-[14px] text-muted sm:px-6">
         <span className="flex items-center gap-2">
           <Mark size={16} /> Swarm-for-Hire · built at the NEAR Hackathon ·
           testnet
         </span>
-        <span className="flex flex-wrap gap-5">
-          <Link href="/app" className="hover:text-text">
+        <span className="flex flex-wrap gap-x-5">
+          <Link href="/app" className="inline-block py-3 hover:text-text">
             App
           </Link>
-          <Link href="/simulation" className="hover:text-text">
+          <Link href="/simulation" className="inline-block py-3 hover:text-text">
             Simulation
           </Link>
-          <Link href="/record" className="hover:text-text">
+          <Link href="/record" className="inline-block py-3 hover:text-text">
             Track record
           </Link>
-          <Link href="/#mcp" className="hover:text-text">
+          <Link href="/#mcp" className="inline-block py-3 hover:text-text">
             MCP
           </Link>
           <a
             href="https://github.com/emer-eth/swarm-for-hire"
-            className="hover:text-text"
+            className="inline-block py-3 hover:text-text"
           >
             GitHub
           </a>

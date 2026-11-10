@@ -85,7 +85,7 @@ async function Ledger() {
       <dl className="mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-4">
         {stats.map(([k, v, hint]) => (
           <div key={k} className="bg-panel p-5" title={hint}>
-            <dt className="text-[12px] text-faint">{k}</dt>
+            <dt className="text-[12px] text-muted">{k}</dt>
             <dd className="num mt-2 text-2xl text-text">{v}</dd>
           </div>
         ))}
@@ -107,11 +107,11 @@ async function Ledger() {
             <li key={r.id} className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <span className={`num text-[13px] ${LABEL[o][1]}`}>{LABEL[o][0]}</span>
-                <span className="num text-[12px] text-faint">
+                <span className="num text-[12px] text-muted">
                   {new Date(r.createdAt).toISOString().slice(0, 16).replace("T", " ")} UTC · budget {near(r.job.budget)}
                 </span>
               </div>
-              <p className="mt-3 line-clamp-3 text-[15px] leading-relaxed text-text">{r.job.description}</p>
+              <p className={`mt-3 line-clamp-3 text-[15px] leading-relaxed ${r.briefWithheld ? "italic text-muted" : "text-text"}`}>{r.job.description}</p>
               <p className="mt-3 text-[13px] text-muted">
                 {o === "blocked"
                   ? `The reviewer refused the job: ${r.review?.reasons?.[0] ?? "not a real task"}`

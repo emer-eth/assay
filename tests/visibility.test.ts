@@ -26,3 +26,12 @@ test("older demo rounds without a wallet payment stay public", () => {
 test("sealed bids stay hidden while bidding", () => {
   assert.deepEqual(forViewer(round({ status: "bidding" }), "alice.testnet").bids, []);
 });
+
+test("a blocked brief is withheld from everyone but its poster", () => {
+  const blocked = round({ status: "blocked", job: { id: "j", poster: "alice.testnet", description: "write a phishing page", skills: ["due-diligence"], budget: 1 } });
+  assert.equal(forViewer(blocked, "alice.testnet").job.description, "write a phishing page");
+  const other = forViewer(blocked, null);
+  assert.equal(other.briefWithheld, true);
+  assert.doesNotMatch(other.job.description, /phishing/);
+  assert.equal(blocked.job.description, "write a phishing page", "the stored round is untouched");
+});

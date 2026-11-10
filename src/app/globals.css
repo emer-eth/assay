@@ -14,7 +14,8 @@
   --line-strong: rgba(255, 255, 255, 0.13);
   --text: #ededf0;
   --muted: #8e8e98;
-  --faint: #5d5d66;
+  /* 4.6:1 or better on every surface, so 12px labels stay readable */
+  --faint: #80808a;
   --accent: #f5a524;
   --accent-ink: #1b1200;
   --ok: #3dd68c;
@@ -130,6 +131,12 @@ body {
   font-size: 14px;
   color: var(--text);
   transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+/* iOS zooms into any field under 16px on focus */
+@media (pointer: coarse) {
+  .field {
+    font-size: 16px !important;
+  }
 }
 .field::placeholder {
   color: var(--faint);

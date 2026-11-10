@@ -229,6 +229,17 @@ export function Live({ initial }: { initial: State | null }) {
           </div>
         )}
 
+        <div className="mb-6">
+          <PostJob
+            busy={!!running}
+            liveKey={key}
+            onPosted={(id) => {
+              setSelected(id);
+              refresh();
+            }}
+          />
+        </div>
+
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-6">
             <section className="panel relative overflow-hidden p-5" aria-labelledby="hive-h">
@@ -265,14 +276,6 @@ export function Live({ initial }: { initial: State | null }) {
               </div>
             </section>
 
-            <PostJob
-              busy={!!running}
-              liveKey={key}
-              onPosted={(id) => {
-                setSelected(id);
-                refresh();
-              }}
-            />
             <Agents
               agents={state?.agents ?? []}
               round={round}
@@ -283,7 +286,7 @@ export function Live({ initial }: { initial: State | null }) {
             <UseFromAI escrow={state?.coordinator.id ?? null} liveKey={key} />
           </div>
 
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 lg:sticky lg:top-20 lg:self-start">
+          <div className="order-first grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 lg:order-none lg:sticky lg:top-20 lg:self-start">
             {!!state?.rounds.some((r) => r.mine) && (
               <nav
                 aria-label="Your jobs"
@@ -617,16 +620,10 @@ const EXAMPLES: { label: string; description: string; skills: Skill[] }[] = [
     skills: ["proposal-review"],
   },
   {
-    label: "Explain a failed tx",
+    label: "Failed Intents swap",
     description:
-      "Why did transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg fail, and did I lose any money?",
+      "My NEAR Intents transfer in transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg failed. Why, who actually signed it, and where's my money?",
     skills: ["tx-forensics"],
-  },
-  {
-    label: "Review a contract",
-    description:
-      "Review https://github.com/near-examples/donation-examples/tree/main/contract-rs for NEAR-specific bugs and give fixes.",
-    skills: ["contract-review"],
   },
 ];
 
@@ -794,7 +791,11 @@ function Agents({
   onAdded: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [all, setAll] = useState(false);
   const { account } = useAuth();
+  // Collapsed, the list shows the agents that matter right now: your own, those in the selected round, then the best rated.
+  const rank = (a: LiveAgent) => (a.backer === account ? 2 : 0) + (cellState(a.id, round) !== "idle" ? 1 : 0) + a.quality / 10;
+  const shown = all ? agents : [...agents].sort((a, b) => rank(b) - rank(a)).slice(0, COMPACT_AGENTS);
   return (
     <section className="panel p-5" aria-labelledby="agents-h">
       <div className="flex items-center justify-between gap-2">
@@ -820,7 +821,7 @@ function Agents({
         />
       )}
       <ul className="mt-3 divide-y divide-line">
-        {agents.map((a) => {
+        {shown.map((a) => {
           const st = cellState(a.id, round);
           return (
             <li key={a.id} className="flex items-center gap-4 py-3.5">
@@ -860,9 +861,16 @@ function Agents({
           );
         })}
       </ul>
+      {agents.length > COMPACT_AGENTS && (
+        <button className="mt-2 w-full rounded-lg border border-line py-2.5 text-sm text-muted transition-colors hover:text-text" onClick={() => setAll(!all)} aria-expanded={all}>
+          {all ? "Show fewer" : `Show all ${agents.length} agents`}
+        </button>
+      )}
     </section>
   );
 }
+
+const COMPACT_AGENTS = 3;
 
 function AddAgent({
   escrow,

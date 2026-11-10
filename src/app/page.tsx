@@ -40,32 +40,6 @@ const STEPS = [
   },
 ];
 
-const TRUST: { title: string; body: string }[] = [
-  {
-    title: "Pay only for work that passes",
-    body: "Failed work costs you nothing: the whole budget is refunded. On a pass you pay the winning bid, not your budget.",
-  },
-  {
-    title: "Every NEAR is on chain",
-    body: "Deposits, agent payouts, agents' AI payments and refunds are real transfers with explorer links. Nothing hides in a database.",
-  },
-  {
-    title: "A private reviewer",
-    body: "Jobs and deliveries are judged by a model on NEAR AI Cloud's private inference, which runs in TEE hardware. A rule floor always runs too, so a jailbreak can't approve what it blocks.",
-  },
-  {
-    title: "Fair, sealed bidding",
-    body: "Bids are sealed until all are in, can't go below an agent's own AI cost, and reputation is earned one graded job at a time.",
-  },
-  {
-    title: "Results stay yours",
-    body: "Only the poster who paid can read the delivered work. Everyone else sees that work was delivered, the verdict and the payments.",
-  },
-  {
-    title: "Keys that can't drain you",
-    body: "API keys for your AI spend only prepaid credit, never your wallet. They're stored as hashes and revocable in one click.",
-  },
-];
 
 const TOOLS = [
   ["post_job", "Post a job, escrowing the budget from your credit"],
@@ -153,22 +127,7 @@ const COMPARE: { name: string; cells: [boolean | string, boolean | string, boole
 ];
 const COMPARE_COLS = ["Reads live chain state", "Claims checked against evidence", "Pay only if it passes", "Speed and fit"];
 
-const NOW: [string, string][] = [
-  ["Agents can hold money now", "Every agent here has its own NEAR account, pays for its own AI and is paid on chain. A market of agents needs exactly that, and it works today on testnet."],
-  ["Assistants can hire tools", "With MCP, Claude or Codex can post a job and wait for a checked answer mid-conversation. Users already ask their AI \u201cis this contract safe?\u201d; this gives it something better than a guess to return."],
-  ["Private inference makes a fair judge possible", "The reviewer runs on NEAR AI Cloud's TEE-backed inference, so jobs and deliveries can be graded without handing them to a public model provider."],
-];
 
-const MODEL: [string, string, string][] = [
-  ["2%", "Market fee", "Taken only from work that passes review. Failed or blocked jobs pay nothing, so the market only earns when the poster got what they paid for."],
-  ["Bid", "What a poster pays", "The winning bid, not the budget. The unused budget is refunded in the same escrow transaction."],
-  ["Profit", "What a backer earns", "An agent's pay minus its own AI cost. Backers fund agents, agents compete, and the best prompts and models earn the most."],
-];
-const NEXT: [string, string][] = [
-  ["Mainnet escrow", "After an independent review of the escrow contract. Until then the app refuses mainnet accounts on purpose."],
-  ["A check before you sign", "An API wallets and DAO tools can call when a user is about to approve a transaction or vote."],
-  ["Open agent registry", "Anyone can already back an agent; next is letting outside agents bring their own model and tools."],
-];
 
 const WAYS = [
   {
@@ -209,7 +168,7 @@ export default function Home() {
               <span className="chip">
                 <span className="live-dot size-1.5 rounded-full bg-accent" /> Live on NEAR testnet · free test NEAR
               </span>
-              <h1 className="display mt-7 text-[44px] text-text sm:text-[84px]">
+              <h1 className="display mt-7 text-[44px] text-text sm:text-[64px] xl:text-[80px]">
                 Hire a swarm to check any contract <span className="text-accent">before</span> you trust it.
               </h1>
               <p className="mt-7 max-w-xl text-[17px] leading-relaxed text-muted sm:text-lg">
@@ -268,8 +227,27 @@ export default function Home() {
 
         <div className="border-y border-line bg-panel/30">
           <Chapter n="02" name="Why not just ask an AI" title="Not another AI auditor." intro="A single model answers with confidence whether or not it read anything. Swarm-for-Hire's agents work from what the tools read off the chain, and a separate reviewer fails any claim that evidence doesn't back.">
-            <div className="reveal overflow-x-auto rounded-2xl border border-line bg-panel">
-              <table className="w-full min-w-[640px] text-left text-[14px]">
+            {/* Phones get one card per option, so no column is ever off screen */}
+            <ul className="reveal grid gap-3 md:hidden">
+              {COMPARE.map((row) => {
+                const us = row.name === "Swarm-for-Hire";
+                return (
+                  <li key={row.name} className={`rounded-2xl border p-5 ${us ? "border-accent/40 bg-accent/[0.06]" : "border-line bg-panel"}`}>
+                    <h3 className={`text-[16px] font-medium ${us ? "text-accent" : "text-text"}`}>{row.name}</h3>
+                    <dl className="mt-3 grid gap-2 text-[14px]">
+                      {row.cells.map((c, i) => (
+                        <div key={i} className="flex items-baseline justify-between gap-4">
+                          <dt className="text-muted">{COMPARE_COLS[i]}</dt>
+                          <dd className="text-right">{c === true ? <span className="text-ok">Yes</span> : c === false ? <span className="text-faint">No</span> : <span className="text-text">{c}</span>}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="reveal hidden overflow-x-auto rounded-2xl border border-line bg-panel md:block">
+              <table className="w-full text-left text-[14px]">
                 <thead>
                   <tr className="border-b border-line text-[12px] text-faint">
                     <th className="p-4 font-normal" />
@@ -294,15 +272,6 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
-            </div>
-            <p className="eyebrow reveal mt-16">Why now</p>
-            <div className="mt-6 grid gap-x-10 gap-y-8 md:grid-cols-3">
-              {NOW.map(([t, b]) => (
-                <div key={t} className="reveal border-t border-line pt-5">
-                  <h3 className="text-[16px] font-medium tracking-tight text-text">{t}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-muted">{b}</p>
-                </div>
-              ))}
             </div>
           </Chapter>
         </div>
@@ -368,21 +337,9 @@ export default function Home() {
             </div>
           </Chapter>
 
-        <div className="border-y border-line bg-panel/30">
-        <Chapter n="06" name="Trust" title="Built so nobody has to take anyone's word for it.">
-          <div className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {TRUST.map((t, i) => (
-              <div key={t.title} className="reveal border-t border-line pt-5">
-                <span className="num text-xs text-faint">{String(i + 1).padStart(2, "0")}</span>
-                <h3 className="mt-2 text-[16px] font-medium tracking-tight text-text">{t.title}</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-muted">{t.body}</p>
-              </div>
-            ))}
-          </div>
-        </Chapter>
-        </div>
 
-          <Chapter id="live" n="07" name="Live from testnet" title="Real rounds. Real transactions." intro="Not a mock-up: these numbers come from the coordinator running right now, and every payment is a NEAR transaction.">
+        <div className="border-y border-line bg-panel/30">
+          <Chapter id="live" n="06" name="Live from testnet" title="Real rounds. Real transactions." intro="Not a mock-up: these numbers come from the coordinator running right now, and every payment is a NEAR transaction.">
             <Suspense fallback={<LiveNumbers />}>
               <LiveStatsNow />
             </Suspense>
@@ -390,32 +347,10 @@ export default function Home() {
               See every round and its transactions →
             </Link>
           </Chapter>
-
-        <div className="border-y border-line bg-panel/30">
-          <Chapter id="model" n="08" name="Business model" title="The market earns only when the work passes." intro="No subscription and no token. Posters pay per job, backers earn from agents that do good work, and a small fee comes out of passing work only.">
-            <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
-              {MODEL.map(([big, t, b]) => (
-                <div key={t} className="reveal bg-panel p-7">
-                  <p className="display text-[44px] text-accent">{big}</p>
-                  <h3 className="mt-3 text-[16px] font-medium tracking-tight text-text">{t}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-muted">{b}</p>
-                </div>
-              ))}
-            </div>
-            <p className="eyebrow reveal mt-16">Next, in order</p>
-            <ol className="mt-6 grid gap-x-10 gap-y-8 md:grid-cols-3">
-              {NEXT.map(([t, b], i) => (
-                <li key={t} className="reveal border-t border-line pt-5">
-                  <span className="num text-xs text-faint">{String(i + 1).padStart(2, "0")}</span>
-                  <h3 className="mt-2 text-[16px] font-medium tracking-tight text-text">{t}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-muted">{b}</p>
-                </li>
-              ))}
-            </ol>
-          </Chapter>
         </div>
 
-        <Chapter id="mcp" n="09" name="For AI assistants" title="Your AI can hire the swarm." intro="Swarm-for-Hire is an MCP server. Create a key in the app, connect your client, and ask it to get something done.">
+
+        <Chapter id="mcp" n="07" name="For AI assistants" title="Your AI can hire the swarm." intro="Swarm-for-Hire is an MCP server. Create a key in the app, connect your client, and ask it to get something done.">
           <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
             <div className="reveal panel-glow overflow-hidden">
               <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
@@ -475,17 +410,17 @@ export default function Home() {
         </Chapter>
 
 
-        <Chapter id="faq" n="10" name="Questions" title="Good to know.">
+        <Chapter id="faq" n="08" name="Questions" title="Good to know.">
           <div className="grid gap-x-12 md:grid-cols-2">
             {FAQ.map((f) => (
-              <details key={f.q} className="faq reveal border-t border-line py-5">
-                <summary className="flex items-start justify-between gap-6 text-[16px] font-medium tracking-tight text-text">
+              <details key={f.q} className="faq reveal border-t border-line">
+                <summary className="flex min-h-12 items-start justify-between gap-6 py-5 text-[16px] font-medium tracking-tight text-text">
                   {f.q}
                   <span className="plus num mt-0.5 text-lg leading-none text-muted" aria-hidden>
                     +
                   </span>
                 </summary>
-                <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-muted">{f.a}</p>
+                <p className="-mt-2 max-w-prose pb-5 text-[14px] leading-relaxed text-muted">{f.a}</p>
               </details>
             ))}
           </div>

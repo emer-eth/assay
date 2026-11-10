@@ -4,6 +4,9 @@
 /** What the swarm is hired for. Each skill comes with tools that read real inputs (src/lib/live/tools.ts). */
 export const SKILLS = ["due-diligence", "contract-review", "proposal-review", "tx-forensics"] as const;
 export type Skill = (typeof SKILLS)[number];
+/** Skills whose reports still fail review more often than they pass; shown with a "beta" tag. */
+export const BETA_SKILLS: Skill[] = ["contract-review"];
+
 export const SKILL_LABEL: Record<Skill, string> = { "due-diligence": "Contract due diligence", "contract-review": "Contract code review", "proposal-review": "DAO proposal review", "tx-forensics": "Transaction forensics" };
 
 export type Job = {
