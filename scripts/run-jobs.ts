@@ -15,7 +15,7 @@ const JOBS: { skill: string; description: string }[] = [
   { skill: "due-diligence", description: "Is wrap.near safe to hold wNEAR in? Who holds full-access keys, and can anyone upgrade or pause it?" },
   // DAO proposal review
   { skill: "proposal-review", description: "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?" },
-  { skill: "proposal-review", description: "What does proposal #1060 on ref-finance.sputnik-dao.near do if it passes: who receives what, and is anything unusual about it?" },
+  { skill: "proposal-review", description: "What does proposal #1058 on ref-finance.sputnik-dao.near do if it passes: who receives what, and is anything unusual about it?" },
   { skill: "proposal-review", description: "Check proposal #1058 on marketing.sputnik-dao.near: who gets paid, how much in real units, and does it match the description?" },
   // Transaction forensics (two failed NEAR Intents calls, one failed Ref Finance swap)
   { skill: "tx-forensics", description: "My NEAR Intents transfer in transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg failed. Why, who actually signed it, and where's my money?" },
@@ -63,8 +63,8 @@ async function main() {
         round = JSON.parse(text((await client.callTool({ name: "wait_for_round", arguments: { round_id, max_wait_seconds: 240 } }, undefined, { timeout: 260_000 })) as Out));
         if (!["queued", "reviewing", "bidding", "working", "grading", "settling"].includes(String(round.status))) break;
       }
-      const grade = round.grade as { passed?: boolean; reasons?: string[] } | undefined;
-      const verdict = round.status === "done" ? (grade?.passed ? "PASSED" : `FAILED: ${grade?.reasons?.[0] ?? ""}`) : String(round.status).toUpperCase();
+      const grade = round.delivery_review as { passed?: boolean; unavailable?: boolean; reasons?: string[] } | undefined;
+      const verdict = round.status === "done" ? (grade?.passed ? "PASSED" : `${grade?.unavailable ? "REVIEWER DOWN" : "FAILED"}: ${grade?.reasons?.[0] ?? ""}`) : String(round.status).toUpperCase();
       results.push(`${i + 1}. ${job.skill} · ${round_id} · ${verdict}`);
       console.log(`   → ${verdict}`);
     }

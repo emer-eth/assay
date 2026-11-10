@@ -70,10 +70,12 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
         },
         { role: "user", content: `JOB:\n"""${job.slice(0, 4000)}"""${evidence ? `\n\nEVIDENCE:\n"""${evidence.slice(0, 50000)}"""` : ""}\n\nDELIVERY:\n"""${deliverable.slice(0, 12000)}"""` },
       ],
-    }, { timeout: 75_000, maxRetries: 1 }); // at most ~2.5 minutes, then it fails closed
+    }, { timeout: 180_000, maxRetries: 0 }); // NEAR AI took 15–77 s for one grade in testing (2026-11-10); one long try, then it fails closed
     const text = res.choices[0]?.message?.content || "";
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
-  } catch {
+  } catch (e) {
+    const err = e as { status?: number; name?: string; message?: string };
+    console.error(`[grade] reviewer failed: ${err.name ?? "Error"} ${err.status ?? ""} ${String(err.message ?? e).slice(0, 200)}`);
     // Fails closed (the poster is refunded), but it's the reviewer that failed, so the agent's reputation is left alone.
     return { passed: false, unavailable: true, reasons: ["The reviewer didn't answer in time, so the work can't pass and the poster is refunded. The agent's reputation is unchanged."] };
   }
