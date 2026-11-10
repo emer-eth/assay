@@ -39,6 +39,8 @@ export function ThemeToggle() {
   useEffect(() => {
     try {
       const t = localStorage.getItem("assay-theme");
+      // Read after mount so the server render and the first browser render match.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (t === "light" || t === "dark") setTheme(t);
     } catch {}
   }, []);
@@ -48,8 +50,9 @@ export function ThemeToggle() {
       if (t === "system") localStorage.removeItem("assay-theme");
       else localStorage.setItem("assay-theme", t);
     } catch {}
-    if (t === "system") delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = t;
+    const root = document.documentElement;
+    if (t === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", t);
   };
   return (
     <div role="group" aria-label="Theme" className="flex items-center gap-2 text-sm">

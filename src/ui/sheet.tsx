@@ -7,10 +7,10 @@ import { Label } from "./controls";
  */
 export function Sheet({ children, label, corner, className = "" }: { children: ReactNode; label?: ReactNode; /** e.g. the hallmark, pinned to the bottom-right corner */ corner?: ReactNode; className?: string }) {
   return (
-    <section className={`sheet relative border border-ink bg-sheet p-6 sm:p-8 ${className}`}>
+    <section className={`sheet relative border border-ink bg-sheet p-6 sm:p-8 ${corner ? "pb-24 sm:pb-20" : ""} ${className}`}>
       {label && <Label className="mb-5">{label}</Label>}
       {children}
-      {corner && <div className="absolute -right-5 -bottom-6 sm:-right-6">{corner}</div>}
+      {corner && <div className="absolute -bottom-6 right-2 sm:-right-6">{corner}</div>}
     </section>
   );
 }

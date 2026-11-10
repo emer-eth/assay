@@ -8,7 +8,7 @@ export function StatusBanner({ verdict, title, detail, aside, running }: { verdi
     <div role="status" aria-live="polite" tabIndex={-1} className={`relative flex flex-wrap items-center gap-x-8 gap-y-4 overflow-hidden border border-ink bg-sheet px-6 py-5 outline-none ${running ? "pt-6" : ""}`}>
       {running && <span aria-hidden className="running-stripe absolute inset-x-0 top-0 h-1.5" />}
       {verdict && <VerdictStamp verdict={verdict} />}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[15rem] flex-1">
         <p className="text-lg font-semibold text-ink">{title}</p>
         {detail && <p className="mt-1 text-[15px] text-ink-2">{detail}</p>}
       </div>

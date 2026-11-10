@@ -1,8 +1,28 @@
 import type { Metadata } from "next";
-import { BidTable, Button, ButtonLink, Field, Hallmark, Label, LedgerTable, LockedReport, MoneyBar, MoneyLedger, Sheet, StatusBanner, Stepper, Tag, ThemeToggle, TxLink, VerdictStamp } from "@/ui";
+import { Markdown, BidTable, Button, ButtonLink, Field, Hallmark, Label, LedgerTable, LockedReport, MoneyBar, MoneyLedger, Sheet, StatusBanner, Stepper, Tag, ThemeToggle, TxLink, VerdictStamp } from "@/ui";
 
 // The UI kit in every state, light and dark side by side: the Design system board, built from src/ui.
 export const metadata: Metadata = { title: "Design system", robots: { index: false } };
+
+const SAMPLE = `## Four parties can move the funds
+
+1. **Whoever holds the account's full-access key.** It can redeploy the code or transfer the whole balance.
+2. **The coordinator**, through \`settle\` and \`refund\`. It can pay only a registered agent, at most the job's budget.
+
+### What to check yourself
+
+- Whether the full-access key is still on the account.
+- Which accounts are registered as agents.
+
+| Method | Who may call it |
+| --- | --- |
+| \`settle\` | coordinator |
+| \`reclaim\` | poster, after 60 minutes |
+
+\`\`\`rust
+#[private]
+pub fn on_refund(&mut self) {}
+\`\`\``;
 
 const bids = [
   { agent: "Sentinel", reputation: 0.47, ask: 0.01, value: 10.13, winner: true },
@@ -59,8 +79,7 @@ function Board() {
       </section>
       <section className="grid gap-10 lg:grid-cols-2">
         <Sheet label="Report · delivered by Sentinel" corner={<Hallmark size={104} />}>
-          <h3 className="text-xl font-semibold">Four parties can move the funds</h3>
-          <p className="mt-3 text-[15px] leading-7">Whoever holds the account&apos;s full-access key can redeploy the code or move the whole balance.</p>
+          <Markdown text={SAMPLE} />
         </Sheet>
         <Sheet label="Report · delivered by Sentinel"><LockedReport words={561} who="the poster" /></Sheet>
       </section>
