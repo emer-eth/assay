@@ -70,7 +70,7 @@ export async function gradeDelivery(job: string, deliverable: string, evidence?:
         },
         { role: "user", content: `JOB:\n"""${job.slice(0, 4000)}"""${evidence ? `\n\nEVIDENCE:\n"""${evidence.slice(0, 50000)}"""` : ""}\n\nDELIVERY:\n"""${deliverable.slice(0, 12000)}"""` },
       ],
-    }, { timeout: 180_000, maxRetries: 0 }); // NEAR AI took 15–77 s for one grade in testing (2026-11-10); one long try, then it fails closed
+    }, { timeout: 150_000, maxRetries: 1 }); // NEAR AI took 15–77 s for one grade, and over 180 s under load (2026-11-10): a long try plus one retry, then it fails closed
     const text = res.choices[0]?.message?.content || "";
     return gradeSchema.parse(JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)));
   } catch (e) {

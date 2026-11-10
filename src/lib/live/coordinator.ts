@@ -124,8 +124,10 @@ export async function runLiveRound(id: string) {
     // 1b. Tools read the real target (the account on chain, or the repo), so agents price and work from facts
     const evidence = await gatherEvidence(job);
     if (evidence) updateRound(id, { evidence }, `Tools: ${evidence.summary.join("; ")}`);
-    // The least the work can cost each agent in AI, on its own model: reading the evidence plus writing the report.
-    const estimate = { prompt: Math.ceil((evidence?.facts.length ?? 0) / 3.5) + 800, completion: 2500 };
+    // The least the work can cost each agent in AI, on its own model: reading the evidence and writing the report,
+    // then reading both again to check every claim against the evidence (agent-ai.ts).
+    const read = Math.ceil((evidence?.facts.length ?? 0) / 3.5) + 800;
+    const estimate = evidence ? { prompt: read * 2 + 1500, completion: 4500 } : { prompt: read, completion: 2500 };
 
     // 2. Eligibility from real on-chain balances
     const agents = await Promise.all(
