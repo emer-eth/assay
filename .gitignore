@@ -51,3 +51,4 @@ next-env.d.ts
 .contract-keys/
 contract/target/
 /demo-audio
+/demo-video

@@ -21,6 +21,15 @@ const LINES = [
   { file: "06-end-card", sec: 5, text: "Assay. Live on NEAR testnet, and your AI can hire it too." },
 ];
 
+// --script <file>: voice a longer script instead (a JSON list of { id, vo }), saved as v2-<id>.mp3.
+// The demo video uses this: node scripts/voice.mjs --script demo-video/script.json
+const scriptAt = process.argv.indexOf("--script");
+if (scriptAt > 0) {
+  const { readFileSync } = await import("node:fs");
+  LINES.length = 0;
+  for (const s of JSON.parse(readFileSync(process.argv[scriptAt + 1], "utf8"))) LINES.push({ file: `v2-${s.id}`, sec: 999, text: s.vo });
+}
+
 const KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE = process.env.VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 const SPEED = Number(process.env.SPEED || 1);
@@ -53,7 +62,7 @@ if (process.env.VOICE) {
   console.log(`Voice: ${v.name}\n`);
 }
 
-const only = Number(process.argv[2]);
+const only = scriptAt > 0 ? 0 : Number(process.argv[2]);
 const todo = only ? LINES.filter((_, i) => i + 1 === only) : LINES;
 if (!todo.length) { console.error(`There's no clip ${process.argv[2]}. Pick 1 to ${LINES.length}.`); process.exit(1); }
 
