@@ -18,6 +18,13 @@ import { Button, CONTAINER, Field, Footer, Label, Tag, explorerTx } from "@/ui";
 // existing escrow flow (components/escrow-post.ts) takes the payment and the page moves to the new round.
 
 const CHECK_NAME: Record<Skill, string> = { "due-diligence": "Due diligence", "contract-review": "Code review", "proposal-review": "Proposal review", "tx-forensics": "Tx forensics" };
+/** What each skill needs, shown before anything is detected so people see what the swarm can do. */
+const SKILL_HINT: Record<Skill, string> = {
+  "due-diligence": "Name an account: who controls it, and the red flags.",
+  "proposal-review": "A Sputnik DAO and proposal number: what it really does.",
+  "tx-forensics": "A transaction hash or 1Click deposit address: why it failed.",
+  "contract-review": "A public GitHub link: findings with file, line and fix.",
+};
 const EXAMPLES: { label: string; text: string }[] = [
   { label: "Ref Finance", text: "Before I deposit: who controls v2.ref-finance.near, can its code be changed, and by whom?" },
   { label: "DAO proposal", text: "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?" },
@@ -49,6 +56,14 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
     } catch {}
   }, []);
 
+  // Text that reached the box before the page was interactive (typed or pasted early, or restored by the browser)
+  // isn't in state yet: pick it up once, so the skill shows for it too.
+  useEffect(() => {
+    const box = document.querySelector<HTMLTextAreaElement>("main textarea");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from the DOM on mount
+    if (box?.value && box.value !== text) setText(box.value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const detected = useMemo(() => detectCheck(text), [text]);
   const skill: Skill | null = override ?? detected?.skill ?? null;
   const amount = Number(budget);
@@ -142,7 +157,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                     setText(e.target.value);
                     setOverride(null);
                   }}
-                  placeholder="Before I deposit: who controls v2.ref-finance.near, and can its code be changed?"
+                  placeholder="For example: who controls v2.ref-finance.near, and can its code be changed?"
                   maxLength={4000}
                 />
               </div>
@@ -164,9 +179,22 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                     <button type="button" className="min-h-11 text-stamp underline underline-offset-2" onClick={() => setChanging((v) => !v)} aria-expanded={changing}>Change type</button>
                   </>
                 ) : (
-                  <span className="text-ink-2">{text.includes(PLACEHOLDER) ? "Replace the placeholder with your swap's deposit address (it's selected: paste over it)." : text.trim() ? "Name an account (name.near), a DAO proposal number, a transaction hash, a 1Click deposit address or a GitHub repo." : "The check type appears here as you type."}</span>
+                  <span className="text-ink-2">{text.includes(PLACEHOLDER) ? "Replace the placeholder with your swap's deposit address (it's selected: paste over it)." : text.trim() ? "No skill matched yet. Name an account (name.near), a DAO proposal number, a transaction hash, a 1Click deposit address or a GitHub repo, or pick the skill below." : "The swarm picks the skill from what you write. Type your question, or pick a skill:"}</span>
                 )}
               </div>
+              {!skill && !changing && (
+                <fieldset className="mt-3">
+                  <legend className="sr-only">The swarm&apos;s skills</legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {SKILLS.map((s) => (
+                      <button key={s} type="button" onClick={() => setOverride(s)} className="flex min-h-11 flex-col items-start rounded-[2px] border border-rule bg-sheet px-4 py-2.5 text-left hover:border-ink">
+                        <span className="flex items-center gap-2 font-mono text-sm font-semibold tracking-[0.06em] text-ink uppercase">{CHECK_NAME[s]}{BETA_SKILLS.includes(s) && <Tag tone="refund">Beta</Tag>}</span>
+                        <span className="mt-0.5 text-sm text-ink-2">{SKILL_HINT[s]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               {changing && (
                 <fieldset className="mt-3 flex flex-wrap gap-2">
                   <legend className="sr-only">Check type</legend>

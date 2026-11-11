@@ -3,7 +3,7 @@
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 import { useId } from "react";
 
-const FIELD = "w-full rounded-[2px] border border-ink bg-sheet px-4 font-mono text-base text-ink placeholder:text-ink-2 disabled:opacity-50 aria-[invalid=true]:border-refund";
+const FIELD = "w-full rounded-[2px] border border-ink bg-sheet px-4 font-mono text-base text-ink placeholder:text-ink-2 placeholder:italic disabled:opacity-50 aria-[invalid=true]:border-refund";
 
 /** Label above, 48 tall, 16px text so phones don't zoom, error message below. */
 export function Field({ label, error, hint, multiline, suffix, className = "", ...rest }: InputHTMLAttributes<HTMLInputElement> & TextareaHTMLAttributes<HTMLTextAreaElement> & { label: ReactNode; error?: string; hint?: ReactNode; multiline?: boolean; suffix?: ReactNode }) {
