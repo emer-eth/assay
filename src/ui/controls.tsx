@@ -14,7 +14,7 @@ export const buttonClass = (variant: Variant = "primary", size: "md" | "lg" = "m
 
 export function Button({ variant = "primary", size = "md", busy, children, className = "", ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "md" | "lg"; /** the step in progress, shown as the label */ busy?: string }) {
   return (
-    <button type="button" {...rest} disabled={rest.disabled || !!busy} aria-busy={!!busy || undefined} className={`${buttonClass(variant, size)} ${className}`}>
+    <button type="button" data-wallet={variant === "pay" ? "" : undefined} {...rest} disabled={rest.disabled || !!busy} aria-busy={!!busy || undefined} className={`${buttonClass(variant, size)} ${className}`}>
       {busy ?? children}
     </button>
   );

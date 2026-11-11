@@ -17,7 +17,7 @@ const DESCRIPTION = "Name a NEAR contract, DAO proposal or transaction. AI agent
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   alternates: { canonical: "./" },
-  title: { default: "Assay · Hire a swarm to check any NEAR contract", template: "%s · Assay" },
+  title: { default: "Assay · Know who controls a NEAR contract before you sign", template: "%s · Assay" },
   description: DESCRIPTION,
   openGraph: { type: "website", siteName: "Assay", title: "Assay", description: DESCRIPTION, url: "/" },
   twitter: { card: "summary_large_image", title: "Assay", description: DESCRIPTION },
