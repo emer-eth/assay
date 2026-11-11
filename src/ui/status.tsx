@@ -6,7 +6,7 @@ import { VerdictStamp, type Verdict } from "./stamps";
 export function StatusBanner({ verdict, title, detail, aside, running }: { verdict?: Verdict; title: ReactNode; detail?: ReactNode; aside?: ReactNode; /** a step is in progress: moving stripe */ running?: boolean }) {
   return (
     <div role="status" aria-live="polite" tabIndex={-1} className={`relative flex flex-wrap items-center gap-x-8 gap-y-4 overflow-hidden border border-ink bg-sheet px-6 py-5 outline-none ${running ? "pt-6" : ""}`}>
-      {running && <span aria-hidden className="running-stripe absolute inset-x-0 top-0 h-1.5" />}
+      {running && <span aria-hidden className="running-stripe absolute top-0 -left-6 h-1.5 w-[calc(100%+24px)]" />}
       {verdict && <VerdictStamp verdict={verdict} />}
       <div className="min-w-[15rem] flex-1">
         <p className="text-lg font-semibold text-ink">{title}</p>

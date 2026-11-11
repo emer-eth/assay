@@ -26,6 +26,13 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
     return [...fresh, ...merged].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [initial, liveRounds, liveAgents]);
 
+  // A line "enters" when a round finishes (or first appears) while the ledger is open: it slides in once.
+  const [seen] = useState(() => new Map(initial.map((r) => [r.id, verdictOf(r)])));
+  const fresh = (r: RoundRow) => {
+    const before = seen.get(r.id);
+    return verdictOf(r) !== "running" && (before === undefined || before === "running");
+  };
+
   const [filter, setFilter] = useState<Filter>("all");
   const [check, setCheck] = useState<Skill | "all">("all");
   const shown = rows.filter((r) => (filter === "all" || verdictOf(r) === filter) && (check === "all" || r.skills.includes(check)));
@@ -46,6 +53,7 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
     const v = verdictOf(r);
     const skill = r.skills.find((s) => s in CHECK);
     return {
+      fresh: !loading && fresh(r),
       id: r.id,
       href: `/rounds/${r.id}`,
       date: date(r.createdAt),

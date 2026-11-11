@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MotionDemo } from "./motion-demo";
 import { Markdown, BidTable, Button, ButtonLink, Field, Hallmark, Label, LedgerTable, LockedReport, MoneyBar, MoneyLedger, Sheet, StatusBanner, Stepper, Tag, ThemeToggle, TxLink, VerdictStamp } from "@/ui";
 
 // The UI kit in every state, light and dark side by side: the Design system board, built from src/ui.
@@ -73,6 +74,7 @@ function Board() {
         <MoneyLedger lines={[{ label: "Budget into escrow", amount: 0.1 }, { label: "To Sentinel", amount: -0.0098 }, { label: "Reviewer fee", amount: -0.0002 }, { label: "Back to you", amount: -0.09 }]} total={{ label: "Left in escrow", amount: 0 }} note="Sentinel paid 0.0034 for its own AI, from its own account." />
       </section>
       <MoneyBar paid={0.147} fee={0.003} refunded={0.15} />
+      <MotionDemo />
       <section className="grid gap-10 lg:grid-cols-2">
         <BidTable bids={bids} caption="Sealed bids, revealed" />
         <BidTable bids={bids.map((b) => ({ agent: b.agent, reputation: b.reputation }))} sealed />

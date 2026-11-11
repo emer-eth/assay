@@ -26,13 +26,19 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
   const m = useMemo(() => money(r, agents), [r, agents]);
   const name = (id?: string) => agents.find((a) => a.id === id)?.name ?? id?.split(".")[0] ?? "";
 
-  // The hallmark lands once, when this page sees the round pass (not when it opens on a round that already had).
-  const prev = useRef(phase);
+  // Motion plays only for changes this page sees happen, never on opening a round that already moved:
+  // the hallmark lands on a pass, the bids open when bidding closes, the strike draws on a failed review.
+  const prev = useRef({ phase, bids: initial.bids.length });
   const [land, setLand] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [failing, setFailing] = useState(false);
   useEffect(() => {
-    if (prev.current !== phase && phase === "passed") setLand(true);
-    prev.current = phase;
-  }, [phase]);
+    const was = prev.current;
+    if (was.phase !== phase && phase === "passed") setLand(true);
+    if (was.phase !== phase && phase === "refunded" && r.grade) setFailing(true);
+    if (was.bids === 0 && r.bids.length > 0) setOpening(true);
+    prev.current = { phase, bids: r.bids.length };
+  }, [phase, r.bids.length, r.grade]);
 
   useEffect(() => {
     document.title = `${PHASE_WORD[phase]} · ${r.id} · Assay`;
@@ -72,6 +78,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
     >
       {r.deliverable ? (
         <>
+          {failing && <span aria-hidden className="strike pointer-events-none absolute inset-x-6 top-1/2 h-[3px] origin-left bg-refund" />}
           {phase === "refunded" && <p className="mb-4 border-l-4 border-refund pl-3 text-sm text-ink-2">This report failed review, so you didn&apos;t pay for it. It&apos;s shown for reference.</p>}
           <Markdown text={r.deliverable} />
           <ReportActions r={r} />
@@ -104,7 +111,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
     </section>
   ) : null;
 
-  const bidTable = showBids ? <BidTable bids={bids} sealed={sealed} caption={sealed ? "Sealed bids" : "Sealed bids, revealed"} /> : null;
+  const bidTable = showBids ? <BidTable bids={bids} sealed={sealed} opening={opening} caption={sealed ? "Sealed bids" : "Sealed bids, revealed"} /> : null;
 
   const chain = r.txs.length || r.deposit ? (
     <section>
@@ -130,7 +137,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
   return (
     <>
       <AppHeader />
-      <main id="main" className={`${CONTAINER} pt-10`}>
+      <main id="main" className={`${CONTAINER} pt-10 ${failing ? "fail-play" : ""}`}>
         <nav aria-label="Breadcrumb" className="font-mono text-sm text-ink-2">
           <Link href="/ledger" className="text-stamp underline underline-offset-2">Ledger</Link> <span aria-hidden>/</span> Round {r.id}
         </nav>

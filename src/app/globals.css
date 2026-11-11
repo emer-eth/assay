@@ -345,7 +345,7 @@ html.lenis, html.lenis body { height: auto; }
 /* a balanced total gets a double rule */
 .double-rule { border-top: 3px double var(--ink); }
 .sealed-cell { background: repeating-linear-gradient(-45deg, var(--ink) 0 1.5px, transparent 1.5px 6px); border: 1px solid var(--ink); }
-.running-stripe { background: repeating-linear-gradient(-45deg, var(--stamp) 0 6px, transparent 6px 12px); background-size: 24px 24px; }
+.running-stripe { background: repeating-linear-gradient(-45deg, var(--stamp) 0 6px, transparent 6px 12px); background-size: 24px 24px; will-change: transform; }
 .ledger-scroll { scrollbar-width: thin; }
 .ledger-scroll:focus-visible { outline-offset: 4px; }
 
@@ -355,8 +355,35 @@ html.lenis, html.lenis body { height: auto; }
   .step-pulse { animation: step-pulse 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
   .hallmark-land { animation: hallmark-land 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .toast { animation: enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* sealed bids open: each price 180 ms, rows 80 ms apart (delays set inline), the winner's tint last */
+  .bid-open { display: inline-block; animation: bid-open 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tint-in { animation: fade-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* a line enters the ledger: slides 10 px in 240 ms, its tint fades over 1.2 s */
+  .ledger-enter > * { animation: ledger-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tint-out { animation: fade-out 1200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* the budget splits: paid 400 ms, then the fee 100 ms; before it comes into view the bar waits empty */
+  .split-wait .money-paid, .split-wait .money-fee { transform: scaleX(0); }
+  .split-play .money-paid { animation: split 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .split-play .money-fee { animation: split 100ms cubic-bezier(0.2, 0.8, 0.2, 1) 400ms both; }
+  /* a report fails: the strike draws in 240 ms, the stamp follows 160 ms later */
+  .fail-play .strike { animation: split 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .fail-play [role="status"] .stamp-word { animation: fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) 400ms both; }
 }
-@keyframes stripe { to { background-position: 24px 0; } }
+/* reduced motion: a new ledger line keeps its tint without the slide; a failed report gets the stamp, no strike */
+@media (prefers-reduced-motion: reduce) { .strike { display: none; } }
+@keyframes bid-open { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ledger-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes split { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.tint-layer { position: absolute; inset: 0; z-index: -1; background: var(--stamp-tint); pointer-events: none; }
+/* page changes cross-fade where the browser supports view transitions */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
+}
+/* the stripe is 24 px wider than its box and slides one tile: transform only (motion rule) */
+@keyframes stripe { from { transform: translateX(0); } to { transform: translateX(24px); } }
 @keyframes step-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes hallmark-land {
   0% { transform: scale(1.7) rotate(-20deg); opacity: 0; }

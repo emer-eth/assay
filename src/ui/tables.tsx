@@ -6,7 +6,12 @@ const n = (v: number, d = 3) => v.toFixed(d);
 export type BidRow = { agent: string; reputation: number; ask?: number; value?: number; winner?: boolean; struck?: boolean };
 
 /** Sealed until bidding closes (hatched cells), then revealed with the winner tinted. */
-export function BidTable({ bids, sealed, caption = "Sealed bids" }: { bids: BidRow[]; sealed?: boolean; caption?: string }) {
+/** A tint behind a whole row, as a layer per cell, so it can fade with opacity alone (motion rule). */
+const Tint = ({ cls = "", delay }: { cls?: string; delay?: number }) => <span aria-hidden className={`tint-layer ${cls}`} style={delay !== undefined ? { animationDelay: `${delay}ms` } : undefined} />;
+
+/** Sealed until bidding closes (hatched cells), then revealed with the winner tinted. `opening` plays the reveal once. */
+export function BidTable({ bids, sealed, caption = "Sealed bids", opening }: { bids: BidRow[]; sealed?: boolean; caption?: string; opening?: boolean }) {
+  const last = bids.length * 80 + 180; // the winner's tint lands after the last row opens
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full min-w-[420px] border-collapse text-[15px]">
@@ -25,22 +30,24 @@ export function BidTable({ bids, sealed, caption = "Sealed bids" }: { bids: BidR
           </tr>
         </thead>
         <tbody>
-          {bids.map((b) => (
-            <tr key={b.agent} className={`border-b border-rule ${b.winner ? "bg-stamp-tint" : ""} ${b.struck ? "text-ink-2 line-through" : ""}`}>
+          {bids.map((b, i) => (
+            <tr key={b.agent} className={`border-b border-rule [&>*]:relative [&>*]:isolate ${b.struck ? "text-ink-2 line-through" : ""}`}>
               <th scope="row" className={`py-4 text-left font-semibold ${b.winner ? "pl-3" : ""}`}>
+                {b.winner && <Tint cls={opening ? "tint-in" : ""} delay={opening ? last : undefined} />}
                 {b.agent}
                 {b.winner && <span className="ml-2 font-mono text-xs font-medium tracking-[0.08em] text-stamp">WINNER</span>}
               </th>
-              <td className="py-4 text-right font-mono">{n(b.reputation, 2)}</td>
+              <td className="py-4 text-right font-mono">{b.winner && <Tint cls={opening ? "tint-in" : ""} delay={opening ? last : undefined} />}{n(b.reputation, 2)}</td>
               {sealed ? (
                 <td colSpan={2} className="py-4 text-right">
+                  {b.winner && <Tint />}
                   <span className="sealed-cell inline-block h-4 w-28 align-middle" />
                   <span className="sr-only">sealed</span>
                 </td>
               ) : (
                 <>
-                  <td className="py-4 text-right font-mono">{b.ask !== undefined ? n(b.ask) : "—"}</td>
-                  <td className={`py-4 text-right font-mono ${b.winner ? "pr-3 font-semibold" : ""}`}>{b.value !== undefined ? b.value.toFixed(2) : "—"}</td>
+                  <td className="py-4 text-right font-mono">{b.winner && <Tint cls={opening ? "tint-in" : ""} delay={opening ? last : undefined} />}<span className={opening ? "bid-open" : ""} style={opening ? { animationDelay: `${i * 80}ms` } : undefined}>{b.ask !== undefined ? n(b.ask) : "—"}</span></td>
+                  <td className={`py-4 text-right font-mono ${b.winner ? "pr-3 font-semibold" : ""}`}>{b.winner && <Tint cls={opening ? "tint-in" : ""} delay={opening ? last : undefined} />}<span className={opening ? "bid-open" : ""} style={opening ? { animationDelay: `${i * 80}ms` } : undefined}>{b.value !== undefined ? b.value.toFixed(2) : "—"}</span></td>
                 </>
               )}
             </tr>
@@ -79,28 +86,7 @@ export function MoneyLedger({ lines, total, note }: { lines: MoneyLine[]; total:
   );
 }
 
-/** Paid, fee and refunded as one bar that always fills the budget. Ink is paid, grey the fee, blank came back. */
-export function MoneyBar({ paid, fee, refunded, label }: { paid: number; fee: number; refunded: number; label?: string }) {
-  const total = paid + fee + refunded || 1;
-  const pct = (v: number) => `${(v / total) * 100}%`;
-  const text = label ?? `${n(paid)} to the agent, ${n(fee)} fee, ${n(refunded)} back to you`;
-  return (
-    <div>
-      <div role="img" aria-label={text} className="money-bar flex h-7 border border-ink bg-sheet">
-        <span className="money-paid h-full bg-ink" style={{ width: pct(paid) }} />
-        <span className="money-fee h-full bg-rule-strong" style={{ width: pct(fee) }} />
-        <span className="h-full" style={{ width: pct(refunded) }} />
-      </div>
-      <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-sm text-ink" aria-hidden>
-        <li className="flex items-center gap-2"><span className="size-3 bg-ink" />{n(paid)} to the agent</li>
-        <li className="flex items-center gap-2"><span className="size-3 bg-rule-strong" />{n(fee)} fee</li>
-        <li className="flex items-center gap-2"><span className="size-3 border border-ink" />{n(refunded)} back to you</li>
-      </ul>
-    </div>
-  );
-}
-
-export type LedgerRow = { id: string; href: string; date: string; check: ReactNode; winner?: string; verdict: ReactNode; budget: number; paid: number; fee: number; refunded: number; txs: number };
+export type LedgerRow = { /** finished while the ledger was open: plays the entry once */ fresh?: boolean; id: string; href: string; date: string; check: ReactNode; winner?: string; verdict: ReactNode; budget: number; paid: number; fee: number; refunded: number; txs: number };
 
 /** One balanced line per round, totals in the foot under a double rule. Scrolls sideways in its own box on a phone. */
 export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty?: ReactNode; loading?: boolean }) {
@@ -123,8 +109,8 @@ export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty
             <tr><td colSpan={10} className="px-3 py-8 text-center text-ink-2">{empty ?? "No rounds match."}</td></tr>
           ) : (
             rows.map((r) => (
-              <tr key={r.id} className="ledger-row border-b border-rule">
-                <td className="px-3 py-3 font-mono text-sm whitespace-nowrap text-ink-2">{r.date}</td>
+              <tr key={r.id} className={`ledger-row border-b border-rule [&>*]:relative [&>*]:isolate ${r.fresh ? "ledger-enter" : ""}`}>
+                <td className="px-3 py-3 font-mono text-sm whitespace-nowrap text-ink-2">{r.fresh && <Tint cls="tint-out" />}{r.date}</td>
                 <th scope="row" className="px-3 py-3 text-left font-normal"><a href={r.href} className="font-mono text-stamp underline underline-offset-2">{r.id}</a></th>
                 <td className="max-w-[340px] px-3 py-3">{r.check}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{r.winner ?? "No agent saw it"}</td>
