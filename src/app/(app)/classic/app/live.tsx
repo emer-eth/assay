@@ -928,7 +928,7 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
             Round <span className="text-text">#{r.id}</span>
           </span>
           <span className="num normal-case tracking-normal">
-            {new Date(r.createdAt).toLocaleTimeString()}
+            {r.createdAt.slice(11, 19)} UTC
           </span>
         </p>
         <p className="mt-2 text-[15px] leading-snug">{r.job.description}</p>
@@ -1137,7 +1137,7 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
             {r.steps.map((s, i) => (
               <li key={i}>
                 <span className="text-faint">
-                  {new Date(s.at).toLocaleTimeString()}
+                  {s.at.slice(11, 19)} UTC
                 </span>{" "}
                 {s.text}
               </li>
