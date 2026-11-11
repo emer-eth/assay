@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import type { Account, KeyPair } from "near-api-js";
 import { nep413Hash } from "../auth/nep413";
-import { coordinator, provider } from "../near";
+import { coordinator, provider, RPC_URLS } from "../near";
 import { IS_MAINNET } from "../network";
 
 // NEAR Intents' verifier contract: the same code on both networks. On mainnet it's intents.near; on testnet,
@@ -62,9 +62,34 @@ export async function executeIntents(signed: SignedIntent[]) {
   return res.transaction.hash as string;
 }
 
+/** A view call straight to the RPC, so a contract panic comes back as its own message (the failover client
+ *  reports any panic as "Exceeded 2 providers"). */
+async function view(method: string, args: object) {
+  let last = "the RPC didn't answer";
+  for (const url of RPC_URLS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { request_type: "call_function", finality: "optimistic", account_id: INTENTS_ID, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString("base64") } }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const d = (await res.json()) as { result?: { result?: number[]; error?: string }; error?: { data?: string; cause?: { info?: { error_message?: string } } } };
+      const err = d.result?.error ?? d.error?.cause?.info?.error_message ?? (typeof d.error?.data === "string" ? d.error.data : undefined);
+      if (err) throw new ContractError(String(err).replace(/^.*Smart contract panicked: /s, "").slice(0, 300));
+      if (d.result?.result) return JSON.parse(Buffer.from(d.result.result).toString() || "null");
+    } catch (e) {
+      if (e instanceof ContractError) throw e;
+      last = e instanceof Error ? e.message : String(e);
+    }
+  }
+  throw new Error(last);
+}
+export class ContractError extends Error {}
+
 /** Checks signed intents without running them (would they succeed?). Throws with the contract's reason if not. */
 export async function simulateIntents(signed: SignedIntent[]) {
-  return provider().callFunction({ contractId: INTENTS_ID, method: "simulate_intents", args: { signed } });
+  return view("simulate_intents", { signed });
 }
 
 /** wNEAR (in yocto) an account holds inside the verifier. */

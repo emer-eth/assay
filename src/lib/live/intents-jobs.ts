@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
+import { signatureBytes, verifyNep413 } from "../auth/nep413";
 import { coordinator, coordinatorKeyPair, provider } from "../near";
 import type { jobInput } from "./actions";
 import { createRound } from "./coordinator";
@@ -68,6 +69,19 @@ export async function prepareIntentsJob(account: string, publicKey: string | nul
   };
 }
 
+/** The wallet's signature in the verifier's format ("ed25519:<base58>"), checked here first: wallets return base64,
+ *  base58, or a prefix with either. Null if it doesn't verify against this exact message. */
+export function toSigned(m: { message: string; nonce: string }, publicKey: string, signature: string): SignedIntent | null {
+  const raw = signature.replace(/^ed25519:/, "");
+  const nonce = new Uint8Array(Buffer.from(m.nonce, "base64"));
+  // A string can decode as both base64 and base58: keep whichever verifies.
+  const bytes = [signatureBytes(signature), signatureBytes(`ed25519:${raw}`), base58Decode(raw), new Uint8Array(Buffer.from(raw, "base64"))].find(
+    (b) => b.length === 64 && verifyNep413(publicKey, b, { message: m.message, nonce, recipient: INTENTS_ID }),
+  );
+  if (!bytes) return null;
+  return { standard: "nep413", payload: { message: m.message, nonce: m.nonce, recipient: INTENTS_ID }, public_key: publicKey, signature: `ed25519:${base58(bytes)}` };
+}
+
 /** Readable reason from a failed simulate/execute (the contract's panic message). */
 function reason(e: unknown) {
   const m = e instanceof Error ? e.message : String(e);
@@ -83,9 +97,8 @@ export async function submitIntentsJob(account: string, jobId: string, publicKey
   const draft = load().drafts[jobId];
   if (!draft || draft.account !== account || !draft.intent) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
   if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{32,50}$/.test(publicKey)) return { ok: false, status: 400, error: "The wallet returned an unexpected key." };
-  // Wallets return the signature as base64 or base58; the verifier wants "ed25519:<base58>".
-  const sig = signature.startsWith("ed25519:") ? signature : `ed25519:${base58(Buffer.from(signature, "base64"))}`;
-  const signed: SignedIntent = { standard: "nep413", payload: { message: draft.intent.message, nonce: draft.intent.nonce, recipient: INTENTS_ID }, public_key: publicKey, signature: sig };
+  const signed = toSigned({ message: draft.intent.message, nonce: draft.intent.nonce }, publicKey, signature);
+  if (!signed) return { ok: false, status: 400, error: "Your wallet's signature didn't check out against the intent. Try again; if it keeps failing, tell us which wallet you use." };
   if (!(await hasIntentsKey(account, publicKey).catch(() => false))) return { ok: false, status: 409, error: "Register your key with NEAR Intents first.", needKey: publicKey };
   try {
     await simulateIntents([signed]);
@@ -136,8 +149,8 @@ export async function submitWithdraw(account: string, sign: { message: string; n
     return { ok: false as const, status: 400, error: "Bad message." };
   }
   if (parsed.signer_id !== account || !parsed.intents?.every((i) => i.intent === "native_withdraw" && i.receiver_id === account)) return { ok: false as const, status: 400, error: "Only a withdrawal to your own wallet can be sent here." };
-  const sig = signature.startsWith("ed25519:") ? signature : `ed25519:${base58(Buffer.from(signature, "base64"))}`;
-  const signed: SignedIntent = { standard: "nep413", payload: { message: sign.message, nonce: sign.nonce, recipient: INTENTS_ID }, public_key: publicKey, signature: sig };
+  const signed = toSigned(sign, publicKey, signature);
+  if (!signed) return { ok: false as const, status: 400, error: "Your wallet's signature didn't check out. Try again." };
   try {
     await simulateIntents([signed]);
     return { ok: true as const, tx: await executeIntents([signed]) };
@@ -146,3 +159,17 @@ export async function submitWithdraw(account: string, sign: { message: string; n
   }
 }
 
+
+function base58Decode(s: string) {
+  const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let n = 0n;
+  for (const c of s) {
+    const i = A.indexOf(c);
+    if (i < 0) return new Uint8Array();
+    n = n * 58n + BigInt(i);
+  }
+  const hex = n.toString(16);
+  const bytes = Buffer.from(hex.length % 2 ? `0${hex}` : hex, "hex");
+  const zeros = s.match(/^1*/)![0].length;
+  return new Uint8Array([...new Uint8Array(zeros), ...bytes]);
+}
