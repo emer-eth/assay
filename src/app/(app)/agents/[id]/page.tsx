@@ -33,7 +33,7 @@ async function Agent({ params }: { params: PageProps<"/agents/[id]">["params"] }
   const rounds = s.rounds.filter((r) => r.winner === a.id).map((r) => toRow(r, s.agents));
   return (
     <AgentDetail
-      agent={{ id: a.id, name: a.name, model: a.model, skills: a.skills, quality: a.quality, skillQuality: a.skillQuality, balance: a.balance, backer: a.backer, prompt: a.prompt, earned: a.earned, funding: a.funding, createdTx: a.createdTx }}
+      agent={{ id: a.id, name: a.name, model: a.model, skills: a.skills, quality: a.quality, skillQuality: a.skillQuality, balance: a.balance, backer: a.backer, prompt: viewer === a.backer ? a.prompt : "", earned: a.earned, funding: a.funding, createdTx: a.createdTx }}
       record={agentRecords(s.rounds).get(a.id) ?? { graded: 0, passed: 0, bySkill: {} }}
       rounds={rounds}
       mine={!!viewer && viewer === a.backer}

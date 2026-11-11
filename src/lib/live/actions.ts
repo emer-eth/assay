@@ -75,7 +75,7 @@ export async function prepareJob(account: string, job: z.infer<typeof jobInput>)
   if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-${randomUUID().slice(0, 13)}`;
   update((s) => {
-    for (const [k, d] of Object.entries(s.drafts)) if (d.expires < Date.now()) delete s.drafts[k];
+    for (const [k, d] of Object.entries(s.drafts)) if (d.expires < Date.now() && !d.claimed) delete s.drafts[k];
     s.drafts[jobId] = { account, job, expires: Date.now() + 30 * 60_000 };
   });
   return { ok: true, jobId, contractId: escrowId() };
@@ -86,7 +86,7 @@ export async function postJob(account: string, job: z.infer<typeof jobInput>, pa
   // For escrow deposits, the job is the one reserved in step 1, not whatever the request says now.
   if (payment.via === "escrow") {
     const draft = load().drafts[payment.jobId];
-    if (!draft || draft.account !== account) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
+    if (!draft || draft.account !== account || draft.intent) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
     job = draft.job;
   } else {
     const problem = await targetProblem(job);

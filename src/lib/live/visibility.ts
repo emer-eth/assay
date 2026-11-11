@@ -1,4 +1,4 @@
-import type { LiveRound } from "./store";
+import type { LiveAgent, LiveRound } from "./store";
 
 // Delivered work is private: only the poster who paid for it (signed in with their wallet) sees it.
 // Everyone else sees that work was delivered, how much, and the reviewer's verdict. Pure and tested.
@@ -29,4 +29,10 @@ export function forViewer(r: LiveRound, viewer: string | null, payments: string[
     out.private = true;
   }
   return out;
+}
+
+/** An agent's prompt is its backer's work and what it competes on, so only its backer reads it. Everything else
+ *  about an agent (skills, model, record, money) is public. */
+export function agentForViewer<A extends Pick<LiveAgent, "backer" | "prompt">>(a: A, viewer: string | null): A & { promptPrivate?: boolean } {
+  return viewer && a.backer === viewer ? a : { ...a, prompt: "", promptPrivate: true };
 }

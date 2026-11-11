@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { z } from "zod";
+import { rateLimit } from "@/lib/rate-limit";
 import { currentSession } from "@/lib/auth/session";
 import { jobInput } from "@/lib/live/actions";
 import { enqueueRound } from "@/lib/live/coordinator";
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
   const session = await currentSession();
   if (!session) return Response.json({ error: "Connect your wallet to pay with NEAR Intents." }, { status: 401 });
+  const limited = rateLimit(`intents-job:${session.accountId}`, 30, 10 * 60_000);
+  if (limited) return limited;
   const body = await request.json().catch(() => null);
   const submit = submitInput.safeParse(body);
   if (submit.success) {

@@ -10,7 +10,7 @@ import { detectCheck } from "@/lib/live/detect";
 import { IS_MAINNET, LIMITS, WALLET_SIGNUP } from "@/lib/network";
 import { PAY_ASSETS, payAsset, refundAddressProblem } from "@/lib/live/pay-assets";
 import { duration, type StageTimes } from "@/lib/live/timeline";
-import { BETA_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
+import { BETA_SKILLS, OFFERED_SKILLS, PAUSED_NOTE, PAUSED_SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label, Tag, explorerTx } from "@/ui";
 
 // The composer (build spec, New check): the target and your question, a budget, then pay into escrow.
@@ -25,13 +25,21 @@ const SKILL_HINT: Record<Skill, string> = {
   "tx-forensics": "A transaction hash or 1Click deposit address: why it failed.",
   "contract-review": "A public GitHub link: findings with file, line and fix.",
 };
-const EXAMPLES: { label: string; text: string }[] = [
+/** One example per skill that the swarm has passed before, so a first job is one click. */
+const SKILL_EXAMPLE: Partial<Record<Skill, string>> = {
+  "due-diligence": "Before I deposit: who controls v2.ref-finance.near, can its code be changed, and by whom?",
+  "proposal-review": "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?",
+  "tx-forensics": "Why did NEAR Intents transaction 5Z3yjXBhhzZ2281oSCxH8Seeh893TWKV9XEoq9S842Bi fail, who signed the intent, and was anything lost besides gas?",
+  "contract-review": "Review https://github.com/near-examples/guest-book-examples/tree/main/contract-rs for storage and payable-method issues, with fixes.",
+};
+const ALL_EXAMPLES: { label: string; text: string; skill?: Skill }[] = [
   { label: "Ref Finance", text: "Before I deposit: who controls v2.ref-finance.near, can its code be changed, and by whom?" },
   { label: "DAO proposal", text: "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?" },
   { label: "Failed Intents transfer", text: "Why did NEAR Intents transaction 5Z3yjXBhhzZ2281oSCxH8Seeh893TWKV9XEoq9S842Bi fail, who signed the intent, and was anything lost besides gas?" },
   { label: "Stuck cross-chain swap", text: "My NEAR Intents (1Click) swap never arrived. I sent the funds to the deposit address PASTE_THE_DEPOSIT_ADDRESS_HERE. Where is my money, and was it refunded?" },
-  { label: "Contract repo", text: "Review https://github.com/near-examples/guest-book-examples/tree/main/contract-rs for storage and payable-method issues, with fixes." },
+  { label: "Contract repo", skill: "contract-review", text: SKILL_EXAMPLE["contract-review"]! },
 ];
+const EXAMPLES = ALL_EXAMPLES.filter((e) => !e.skill || !PAUSED_SKILLS.includes(e.skill));
 const PLACEHOLDER = "PASTE_THE_DEPOSIT_ADDRESS_HERE";
 const MIN = 0.05;
 const MAX = LIMITS.maxBudget;
@@ -64,7 +72,10 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
     if (box?.value && box.value !== text) setText(box.value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const detected = useMemo(() => detectCheck(text), [text]);
+  const found = useMemo(() => detectCheck(text), [text]);
+  // A paused skill (code review, for now) isn't offered: the text is read as naming nothing, and a note says why.
+  const paused = !!found && PAUSED_SKILLS.includes(found.skill);
+  const detected = paused ? null : found;
   const skill: Skill | null = override ?? detected?.skill ?? null;
   const amount = Number(budget);
   const budgetError = budget && (!Number.isFinite(amount) || amount < MIN || amount > MAX) ? `Set a budget from ${MIN} to ${MAX} NEAR.` : undefined;
@@ -129,7 +140,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
     : text.trim().length < 10
       ? "Write what the swarm should check first (step 1)."
       : !skill
-        ? "Name what to check in step 1: an account, a DAO proposal, a transaction hash or a GitHub repo."
+        ? paused ? PAUSED_NOTE : "Name what to check in step 1: an account, a DAO proposal or a transaction hash."
         : target.state === "problem"
           ? "Fix the target in step 1 first (see the red note there)."
           : target.state === "checking"
@@ -167,7 +178,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
               <div className="mt-5">
                 <Field
                   multiline
-                  label="Name the account, proposal, transaction, 1Click deposit address or repo. Say what you need to know."
+                  label="Name the account, proposal, transaction or 1Click deposit address. Say what you need to know."
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value);
@@ -195,18 +206,23 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                     <button type="button" className="min-h-11 text-stamp underline underline-offset-2" onClick={() => setChanging((v) => !v)} aria-expanded={changing}>Change type</button>
                   </>
                 ) : (
-                  <span className="text-ink-2">{text.includes(PLACEHOLDER) ? "Replace the placeholder with your swap's deposit address (it's selected: paste over it)." : text.trim() ? "No skill matched yet. Name an account (name.near), a DAO proposal number, a transaction hash, a 1Click deposit address or a GitHub repo, or pick the skill below." : "The swarm picks the skill from what you write. Type your question, or pick a skill:"}</span>
+                  <span className="text-ink-2">{paused ? PAUSED_NOTE : text.includes(PLACEHOLDER) ? "Replace the placeholder with your swap's deposit address (it's selected: paste over it)." : text.trim() ? "No skill matched yet. Name an account (name.near), a DAO proposal number, a transaction hash or a 1Click deposit address, or pick the skill below." : "The swarm picks the skill from what you write. Type your question, or pick a skill:"}</span>
                 )}
               </div>
               {!skill && !changing && (
                 <fieldset className="mt-3">
                   <legend className="sr-only">The swarm&apos;s skills</legend>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {SKILLS.map((s) => (
-                      <button key={s} type="button" onClick={() => setOverride(s)} className="flex min-h-11 flex-col items-start rounded-[2px] border border-rule bg-sheet px-4 py-2.5 text-left hover:border-ink">
-                        <span className="flex items-center gap-2 font-mono text-sm font-semibold tracking-[0.06em] text-ink uppercase">{CHECK_NAME[s]}{BETA_SKILLS.includes(s) && <Tag tone="refund">Beta</Tag>}</span>
-                        <span className="mt-0.5 text-sm text-ink-2">{SKILL_HINT[s]}</span>
-                      </button>
+                    {OFFERED_SKILLS.map((s) => (
+                      <div key={s} className="flex flex-col rounded-[2px] border border-rule bg-sheet hover:border-ink">
+                        <button type="button" onClick={() => setOverride(s)} className="flex min-h-11 flex-col items-start px-4 pt-2.5 pb-1 text-left">
+                          <span className="flex items-center gap-2 font-mono text-sm font-semibold tracking-[0.06em] text-ink uppercase">{CHECK_NAME[s]}{BETA_SKILLS.includes(s) && <Tag tone="refund">Beta</Tag>}</span>
+                          <span className="mt-0.5 text-sm text-ink-2">{SKILL_HINT[s]}</span>
+                        </button>
+                        {SKILL_EXAMPLE[s] && (
+                          <button type="button" onClick={() => { setText(SKILL_EXAMPLE[s]!); setOverride(null); }} className="min-h-11 px-4 pb-1 text-left text-sm text-stamp underline underline-offset-2">Run this example</button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </fieldset>
@@ -214,7 +230,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
               {changing && (
                 <fieldset className="mt-3 flex flex-wrap gap-2">
                   <legend className="sr-only">Check type</legend>
-                  {SKILLS.map((s) => (
+                  {OFFERED_SKILLS.map((s) => (
                     <button key={s} type="button" aria-pressed={skill === s} onClick={() => { setOverride(s); setChanging(false); }} className={`min-h-11 rounded-[2px] border px-4 text-[15px] ${skill === s ? "border-ink bg-ink text-on-ink" : "border-ink text-ink hover:bg-tint"}`}>
                       {CHECK_NAME[s]}
                     </button>

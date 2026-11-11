@@ -17,6 +17,8 @@ export type RoundRow = {
   fee: number;
   refunded: number;
   txs: number;
+  /** How the budget was paid: a signed NEAR Intent, the escrow contract, MCP credit... (absent on early demo rounds). */
+  paidWith?: LiveRound["paidWith"];
 };
 
 const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
@@ -42,6 +44,7 @@ export function toRow(r: LiveRound, agents: Pick<LiveAgent, "id" | "name">[]): R
     fee,
     refunded,
     txs: r.txs.length,
+    paidWith: r.paidWith,
   };
 }
 

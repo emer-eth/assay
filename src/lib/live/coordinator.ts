@@ -8,7 +8,7 @@ import type { Payment } from "./actions";
 import { agentBid, agentWork, modelOf, usageToNear } from "./agent-ai";
 import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
-import { settleThroughIntents } from "./intents-jobs";
+import { recoverClaimedIntents, settleThroughIntents } from "./intents-jobs";
 import { refundThroughIntents } from "./intents-pay";
 import { yoctoOf } from "./pay-assets";
 import { load, update, updateRound, type LiveRound } from "./store";
@@ -33,7 +33,7 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
         at: new Date().toISOString(),
         text:
           payment.via === "intents"
-            ? `${poster} paid ${job.budget} NEAR with a signed NEAR Intents transfer to the coordinator (job ${payment.jobId})`
+            ? `${poster} paid ${job.budget} NEAR with a signed NEAR Intents transfer to the coordinator (job ${payment.jobId})${payment.tx ? "" : "; the reply to that transaction was lost, so the payment was confirmed from the verifier contract instead"}`
             : payment.via === "oneclick"
             ? `${poster} paid ${job.budget} NEAR in ${payment.assetLabel} through NEAR Intents (1Click); the coordinator deposits it into the escrow contract (job ${payment.jobId}) when the round starts`
             : payment.via === "escrow"
@@ -45,7 +45,7 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
     ],
     eligible: [],
     bids: [],
-    txs: payment.via === "intents" ? [{ label: `Signed intent: ${poster} transferred ${job.budget} wNEAR to the coordinator on NEAR Intents (execute_intents)`, hash: payment.tx }] : [],
+    txs: payment.via === "intents" && payment.tx ? [{ label: `Signed intent: ${poster} transferred ${job.budget} wNEAR to the coordinator on NEAR Intents (execute_intents)`, hash: payment.tx }] : [],
     deposit,
     paidWith: payment.via,
     escrowJobId: payment.via === "escrow" || payment.via === "oneclick" ? payment.jobId : undefined,
@@ -135,6 +135,12 @@ export function recoverInterrupted() {
   queue.recovered = true;
   // Only rounds from before this process started, oldest first: anything newer belongs to this process.
   const left = load().rounds.filter((x) => ACTIVE.includes(x.status) && Date.parse(x.createdAt) < queue.bootedAt).reverse();
+  // Intent payments the old process had handed to the verifier but not yet turned into rounds.
+  queue.tail = queue.tail
+    .then(async () => {
+      for (const id of await recoverClaimedIntents(queue.bootedAt)) await runLiveRound(id);
+    })
+    .catch(() => {});
   for (const r of left) {
     if (r.status === "queued") {
       queue.tail = queue.tail.then(() => runLiveRound(r.id)).catch(() => {});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { rememberPayment } from "@/lib/auth/session";
 import { jobInput } from "@/lib/live/actions";
 import { liveGuard } from "@/lib/live/guard";
@@ -14,6 +15,8 @@ const MAX_OPEN = 30; // quotes waiting for a deposit at once, so nobody can floo
 export async function POST(request: Request) {
   const blocked = liveGuard(request);
   if (blocked) return blocked;
+  const limited = rateLimit(`pay:${clientIp(request)}`, 10, 10 * 60_000);
+  if (limited) return limited;
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: `Describe the job (10+ characters), pick a check, set a budget of 0.05–${LIMITS.maxBudget} NEAR, a token and your refund address.` }, { status: 400 });
   if (load().intentPayments.filter((p) => p.status === "waiting").length >= MAX_OPEN) return Response.json({ error: "Too many payments are waiting for a deposit right now. Try again in a few minutes." }, { status: 429 });

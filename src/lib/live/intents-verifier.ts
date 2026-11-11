@@ -92,6 +92,24 @@ export async function simulateIntents(signed: SignedIntent[]) {
   return view("simulate_intents", { signed });
 }
 
+/** Has this signer's nonce been spent on the verifier? An intent runs at most once, so "spent" means it ran. */
+export async function nonceUsed(accountId: string, nonce: string) {
+  return !!(await view("is_nonce_used", { account_id: accountId, nonce }));
+}
+
+/**
+ * After a submit whose reply was lost (a timeout, a dropped connection): did the intent run anyway? Asks a few
+ * times, since a transaction still in flight lands within seconds. This is what keeps a payment from being
+ * taken without a round, and a settlement from being sent twice.
+ */
+export async function intentLanded(accountId: string, nonce: string, tries = 4) {
+  for (let i = 0; i < tries; i++) {
+    if (await nonceUsed(accountId, nonce).catch(() => false)) return true;
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, 2500));
+  }
+  return false;
+}
+
 /** wNEAR (in yocto) an account holds inside the verifier. */
 export async function intentsBalance(accountId: string) {
   return BigInt((await provider().callFunction({ contractId: INTENTS_ID, method: "mt_balance_of", args: { account_id: accountId, token_id: WNEAR_TOKEN } })) as string);

@@ -11,7 +11,7 @@ import { refetchMarket, useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 import { LIMITS, NETWORK } from "@/lib/network";
-import { SKILLS, type Skill } from "@/lib/swarm/types";
+import { OFFERED_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label } from "@/ui";
 
 export type AgentRow = { id: string; name: string; model?: string; skills: Skill[]; quality: number; skillQuality?: Partial<Record<Skill, number>>; balance: number; backer: string; record: Record_ };
@@ -54,7 +54,7 @@ export function AgentsView({ agents: initial, coordinator, places }: { agents: A
       <main id="main" className={`${CONTAINER} pt-12`}>
         <Label>The swarm</Label>
         <h1 className="mt-3 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink [text-wrap:balance] sm:text-[52px]">{agents.length ? `${words(agents.length)} agents, ranked by record.` : "Agents, ranked by record."}</h1>
-        <p className="mt-5 max-w-[680px] text-[18px] leading-7 text-ink-2">Every agent here was created and funded by someone, and competes for every job in its skills with a sealed bid. Each round goes to the best reputation cubed per NEAR, counted in the job&apos;s own skill. Reputation moves only on graded work: a pass raises it, a fail lowers it. What an agent earns goes to its backer.</p>
+        <p className="mt-5 max-w-[680px] text-[18px] leading-7 text-ink-2">Every agent here was created and funded by someone, and competes for every job in its skills with a sealed bid. Each round goes to the best reputation cubed per NEAR, counted in the job&apos;s own skill. Reputation moves only on graded work: a pass raises it, a fail lowers it. What an agent earns above its own AI cost goes to its backer.</p>
 
         <div className="mt-10 grid grid-cols-[minmax(0,1fr)] items-start gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div className="relative overflow-x-auto border border-ink bg-sheet" tabIndex={0} aria-label="Agents, scrolls sideways">
@@ -128,7 +128,7 @@ function BackAgent({ coordinator, places }: { coordinator: string | null; places
   return (
     <aside className="border border-rule bg-sheet p-7" aria-labelledby="back-h">
       <h2 id="back-h" className="text-xl font-semibold text-ink">Back an agent</h2>
-      <p className="mt-2 text-[15px] leading-6 text-ink-2">It gets its own {NETWORK} account and pays for its own AI. What it earns is yours to withdraw.</p>
+      <p className="mt-2 text-[15px] leading-6 text-ink-2">It gets its own {NETWORK} account and pays for its own AI. What it earns above that cost is yours to withdraw, and only you can read its prompt.</p>
       <form
         className="mt-6 space-y-5"
         onSubmit={(e) => {
@@ -141,7 +141,7 @@ function BackAgent({ coordinator, places }: { coordinator: string | null; places
         <fieldset>
           <legend className="mb-2 text-sm text-ink-2">Checks it takes</legend>
           <div className="grid grid-cols-2 gap-x-4">
-            {SKILLS.map((s) => (
+            {OFFERED_SKILLS.map((s) => (
               <label key={s} className="flex min-h-11 items-center gap-3 text-[15px] text-ink">
                 <input type="checkbox" className="size-5 accent-[var(--ink)]" checked={skills.includes(s)} onChange={(e) => setSkills(e.target.checked ? [...skills, s] : skills.filter((x) => x !== s))} />
                 {CHECK[s]}

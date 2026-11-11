@@ -8,7 +8,10 @@ import { SKILLS, type Skill } from "@/lib/swarm/types";
 import { CONTAINER, Footer, Label, LedgerTable, VerdictStamp, type LedgerRow } from "@/ui";
 
 const CHECK: Record<Skill, string> = { "due-diligence": "Due diligence", "contract-review": "Code review", "proposal-review": "Proposal review", "tx-forensics": "Tx forensics" };
+/** How the budget was paid, as a short label on each line. */
+const PAID: Record<NonNullable<RoundRow["paidWith"]>, string> = { intents: "NEAR Intent", oneclick: "NEAR Intents · 1Click", escrow: "Escrow contract", wallet: "Wallet", credit: "MCP credit" };
 type Filter = "all" | "passed" | "refunded" | "blocked" | "running";
+type Pay = "all" | NonNullable<RoundRow["paidWith"]>;
 const verdictOf = (r: RoundRow): Exclude<Filter, "all"> =>
   r.phase === "passed" ? "passed" : r.phase === "blocked" ? "blocked" : ["refunded", "unfilled", "error"].includes(r.phase) ? "refunded" : "running";
 const date = (iso: string) => `${Number(iso.slice(8, 10))} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(iso.slice(5, 7)) - 1]} ${iso.slice(11, 16)}`;
@@ -35,7 +38,9 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
 
   const [filter, setFilter] = useState<Filter>("all");
   const [check, setCheck] = useState<Skill | "all">("all");
-  const shown = rows.filter((r) => (filter === "all" || verdictOf(r) === filter) && (check === "all" || r.skills.includes(check)));
+  const [pay, setPay] = useState<Pay>("all");
+  const payKinds = (Object.keys(PAID) as Exclude<Pay, "all">[]).filter((k) => rows.some((r) => r.paidWith === k));
+  const shown = rows.filter((r) => (filter === "all" || verdictOf(r) === filter) && (check === "all" || r.skills.includes(check)) && (pay === "all" || r.paidWith === pay));
   const count = (f: Filter) => rows.filter((r) => f === "all" || verdictOf(r) === f).length;
 
   const graded = rows.filter((r) => r.passed !== null).length;
@@ -60,7 +65,10 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
       check: (
         <>
           <span className="line-clamp-1" title={r.title}>{r.title}</span>
-          {skill && <span className="font-mono text-xs text-ink-2 uppercase">{CHECK[skill]}</span>}
+          <span className="flex flex-wrap gap-x-3 font-mono text-xs uppercase">
+            {skill && <span className="text-ink-2">{CHECK[skill]}</span>}
+            {r.paidWith && <span className={r.paidWith === "intents" || r.paidWith === "oneclick" ? "font-semibold text-stamp" : "text-ink-2"}>Paid: {PAID[r.paidWith]}</span>}
+          </span>
         </>
       ),
       winner: r.winner ?? undefined,
@@ -100,6 +108,15 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
               ),
             )}
           </div>
+          {payKinds.length > 1 && (
+            <label className="flex items-center gap-3 text-[15px] text-ink-2">
+              Paid with
+              <select value={pay} onChange={(e) => setPay(e.target.value as Pay)} className="min-h-11 rounded-[2px] border border-ink bg-sheet px-3 text-base text-ink">
+                <option value="all">Any payment</option>
+                {payKinds.map((k) => <option key={k} value={k}>{PAID[k]}</option>)}
+              </select>
+            </label>
+          )}
           <label className="flex items-center gap-3 text-[15px] text-ink-2">
             Check
             <select value={check} onChange={(e) => setCheck(e.target.value as Skill | "all")} className="min-h-11 rounded-[2px] border border-ink bg-sheet px-3 text-base text-ink">

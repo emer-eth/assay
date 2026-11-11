@@ -2,7 +2,7 @@ import "server-only";
 import { availableNear } from "../near";
 import { ACTIVE, recoverInterrupted } from "./coordinator";
 import { load } from "./store";
-import { forViewer } from "./visibility";
+import { agentForViewer, forViewer } from "./visibility";
 
 // Everything the live page shows: sealed bids stay hidden until bidding closes, and delivered work
 // is only included for the poster who paid for it (see visibility.ts). Shared by the API route and
@@ -20,7 +20,7 @@ export async function publicState(viewer: string | null, opts: { balance?: boole
     needsKey: !!process.env.LIVE_KEY,
     viewer,
     coordinator: { id, near: coordinatorCache.near },
-    agents: state.agents,
+    agents: state.agents.map((a) => agentForViewer(a, viewer)),
     rounds: state.rounds.slice(0, 30).map((r) => forViewer(r, viewer, opts.payments)),
     busy: state.rounds.some((r) => ACTIVE.includes(r.status)),
   };

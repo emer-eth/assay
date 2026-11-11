@@ -3,7 +3,7 @@ import { z } from "zod";
 import { currentAccount } from "@/lib/auth/session";
 import { jobInput, postJob } from "@/lib/live/actions";
 import { enqueueRound } from "@/lib/live/coordinator";
-import { liveGuard } from "@/lib/live/guard";
+import { liveGuard, LIMITS } from "@/lib/live/guard";
 
 export const maxDuration = 300;
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     res = await postJob(account, { description: "", skills: ["due-diligence"], budget: 0 }, { via: "escrow", jobId: viaEscrow.data.jobId, txHash: viaEscrow.data.txHash });
   } else {
     const parsed = transferInput.safeParse(body);
-    if (!parsed.success) return Response.json({ error: "Describe the job (10+ characters), pick at least one skill, set a budget of 0.05–5 NEAR, and pay it from your wallet." }, { status: 400 });
+    if (!parsed.success) return Response.json({ error: `Describe the job (10+ characters), pick at least one skill, set a budget of 0.05–${LIMITS.maxBudget} NEAR, and pay it from your wallet.` }, { status: 400 });
     const { txHash, ...job } = parsed.data;
     res = await postJob(account, job, { via: "wallet", txHash });
   }

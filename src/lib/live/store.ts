@@ -41,6 +41,9 @@ export type LiveRound = {
   /** A refund sent back through 1Click: the deposit address to follow it by, and how much NEAR went in. */
   refundSwaps?: { depositAddress: string; near: number; txHash: string; at: string }[];
   escrowJobId?: string; // the job id in the escrow contract, when paidWith is "escrow"
+  /** Paid with a signed intent: the settlement intent's nonce, written before it's submitted, so a retry can ask
+   *  the verifier whether it already ran instead of paying twice. `done` once it's known to have run. */
+  intentSettle?: { nonce: string; at: string; done?: boolean };
 };
 
 export type Deposit = { txHash: string; from: string; near: number; purpose: string; at: string };
@@ -53,7 +56,7 @@ type State = {
   credits: Record<string, number>; // prepaid NEAR per account, spent by API keys (MCP), refunded back into
   apiKeys: ApiKey[];
   /** Jobs waiting for their escrow deposit: the job id the wallet passes to post_job, and what was asked for. */
-  drafts: Record<string, { account: string; job: Job_; expires: number; /** for NEAR Intents payments: the exact message the payer signs */ intent?: { message: string; nonce: string } }>;
+  drafts: Record<string, { account: string; job: Job_; expires: number; /** for NEAR Intents payments: the exact message the payer signs */ intent?: { message: string; nonce: string }; /** when the payer's signed intent was handed to the verifier: from here the draft is a payment in flight, kept until its round exists */ claimed?: number }>;
   /** Jobs being paid through NEAR Intents (1Click), from quote to the round they become. */
   intentPayments: IntentPayment[];
 };

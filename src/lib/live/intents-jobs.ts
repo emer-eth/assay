@@ -5,7 +5,7 @@ import { signatureBytes, verifyNep413 } from "../auth/nep413";
 import { coordinator, coordinatorKeyPair, provider } from "../near";
 import type { jobInput } from "./actions";
 import { createRound } from "./coordinator";
-import { base58, executeIntents, hasIntentsKey, INTENTS_ID, intentsBalance, signIntent, simulateIntents, WNEAR_TOKEN, WRAP_ID, type Intent, type SignedIntent } from "./intents-verifier";
+import { base58, executeIntents, hasIntentsKey, intentLanded, INTENTS_ID, intentsBalance, signIntent, simulateIntents, WNEAR_TOKEN, WRAP_ID, type Intent, type SignedIntent } from "./intents-verifier";
 import { yoctoOf } from "./pay-assets";
 import { load, update, updateRound } from "./store";
 import { targetProblem } from "./tools";
@@ -54,7 +54,7 @@ export async function prepareIntentsJob(account: string, publicKey: string | nul
     publicKey ? hasIntentsKey(account, publicKey).catch(() => null) : Promise.resolve(null),
   ]);
   update((s) => {
-    for (const [k, d] of Object.entries(s.drafts)) if (d.expires < Date.now()) delete s.drafts[k];
+    for (const [k, d] of Object.entries(s.drafts)) if (d.expires < Date.now() && !d.claimed) delete s.drafts[k];
     s.drafts[jobId] = { account, job, expires: Date.now() + 20 * 60_000, intent: { message, nonce } };
   });
   return {
@@ -107,30 +107,84 @@ export async function submitIntentsJob(account: string, jobId: string, publicKey
   } catch (e) {
     return { ok: false, status: 402, error: reason(e) };
   }
-  // Claim the draft once, so a double click can't create two rounds (the verifier would refuse the reused nonce anyway).
-  const claimed = update((s) => (s.drafts[jobId] ? (delete s.drafts[jobId], true) : false));
+  // Claim the draft once, so a double click can't create two rounds (the verifier would refuse the reused nonce
+  // anyway). The draft stays, marked as a payment in flight, until its round exists: if the server stops in
+  // between, startup finds it and asks the verifier whether the payment ran (recoverClaimedIntents).
+  const claimed = update((s) => {
+    const d = s.drafts[jobId];
+    if (!d || d.claimed) return false;
+    d.claimed = Date.now();
+    return true;
+  });
   if (!claimed) return { ok: false, status: 409, error: "This job was already posted." };
-  let tx: string;
+  let tx = "";
   try {
     tx = await executeIntents([signed]);
   } catch (e) {
-    return { ok: false, status: 402, error: reason(e) };
+    // No reply doesn't mean it didn't run: the verifier knows. If the payment was taken, the round must start.
+    if (!(await intentLanded(account, draft.intent.nonce))) {
+      update((s) => void (s.drafts[jobId] && delete s.drafts[jobId].claimed)); // not taken: the payer can try again
+      return { ok: false, status: 402, error: reason(e) };
+    }
   }
   const round = createRound(draft.job, account, { via: "intents", jobId, tx });
+  update((s) => void delete s.drafts[jobId]);
   return { ok: true, id: round.id, tx };
 }
 
-/** Settles an Intents-paid round in one signed intent: the winner's pay in NEAR, the rest back to the payer's balance. */
+/**
+ * At startup: intent payments the last process submitted but never turned into rounds (it stopped in between).
+ * The verifier says whether each one ran: if so the payer has paid and gets their round; if not, nothing was
+ * taken and the draft is simply released. Returns the new rounds' ids, for the queue.
+ */
+export async function recoverClaimedIntents(before: number): Promise<string[]> {
+  const stuck = Object.entries(load().drafts).filter(([, d]) => d.intent && d.claimed && d.claimed < before);
+  const ids: string[] = [];
+  for (const [jobId, d] of stuck) {
+    const ran = await intentLanded(d.account, d.intent!.nonce, 2);
+    // Take the draft once (two recoveries can't both make a round).
+    const mine = update((s) => (s.drafts[jobId]?.claimed ? (delete s.drafts[jobId], true) : false));
+    if (!mine || !ran) continue;
+    const round = createRound(d.job, d.account, { via: "intents", jobId, tx: "" });
+    updateRound(round.id, {}, "The server restarted just after this payment was submitted. The verifier contract confirms it ran, so the round starts now.");
+    ids.push(round.id);
+  }
+  return ids;
+}
+
+/**
+ * Settles an Intents-paid round in one signed intent: the winner's pay in NEAR, the rest back to the payer's balance.
+ * Never twice: the intent's nonce is written to the round before it's submitted, so if the reply is lost and
+ * this is called again (the round's error path, or a restart), it asks the verifier whether that intent ran
+ * before signing another. All Intents-paid budgets sit in one coordinator balance, so a second settlement
+ * would be paid out of other posters' money.
+ */
 export async function settleThroughIntents(roundId: string, winner: string | null, toAgent: number, refund: number, why: string) {
   const r = load().rounds.find((x) => x.id === roundId);
-  if (!r || r.txs.some((t) => t.label.startsWith("NEAR Intents settlement"))) return; // never settle twice
+  if (!r || r.intentSettle?.done || r.txs.some((t) => t.label.startsWith("NEAR Intents settlement"))) return; // never settle twice
+  const confirm = (nonce: string) =>
+    updateRound(roundId, (x) => void (x.intentSettle = { ...(x.intentSettle ?? { nonce, at: new Date().toISOString() }), done: true }), "The reply to the settlement transaction was lost; the verifier contract confirms the settlement ran, so nothing more is sent.");
+  if (r.intentSettle && (await intentLanded(coord(), r.intentSettle.nonce))) return void confirm(r.intentSettle.nonce);
   const intents: Intent[] = [];
   if (winner && toAgent > 0) intents.push({ intent: "native_withdraw", receiver_id: winner, amount: yoctoOf(toAgent) });
   if (refund > 0) intents.push({ intent: "transfer", receiver_id: r.job.poster, tokens: { [WNEAR_TOKEN]: yoctoOf(refund) }, memo: `Assay refund, round ${r.id} (${why})` });
   if (!intents.length) return;
-  const tx = await executeIntents([signIntent(coord(), coordinatorKeyPair(), intents)]);
+  const signed = signIntent(coord(), coordinatorKeyPair(), intents);
+  const nonce = signed.payload.nonce;
+  updateRound(roundId, (x) => void (x.intentSettle = { nonce, at: new Date().toISOString() }));
+  let tx: string;
+  try {
+    tx = await executeIntents([signed]);
+  } catch (e) {
+    if (await intentLanded(coord(), nonce)) return void confirm(nonce);
+    updateRound(roundId, (x) => void delete x.intentSettle); // it didn't run: a retry may sign a new one
+    throw e;
+  }
   const parts = [winner && toAgent > 0 ? `${toAgent} NEAR to the winner` : "", refund > 0 ? `${refund} NEAR back to ${r.job.poster}'s NEAR Intents balance (${why})` : ""].filter(Boolean);
-  updateRound(roundId, (x) => x.txs.push({ label: `NEAR Intents settlement, signed by the coordinator: ${parts.join(", ")}`, hash: tx }));
+  updateRound(roundId, (x) => {
+    x.intentSettle = { nonce, at: x.intentSettle?.at ?? new Date().toISOString(), done: true };
+    x.txs.push({ label: `NEAR Intents settlement, signed by the coordinator: ${parts.join(", ")}`, hash: tx });
+  });
 }
 
 /** The payer's own NEAR Intents balance, and a withdrawal of it to their wallet (they sign; the coordinator submits). */

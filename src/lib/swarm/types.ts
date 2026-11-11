@@ -7,6 +7,12 @@ export type Skill = (typeof SKILLS)[number];
 /** Skills whose reports still fail review more often than they pass; shown with a "beta" tag. */
 export const BETA_SKILLS: Skill[] = ["contract-review"];
 
+/** Skills the job form doesn't offer for now: code review fails review too often (1 pass in the last 10 on 11 Nov 2026).
+ *  Everything behind it stays (tools, agents' skills, old rounds, MCP as beta); empty this list to bring it back. */
+export const PAUSED_SKILLS: Skill[] = ["contract-review"];
+export const OFFERED_SKILLS: Skill[] = SKILLS.filter((s) => !PAUSED_SKILLS.includes(s));
+export const PAUSED_NOTE = "Contract code review is paused while we improve it: its reports failed review too often. Name an account, a DAO proposal or a transaction instead.";
+
 export const SKILL_LABEL: Record<Skill, string> = { "due-diligence": "Contract due diligence", "contract-review": "Contract code review", "proposal-review": "DAO proposal review", "tx-forensics": "Transaction forensics" };
 
 export type Job = {

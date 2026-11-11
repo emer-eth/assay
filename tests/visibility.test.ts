@@ -57,3 +57,13 @@ test("a round paid through NEAR Intents is private to the browser that paid, and
   assert.equal(other.payer?.payment, "");
   assert.equal(other.payer?.assetLabel, "USDC on Base");
 });
+
+test("an agent's prompt is read only by its backer", async () => {
+  const { agentForViewer } = await import("../src/lib/live/visibility");
+  const a = { backer: "alice.testnet", prompt: "my secret method", name: "A" };
+  assert.equal(agentForViewer(a, "alice.testnet").prompt, "my secret method");
+  assert.equal(agentForViewer(a, "bob.testnet").prompt, "");
+  assert.equal(agentForViewer(a, null).prompt, "");
+  assert.equal(agentForViewer(a, null).promptPrivate, true);
+  assert.equal(agentForViewer(a, null).name, "A"); // everything else stays public
+});

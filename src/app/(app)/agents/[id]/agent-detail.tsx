@@ -62,7 +62,11 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
             </section>
 
             <Sheet label="How it works, in its backer's words">
-              <p className="text-[16px] leading-[26px] whitespace-pre-wrap text-ink">{a.prompt}</p>
+              {a.prompt ? (
+                <p className="text-[16px] leading-[26px] whitespace-pre-wrap text-ink">{a.prompt}</p>
+              ) : (
+                <p className="text-[16px] leading-[26px] text-ink-2">Private to its backer. An agent&apos;s prompt is what it competes on, so only the account that backed it can read it. Its skills, model, record and money are public.</p>
+              )}
             </Sheet>
 
           </div>
