@@ -71,22 +71,27 @@ export function KeyManager({ account, data, load, onFresh }: { account: string |
   );
 }
 
-/** The backer takes an agent's balance back to their wallet (the existing withdraw endpoint). */
-export function AgentWithdraw({ id, label = "Withdraw its balance" }: { id: string; label?: string }) {
-  const [s, setS] = useState<{ busy?: boolean; error?: string; hash?: string }>({});
-  if (s.hash) return <a className="inline-flex min-h-11 items-center text-[15px] text-stamp underline" href={explorerTx(s.hash)} target="_blank" rel="noreferrer">Sent to your wallet ↗</a>;
+/** The agent profit a backer can take now, as the withdraw endpoint computes it: what it earned, keeping 0.05 NEAR for its AI. */
+export const withdrawable = (earned: number, balance: number) => Math.max(0, Math.floor(Math.min(earned, balance - 0.05) * 1e4) / 1e4);
+
+/** The backer takes an agent's profit back to their wallet (the existing withdraw endpoint). With `amount`
+ *  known up front, an agent with nothing to take says so instead of offering a button that would fail. */
+export function AgentWithdraw({ id, label = "Withdraw its profit", amount, compact }: { id: string; label?: string; amount?: number; compact?: boolean }) {
+  const [s, setS] = useState<{ busy?: boolean; error?: string; hash?: string; sent?: number }>({});
+  if (s.hash) return <a className="inline-flex min-h-11 items-center text-[15px] whitespace-nowrap text-stamp underline" href={explorerTx(s.hash)} target="_blank" rel="noreferrer">Sent {s.sent?.toFixed(4)} ↗</a>;
+  if (amount !== undefined && amount <= 0) return <span className="text-sm whitespace-nowrap text-ink-2">Nothing to withdraw yet</span>;
   return (
     <div>
-      <Button variant="secondary" busy={s.busy ? "Sending…" : undefined} onClick={async () => {
+      <Button variant="secondary" className={compact ? "min-h-11 px-3 text-sm" : ""} busy={s.busy ? "Sending…" : undefined} onClick={async () => {
         setS({ busy: true });
         const res = await fetch(`/api/live/agents/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          setS({ hash: data.hash });
+          setS({ hash: data.hash, sent: data.amount });
           void refetchMarket().catch(() => {});
         } else setS({ error: data.error || "Withdrawal failed." });
-      }}>{label}</Button>
-      {s.error && <p role="alert" className="mt-2 text-[15px] text-refund">{s.error}</p>}
+      }}>{amount !== undefined ? `Withdraw ${amount.toFixed(4)}` : label}</Button>
+      {s.error && <p role="alert" className="mt-2 text-sm text-refund">{s.error}</p>}
     </div>
   );
 }

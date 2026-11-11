@@ -31,7 +31,7 @@ async function Mine() {
     .map((a) => {
       const won = s.rounds.filter((r) => r.winner === a.id);
       return {
-        id: a.id, name: a.name, model: a.model, skills: a.skills, quality: a.quality, balance: a.balance, funding: a.funding, earned: a.earned,
+        id: a.id, name: a.name, model: a.model, skills: a.skills, quality: a.quality, balance: a.balance, funding: a.funding, earned: a.earned, withdrawn: a.withdrawn ?? 0,
         aiSpend: Math.round(won.reduce((sum, r) => sum + (r.payout?.aiCost ?? 0), 0) * 1e6) / 1e6,
         roundsWon: won.length,
         record: records.get(a.id) ?? { graded: 0, passed: 0, bySkill: {} },

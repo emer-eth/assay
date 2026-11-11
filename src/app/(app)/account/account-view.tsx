@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { AppHeader } from "@/components/app-header";
-import { AgentWithdraw, KeyManager, useCreditAndKeys } from "@/components/account-tools";
+import { AgentWithdraw, KeyManager, useCreditAndKeys, withdrawable } from "@/components/account-tools";
 import { useAuth } from "@/components/wallet";
 import type { Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 import type { Skill } from "@/lib/swarm/types";
-import { Button, buttonClass, CONTAINER, Footer, Label, LedgerTable, VerdictStamp } from "@/ui";
+import { Button, buttonClass, CONTAINER, Footer, Label, VerdictStamp } from "@/ui";
 
-export type MyAgent = { id: string; name: string; model?: string; skills: Skill[]; quality: number; balance: number; funding: number; earned: number; aiSpend: number; roundsWon: number; record: Record_ };
+export type MyAgent = { id: string; name: string; model?: string; skills: Skill[]; quality: number; balance: number; funding: number; earned: number; withdrawn: number; aiSpend: number; roundsWon: number; record: Record_ };
 
 const CHECK: Record<Skill, string> = { "due-diligence": "Due diligence", "contract-review": "Code review", "proposal-review": "Proposal review", "tx-forensics": "Tx forensics" };
 const date = (iso: string) => `${Number(iso.slice(8, 10))} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(iso.slice(5, 7)) - 1]} ${iso.slice(11, 16)}`;
@@ -93,59 +93,84 @@ export function AccountView({ account, rounds, agents, loading }: { account: str
             <h2 id="checks-h" className="font-archivo text-[28px] font-extrabold text-ink">Your checks</h2>
             <Link href="/check" className={buttonClass("primary")}>New check</Link>
           </div>
-          <div className="border-2 border-ink bg-sheet">
-            <LedgerTable
-              empty={<>You haven&apos;t posted a check yet. <Link href="/check" className="text-stamp underline">Start one</Link>.</>}
-              rows={rounds.map((r) => ({
-                id: r.id, href: `/rounds/${r.id}`, date: date(r.createdAt),
-                check: (
-                  <>
-                    <span className="line-clamp-1" title={r.title}>{r.title}</span>
-                    {r.skills.find((s) => s in CHECK) && <span className="font-mono text-xs text-ink-2 uppercase">{CHECK[r.skills.find((s) => s in CHECK)!]}</span>}
-                  </>
-                ),
-                winner: r.winner ?? undefined, verdict: verdict(r),
-                budget: r.budget, paid: r.paid, fee: r.fee, refunded: r.refunded, txs: r.txs,
-              }))}
-            />
-          </div>
-          <p className="mt-3 text-sm text-ink-2">Your reports open from each round. Only you can read them.</p>
+          {!rounds.length ? (
+            <p className="border border-rule bg-sheet p-6 text-[15px] text-ink-2">You haven&apos;t posted a check yet. <Link href="/check" className="text-stamp underline">Start one</Link>.</p>
+          ) : (
+            <ScrollBox label="Your checks" rows={rounds.length}>
+              <table className="w-full min-w-[640px] border-collapse text-[15px]">
+                <caption className="sr-only">The checks you posted, newest first</caption>
+                <thead>
+                  <tr>
+                    {["Date, UTC", "Check", "Verdict", "Paid", "Back to you"].map((h, i) => (
+                      <th key={h} scope="col" className={`sticky top-0 z-10 border-b-2 border-ink bg-tint px-4 py-3 text-sm font-normal whitespace-nowrap text-ink-2 ${i >= 3 ? "text-right" : "text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rounds.map((r) => {
+                    const skill = r.skills.find((x) => x in CHECK);
+                    return (
+                      <tr key={r.id} className="border-b border-rule last:border-b-0">
+                        <td className="px-4 py-2.5 font-mono text-sm whitespace-nowrap text-ink-2">{date(r.createdAt)}</td>
+                        <th scope="row" className="max-w-[360px] px-4 py-2.5 text-left font-normal">
+                          <Link href={`/rounds/${r.id}`} className="line-clamp-1 text-ink underline-offset-2 hover:underline" title={r.title}>{r.title}</Link>
+                          <span className="font-mono text-xs text-ink-2">{r.id}{skill ? <> · <span className="uppercase">{CHECK[skill]}</span></> : null}</span>
+                        </th>
+                        <td className="px-4 py-2.5">{verdict(r)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{n4(r.paid + r.fee)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{n4(r.refunded)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </ScrollBox>
+          )}
+          <p className="mt-3 text-sm text-ink-2">Open a check to read its report. Only you can read them. Every line, with fees and transactions, is in the <Link href="/ledger" className="text-stamp underline underline-offset-2">ledger</Link>.</p>
         </section>
 
         <section aria-labelledby="agents-h" className="mt-14">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-            <h2 id="agents-h" className="font-archivo text-[28px] font-extrabold text-ink">Agents you back</h2>
+            <div>
+              <h2 id="agents-h" className="font-archivo text-[28px] font-extrabold text-ink">Agents you back</h2>
+              <p className="mt-1 text-sm text-ink-2">Withdraw takes an agent&apos;s profit and leaves it 0.05 NEAR to keep working. Its funding stays with it.</p>
+            </div>
             <Link href="/agents" className={buttonClass("secondary")}>Back an agent</Link>
           </div>
           {!agents.length ? (
             <p className="border border-rule bg-sheet p-6 text-[15px] text-ink-2">You don&apos;t back an agent yet. Fund one with a prompt and the checks it takes, and it bids for work with its own account.</p>
           ) : (
-            <ul className="grid gap-5 lg:grid-cols-2">
-              {agents.map((a) => (
-                <li key={a.id} className="border border-rule bg-sheet p-6">
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <Link href={`/agents/${encodeURIComponent(a.id)}`} className="text-xl font-semibold text-ink underline underline-offset-2">{a.name}</Link>
-                    <span className="font-mono text-sm text-ink-2">{a.model && a.model in AGENT_MODELS ? AGENT_MODELS[a.model as AgentModel].label : "Default model"}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-ink-2">{a.skills.map((s) => CHECK[s]).join(", ")} · reputation <span className="font-mono text-ink">{a.quality.toFixed(2)}</span> · {a.record.graded ? `${a.record.passed} of ${a.record.graded} passed` : "no graded work yet"}</p>
-                  <dl className="mt-5 border-t-2 border-ink text-[15px]">
-                    {[
-                      ["You funded it with", a.funding],
-                      ["Spent on its own AI", -a.aiSpend],
-                      ["Balance it holds now", a.balance],
-                      ["Earned for you", a.earned],
-                    ].map(([k, v]) => (
-                      <div key={k as string} className="flex justify-between border-b border-rule py-2.5">
-                        <dt>{k}</dt>
-                        <dd className="font-mono">{(v as number) < 0 ? `−${n4(-(v as number))}` : n4(v as number)}</dd>
-                      </div>
+            <ScrollBox label="Agents you back" rows={agents.length}>
+              <table className="w-full min-w-[860px] border-collapse text-[15px]">
+                <caption className="sr-only">The agents you back, with their money in NEAR</caption>
+                <thead>
+                  <tr>
+                    {["Agent", "Record", "Funded", "AI spend", "Balance", "Earned", ""].map((h, i) => (
+                      <th key={i} scope="col" className={`sticky top-0 z-10 border-b-2 border-ink bg-tint px-4 py-3 text-sm font-normal whitespace-nowrap text-ink-2 ${i >= 2 && i <= 5 ? "text-right" : "text-left"}`}>{h || <span className="sr-only">Withdraw</span>}</th>
                     ))}
-                  </dl>
-                  <p className="mt-3 text-sm text-ink-2">It won {a.roundsWon} round{a.roundsWon === 1 ? "" : "s"}. Withdrawing sends its balance back to your wallet.</p>
-                  <div className="mt-4"><AgentWithdraw id={a.id} label="Withdraw to your wallet" /></div>
-                </li>
-              ))}
-            </ul>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agents.map((a) => (
+                    <tr key={a.id} className="border-b border-rule last:border-b-0">
+                      <th scope="row" className="px-4 py-2.5 text-left font-normal">
+                        <Link href={`/agents/${encodeURIComponent(a.id)}`} className="font-semibold text-ink underline underline-offset-2">{a.name}</Link>
+                        <span className="block font-mono text-xs whitespace-nowrap text-ink-2">{a.model && a.model in AGENT_MODELS ? AGENT_MODELS[a.model as AgentModel].label : "Default model"}</span>
+                      </th>
+                      <td className="px-4 py-2.5 text-sm whitespace-nowrap">
+                        <span className="font-mono">{a.quality.toFixed(2)}</span>
+                        <span className={`block ${a.record.graded && !a.record.passed ? "text-refund" : "text-ink-2"}`}>{a.record.graded ? `${a.record.passed} of ${a.record.graded} passed` : "no graded work"}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">{n4(a.funding)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono">{a.aiSpend ? `−${n4(a.aiSpend)}` : n4(0)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono">{n4(a.balance)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono">{n4(a.earned)}{a.withdrawn ? <span className="block text-xs text-ink-2">{n4(a.withdrawn)} taken</span> : null}</td>
+                      <td className="px-4 py-2.5 text-right"><AgentWithdraw id={a.id} amount={withdrawable(a.earned, a.balance)} compact /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollBox>
           )}
         </section>
 
@@ -162,5 +187,17 @@ export function AccountView({ account, rounds, agents, loading }: { account: str
       </main>
       <Footer />
     </>
+  );
+}
+
+/** A box that scrolls on its own (both ways on a phone), so a long list never takes over the page. */
+function ScrollBox({ label, rows, children }: { label: string; rows: number; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="relative max-h-[420px] overflow-auto border-2 border-ink bg-sheet" tabIndex={0} role="region" aria-label={`${label}, scrolls`}>
+        {children}
+      </div>
+      {rows > 6 && <p className="mt-2 text-sm text-ink-2">{rows} in all. Scroll inside the box for the rest.</p>}
+    </div>
   );
 }

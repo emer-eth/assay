@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
-import { AgentWithdraw } from "@/components/account-tools";
+import { AgentWithdraw, withdrawable } from "@/components/account-tools";
 import { useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
@@ -77,7 +77,7 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
               ))}
             </dl>
             {a.createdTx && <TxLink label="Created and funded" hash={a.createdTx} />}
-            {mine && <AgentWithdraw id={a.id} />}
+            {mine && <AgentWithdraw id={a.id} amount={withdrawable(a.earned, a.balance)} />}
           </aside>
         </div>
         <section aria-labelledby="won-h" className="mt-14">
