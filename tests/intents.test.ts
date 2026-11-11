@@ -41,3 +41,9 @@ test("the deadline is checked against the time the call ran", async () => {
   assert.match(late, /EXPIRED 11 min before/);
   assert.match(late, /deadline had passed/);
 });
+
+test("a zero-amount flag names the token by its symbol when the metadata is known", async () => {
+  const withSymbol = async (_id: string, raw: string) => `${raw} USDC (raw ${raw}, token x)`;
+  const [b] = decodeSignedIntents(zeroUsdc);
+  assert.match((await describeIntent(b.intents[0], b.signer, withSymbol)).flags.join(), /zero amount of USDC$/);
+});

@@ -75,7 +75,8 @@ export async function describeIntent(i: Record<string, unknown>, signer: string 
   switch (kind) {
     case "transfer": {
       if (signer && i.receiver_id === signer) flags.push("transfers to the signer's own account: no tokens change hands");
-      const zero = Object.entries(asObject(i.tokens) ?? {}).filter(([, v]) => /^-?0+$/.test(String(v))).map(([k]) => tokenContract(k).label);
+      // Name the token by its symbol when its metadata is known ("0 USDC (raw 0, …)" -> "USDC").
+      const zero = await Promise.all(Object.entries(asObject(i.tokens) ?? {}).filter(([, v]) => /^-?0+$/.test(String(v))).map(async ([k]) => (await amount(k, "0")).match(/^0 ([^\s(]+) \(/)?.[1] ?? tokenContract(k).label));
       if (zero.length) flags.push(`transfers a zero amount of ${zero.join(", ")}`);
       return { text: `transfer ${await amounts(i.tokens, amount)} to ${who(i.receiver_id)}${i.memo ? ` (memo "${String(i.memo).slice(0, 80)}")` : ""}`, flags };
     }
