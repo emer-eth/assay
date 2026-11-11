@@ -37,6 +37,8 @@ export type IntentsPrep = {
 };
 
 export async function prepareIntentsJob(account: string, publicKey: string | null, job: z.infer<typeof jobInput>): Promise<({ ok: true } & IntentsPrep) | Fail> {
+  // The verifier refuses a transfer to oneself ("invalid intent"), so the coordinator's own wallet can't pay this way.
+  if (account === coord()) return { ok: false, status: 400, error: `${account} is Assay's own coordinator account, and NEAR Intents won't let an account pay itself. Connect a different testnet account to pay with an intent, or use "NEAR wallet to escrow".` };
   const problem = await targetProblem(job); // before any money moves: the job must name a real target
   if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-n-${randomUUID().slice(0, 13)}`;
