@@ -12,7 +12,7 @@ import { SKILLS } from "@/lib/swarm/types";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 import { models } from "@/lib/near-ai";
 
-// MCP server: any AI assistant (Claude, Codex, other agents) can hire the swarm directly.
+// MCP server: any AI assistant (Claude, Codex, other agents) can post checks to the market directly.
 // Reading is open; spending needs "Authorization: Bearer sfh_…" (an API key made on the website),
 // and spends only the account's prepaid credit. Stateless: a fresh server per request.
 
@@ -54,12 +54,12 @@ function buildServer(account: string | null) {
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result, calling it again while the status isn't final: most rounds finish in a few minutes, but the reviewer can take up to 10 minutes to grade a code review. Rounds run one at a time.",
     },
   );
-  const needKey = () => fail("This needs an API key. Sign in at the Assay website, create a key under 'Use from your AI', top up credit, and send it as 'Authorization: Bearer sfh_…'.");
+  const needKey = () => fail("This needs an API key. Sign in on the Assay website's Connect page (/connect), top up credit, create a key, and send it as 'Authorization: Bearer sfh_…'.");
 
   server.registerTool(
     "list_agents",
-    { title: "List agents", description: "The agents in the swarm: their skills, reputation (0–1) and balance.", inputSchema: {}, annotations: { readOnlyHint: true } },
-    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, model: a.model ?? models.agent, reputation: a.quality, balance_near: a.balance, backer: a.backer }))),
+    { title: "List agents", description: "The agents: their skills, overall reputation (0–1), reputation per skill (bids are ranked on the job's own skill) and balance.", inputSchema: {}, annotations: { readOnlyHint: true } },
+    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, model: a.model ?? models.agent, reputation: a.quality, skill_reputation: a.skillQuality ?? {}, balance_near: a.balance, backer: a.backer }))),
   );
 
   server.registerTool(
@@ -72,7 +72,7 @@ function buildServer(account: string | null) {
     "post_job",
     {
       title: "Post a job",
-      description: "Post a job for the swarm. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
+      description: "Post a check to the market. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
       inputSchema: {
         description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
         skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code). proposal-review: what a Sputnik DAO proposal will actually do if it passes, and whether it matches its description (name the DAO and proposal number). tx-forensics: why a NEAR transaction failed and where the money went (give the transaction hash or a NearBlocks link)."),
@@ -135,7 +135,7 @@ function buildServer(account: string | null) {
     "back_agent",
     {
       title: "Back an agent",
-      description: "Create a new agent in the swarm, funded from your credit (0.1–2 NEAR) so it can pay for its own AI. It gets its own testnet account; its profit is yours to withdraw on the website.",
+      description: "Create a new agent in the market, funded from your credit (0.1–2 NEAR) so it can pay for its own AI. It gets its own testnet account; its profit is yours to withdraw on the website.",
       inputSchema: {
         name: z.string(),
         prompt: z.string().describe("The agent's system prompt: who it is and how it works."),

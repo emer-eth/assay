@@ -1,29 +1,99 @@
 @import "tailwindcss";
 
 /*
- * Assay design system: protocol-grade.
- * Near-black surfaces, hairline borders, Geist type, white primary actions,
- * one restrained amber accent reserved for live / winner states. Green and red are semantic only.
+ * Assay design system: the ledger (build spec, 10 Nov 2026). Paper ground, ink text, one stamp blue,
+ * one refund orange. Ten tokens, flipped for dark; every text pair passes 4.5:1 in both themes.
+ * Dark follows the device unless someone picks Light or Dark (data-theme on <html>, set before paint).
  */
-:root {
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --paper: #f3f5f1;
+  --sheet: #fcfdfb;
+  --tint: #e7ebe5;
+  --rule: #d3d9d3;
+  --rule-strong: #9aa59e;
+  --ink: #14201b;
+  --ink-2: #46524c;
+  --stamp: #2438c9;
+  --stamp-tint: #e4e8fa;
+  --refund: #a8400c;
+  /* text on an ink-filled surface (primary buttons, BLOCKED) */
+  --on-ink: #fcfdfb;
+  --on-ink-2: #b9c4bd;
+  /* text on the stamp-filled pay button */
+  --on-stamp: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0e1411;
+    --sheet: #151c18;
+    --tint: #1d2621;
+    --rule: #2b3630;
+    --rule-strong: #5a6a61;
+    --ink: #e8eee9;
+    --ink-2: #a7b4ac;
+    --stamp: #93a5ff;
+    --stamp-tint: #1b2450;
+    --refund: #f2955c;
+    --on-ink: #0e1411;
+    --on-ink-2: #3c4842;
+    --on-stamp: #0e1411;
+  }
+}
+/* any element can carry data-theme (the kit page shows both side by side) */
+[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #08080a;
-  --panel: #0f0f12;
-  --panel-2: #16161a;
-  --line: rgba(255, 255, 255, 0.075);
-  --line-strong: rgba(255, 255, 255, 0.13);
-  --text: #ededf0;
-  --muted: #8e8e98;
-  /* 4.6:1 or better on every surface, so 12px labels stay readable */
-  --faint: #80808a;
-  --accent: #f5a524;
-  --accent-ink: #1b1200;
-  --ok: #3dd68c;
-  --bad: #ff5f57;
-  --info: #7ab8ff;
+  --paper: #0e1411;
+  --sheet: #151c18;
+  --tint: #1d2621;
+  --rule: #2b3630;
+  --rule-strong: #5a6a61;
+  --ink: #e8eee9;
+  --ink-2: #a7b4ac;
+  --stamp: #93a5ff;
+  --stamp-tint: #1b2450;
+  --refund: #f2955c;
+  --on-ink: #0e1411;
+  --on-ink-2: #3c4842;
+  --on-stamp: #0e1411;
+}
+
+/* The pre-redesign pages read these names: they now point at the ledger tokens, so every old screen
+   repaints in the new palette (both themes) until it is rebuilt on src/ui. */
+:root {
+  --bg: var(--paper);
+  --panel: var(--sheet);
+  --panel-2: var(--tint);
+  --line: var(--rule);
+  --line-strong: var(--rule-strong);
+  --text: var(--ink);
+  --muted: var(--ink-2);
+  --faint: var(--ink-2);
+  --accent: var(--stamp);
+  --accent-ink: var(--on-stamp);
+  --ok: var(--stamp);
+  --bad: var(--refund);
+  --info: var(--stamp);
 }
 
 @theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-tint: var(--tint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-stamp: var(--stamp);
+  --color-stamp-tint: var(--stamp-tint);
+  --color-refund: var(--refund);
+  --color-on-ink: var(--on-ink);
+  --color-on-ink-2: var(--on-ink-2);
+  --color-on-stamp: var(--on-stamp);
+  --font-plex: var(--font-display);
+  --font-archivo: var(--font-headline);
   --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-panel-2: var(--panel-2);
@@ -53,14 +123,13 @@ body {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--stamp-tint);
   color: var(--text);
 }
 
 :focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--stamp);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* ---------- type ---------- */
@@ -78,55 +147,51 @@ body {
 }
 .display {
   font-family: var(--font-headline), var(--font-display), system-ui, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.04em;
+  font-weight: 800;
+  font-stretch: 112%;
+  letter-spacing: -0.02em;
   line-height: 0.95;
   text-wrap: balance;
 }
 .headline {
   font-family: var(--font-headline), var(--font-display), system-ui, sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  font-stretch: 112%;
+  letter-spacing: -0.02em;
   line-height: 1.04;
   text-wrap: balance;
 }
-/* soft white-to-grey gradient for large headlines */
+/* was a white-to-grey gradient; the ledger look has no gradients, so it is plain ink */
 .ink-gradient {
-  background: linear-gradient(180deg, #ffffff 30%, #9a9aa3 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink);
 }
 
 /* ---------- surfaces ---------- */
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
 }
 .panel-glow {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 30px 80px -40px rgba(0, 0, 0, 0.8);
 }
 
 /* faint grid that fades out, for hero sections */
 .grid-bg {
-  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
 }
 .glow-top {
-  background: radial-gradient(ellipse 50% 40% at 50% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%);
+  background: none;
 }
 
 /* ---------- controls ---------- */
 .field {
   width: 100%;
   background: var(--bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
   padding: 0.55rem 0.75rem;
   font-size: 14px;
   color: var(--text);
@@ -142,9 +207,8 @@ body {
   color: var(--faint);
 }
 .field:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+  outline: 2px solid var(--stamp);
+  outline-offset: 2px;
 }
 
 .btn {
@@ -152,7 +216,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 0.6rem 1rem;
   font-size: 14px;
   font-weight: 500;
@@ -168,21 +232,19 @@ body {
   cursor: not-allowed;
 }
 .btn-primary {
-  background: #f4f4f6;
-  color: #0a0a0c;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 24px -12px rgba(255, 255, 255, 0.25);
+  background: var(--ink);
+  color: var(--on-ink);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--ink) 88%, var(--paper));
 }
 .btn-ghost {
-  border: 1px solid var(--line-strong);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  background: transparent;
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--panel-2);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--tint);
 }
 
 .chip {
@@ -190,11 +252,11 @@ body {
   align-items: center;
   gap: 0.4rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: 2px;
   padding: 0.25rem 0.7rem;
   font-size: 12px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 
 /* ---------- motion ---------- */
@@ -265,7 +327,7 @@ html.lenis, html.lenis body { height: auto; }
 
 /* honeycomb texture */
 .honeycomb {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cpath d='M28 0l28 16.2v32.3L28 64.7 0 48.5V16.2z M28 64.7v32.3' fill='none' stroke='%23ffffff' stroke-opacity='.05' stroke-width='1'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cpath d='M28 0l28 16.2v32.3L28 64.7 0 48.5V16.2z M28 64.7v32.3' fill='none' stroke='%23808080' stroke-opacity='.08' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 56px 97px;
 }
 
@@ -274,3 +336,57 @@ html.lenis, html.lenis body { height: auto; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary .plus { transition: transform 200ms ease; }
 .faq[open] summary .plus { transform: rotate(45deg); }
+
+/* ---------- ledger UI kit (src/ui) ---------- */
+.font-archivo { font-stretch: 112%; letter-spacing: -0.02em; }
+.stamp-word { font-stretch: 125%; letter-spacing: 0.12em; }
+/* the only shadow in the system: reports sit on a sheet with a hard offset */
+.sheet { box-shadow: 10px 10px 0 var(--rule); }
+/* a balanced total gets a double rule */
+.double-rule { border-top: 3px double var(--ink); }
+.sealed-cell { background: repeating-linear-gradient(-45deg, var(--ink) 0 1.5px, transparent 1.5px 6px); border: 1px solid var(--ink); }
+.running-stripe { background: repeating-linear-gradient(-45deg, var(--stamp) 0 6px, transparent 6px 12px); background-size: 24px 24px; will-change: transform; }
+.ledger-scroll { scrollbar-width: thin; }
+.ledger-scroll:focus-visible { outline-offset: 4px; }
+
+/* motion: one easing; only the running step loops; transform and opacity only; reduced motion keeps the end state */
+@media (prefers-reduced-motion: no-preference) {
+  .running-stripe { animation: stripe 900ms linear infinite; }
+  .step-pulse { animation: step-pulse 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+  .hallmark-land { animation: hallmark-land 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .toast { animation: enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* sealed bids open: each price 180 ms, rows 80 ms apart (delays set inline), the winner's tint last */
+  .bid-open { display: inline-block; animation: bid-open 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tint-in { animation: fade-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* a line enters the ledger: slides 10 px in 240 ms, its tint fades over 1.2 s */
+  .ledger-enter > * { animation: ledger-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tint-out { animation: fade-out 1200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  /* the budget splits: paid 400 ms, then the fee 100 ms; before it comes into view the bar waits empty */
+  .split-wait .money-paid, .split-wait .money-fee { transform: scaleX(0); }
+  .split-play .money-paid { animation: split 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .split-play .money-fee { animation: split 100ms cubic-bezier(0.2, 0.8, 0.2, 1) 400ms both; }
+  /* a report fails: the strike draws in 240 ms, the stamp follows 160 ms later */
+  .fail-play .strike { animation: split 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .fail-play [role="status"] .stamp-word { animation: fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) 400ms both; }
+}
+/* reduced motion: a new ledger line keeps its tint without the slide; a failed report gets the stamp, no strike */
+@media (prefers-reduced-motion: reduce) { .strike { display: none; } }
+@keyframes bid-open { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ledger-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes split { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.tint-layer { position: absolute; inset: 0; z-index: -1; background: var(--stamp-tint); pointer-events: none; }
+/* page changes cross-fade where the browser supports view transitions */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
+}
+/* the stripe is 24 px wider than its box and slides one tile: transform only (motion rule) */
+@keyframes stripe { from { transform: translateX(0); } to { transform: translateX(24px); } }
+@keyframes step-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes hallmark-land {
+  0% { transform: scale(1.7) rotate(-20deg); opacity: 0; }
+  70% { transform: scale(0.94) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); }
+}

@@ -20,10 +20,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // The live app moved from /live to /app.
+  // /check replaced the live app's post form (redesign step 6); the live app itself stays at /classic/app.
   async redirects() {
     return [
-      { source: "/live", destination: "/app", permanent: false },
+      { source: "/live", destination: "/check", permanent: false },
+      { source: "/app", destination: "/check", permanent: false },
+      { source: "/record", destination: "/ledger", permanent: false },
       // Old bookmarks and checkers still ask for /favicon.ico.
       { source: "/favicon.ico", destination: "/icon.svg", permanent: true },
     ];

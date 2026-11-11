@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMarket } from "@/lib/market";
 
 // The hero's signature: the swarm itself. Agents orbit a job; each cycle they send sealed bids,
 // the best value wins, works, passes review and gets paid. Names are the real agents on testnet.
@@ -33,19 +34,13 @@ const seg = (t: number, a: number, b: number) => Math.max(0, Math.min(1, (t - a)
 
 export function SwarmField({ className = "" }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [names, setNames] = useState<string[]>(FALLBACK);
+  const agents = useMarket((m) => m?.agents);
+  const names = useMemo(() => {
+    const list = (agents ?? []).map((a) => a.name).filter(Boolean);
+    return list.length >= 3 ? list.slice(0, 8) : FALLBACK;
+  }, [agents]);
   const [phase, setPhase] = useState(0);
   const [winner, setWinner] = useState(FALLBACK[0]);
-
-  useEffect(() => {
-    fetch("/api/live/state", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((s: { agents?: { name: string }[] }) => {
-        const list = (s.agents ?? []).map((a) => a.name).filter(Boolean);
-        if (list.length >= 3) setNames(list.slice(0, 8));
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const canvas = ref.current!;
@@ -53,6 +48,7 @@ export function SwarmField({ className = "" }: { className?: string }) {
     const css = getComputedStyle(document.documentElement);
     const accent = css.getPropertyValue("--accent").trim() || "#f5a524";
     const ok = css.getPropertyValue("--ok").trim() || "#3dd68c";
+    const ink = css.getPropertyValue("--ink").trim() || "#14201b";
     const mono = getComputedStyle(document.body).getPropertyValue("--font-code").trim() || "ui-monospace";
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -103,7 +99,7 @@ export function SwarmField({ className = "" }: { className?: string }) {
         const a = d.a + time * d.s;
         const x = cx + Math.cos(a) * R * d.r * 1.25, y = cy + Math.sin(a) * R * d.r * 0.82;
         ctx.globalAlpha = 0.18 * d.z;
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = ink;
         hexPath(ctx, x, y, 2.2 * d.z); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -132,7 +128,7 @@ export function SwarmField({ className = "" }: { className?: string }) {
           if (t >= 4.4 && t < 6.0) { ctx.setLineDash([5, 6]); ctx.lineDashOffset = -time * 30; }
           ctx.lineWidth = 1.6;
         } else {
-          ctx.strokeStyle = "#fff";
+          ctx.strokeStyle = ink;
           ctx.globalAlpha = (nd.bids ? 0.07 + 0.08 * bidT * (1 - reveal * 0.6) : 0.04) * Math.max(posted, 0.3);
         }
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke();
@@ -181,7 +177,7 @@ export function SwarmField({ className = "" }: { className?: string }) {
       nodes.forEach((nd, i) => {
         const { x, y } = pos[i];
         const isWin = nd === win && t >= 3.6;
-        const col = isWin ? (t >= 6.0 ? ok : accent) : "#ffffff";
+        const col = isWin ? (t >= 6.0 ? ok : accent) : ink;
         ctx.fillStyle = "#0b0b0e";
         hexPath(ctx, x, y, 19); ctx.fill();
         ctx.strokeStyle = col; ctx.globalAlpha = isWin ? 1 : nd.bids ? 0.45 : 0.2; ctx.lineWidth = isWin ? 1.6 : 1;
@@ -197,7 +193,7 @@ export function SwarmField({ className = "" }: { className?: string }) {
         if (nd.bids && reveal > 0) {
           const v = nd === win ? 1 : 0.25 + ((i * 29) % 50) / 100;
           ctx.globalAlpha = reveal * fade * (isWin ? 1 : 0.5);
-          ctx.fillStyle = isWin ? col : "#ffffff";
+          ctx.fillStyle = isWin ? col : ink;
           ctx.fillRect(x - 20, y + 45, 40 * v * reveal, 2);
         }
         ctx.globalAlpha = 1;

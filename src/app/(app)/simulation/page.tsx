@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
-import { near, Stat, TopBar } from "@/components/ui";
+import { near, Stat } from "@/components/ui";
+import { AppHeader } from "@/components/app-header";
+import { CONTAINER, Footer } from "@/ui";
 import { simulate } from "@/lib/swarm/sim";
 import type { RoundResult } from "@/lib/swarm/types";
 
@@ -47,9 +49,9 @@ export default function Home() {
 
   return (
     <>
-      <TopBar mode="sim" />
+      <AppHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main id="main" className={`${CONTAINER} flex-1 py-10`}>
         <section className="mb-6 max-w-3xl">
           <p className="eyebrow">
             Simulation · 20 scripted agents · no AI calls, no chain
@@ -62,12 +64,16 @@ export default function Home() {
             bids; the best reputation³ ÷ price wins. Unsafe jobs are blocked
             before any agent sees them. Same rules as{" "}
             <Link
-              href="/app"
-              className="text-text underline decoration-accent underline-offset-4 hover:text-accent"
+              href="/check"
+              className="text-stamp underline underline-offset-4"
             >
-              live mode
+              the live market
             </Link>
-            , written down in RULES.md.
+            , written down in the{" "}
+            <Link href="/rules" className="text-stamp underline underline-offset-4">
+              rules
+            </Link>
+            .
           </p>
           <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
             <Stat label="Jobs" value={t.posted} />
@@ -117,7 +123,7 @@ export default function Home() {
                     />
                   </label>
                   <button
-                    className="btn btn-ghost !py-1.5 text-xs"
+                    className="btn btn-ghost min-h-11 !py-1.5 text-sm"
                     onClick={() => {
                       setSeed(Math.floor(Math.random() * 1e6));
                       setPick(0);
@@ -171,7 +177,7 @@ export default function Home() {
                       <button
                         onClick={() => setPick(i)}
                         aria-current={i === pick ? "true" : undefined}
-                        className={`flex w-full items-start gap-3 px-5 py-2.5 text-left ${i === pick ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
+                        className={`flex w-full items-start gap-3 px-5 py-2.5 text-left ${i === pick ? "bg-tint" : "hover:bg-tint/60"}`}
                       >
                         <span className="num w-14 shrink-0 pt-0.5 text-xs text-faint">
                           {r.job.id}
@@ -195,6 +201,7 @@ export default function Home() {
           {round && <SimRound r={round} />}
         </div>
       </main>
+      <Footer />
     </>
   );
 }
@@ -260,9 +267,9 @@ function SimRound({ r }: { r: RoundResult }) {
                           {near(b.ask)} · {b.value.toFixed(2)}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink/10">
                         <div
-                          className={`h-full rounded-full ${won ? "bg-accent" : "bg-white/20"}`}
+                          className={`h-full rounded-full ${won ? "bg-accent" : "bg-ink/30"}`}
                           style={{
                             width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
                           }}

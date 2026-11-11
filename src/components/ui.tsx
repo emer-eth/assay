@@ -8,7 +8,7 @@ import { BETA_SKILLS, SKILL_LABEL, SKILLS, type Skill } from "@/lib/swarm/types"
 export function Mark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z" fill="#141418" stroke="currentColor" strokeOpacity=".9" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z" fill="var(--sheet)" stroke="currentColor" strokeOpacity=".9" strokeWidth="1.4" strokeLinejoin="round" />
       <path d="M12 7.4 15.4 9.4v3.9L12 15.3 8.6 13.3V9.4z" fill="var(--accent)" />
       <path d="M12 15.3v3.6M15.4 13.3l3.1 1.8M8.6 13.3l-3.1 1.8" stroke="var(--accent)" strokeOpacity=".45" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
@@ -40,7 +40,7 @@ export function TopBar({ mode }: { mode: "home" | "app" | "sim" | "record" }) {
           {mode === "home" ? (
             <>
               <MarketPill />
-              <Link href="/app" className="btn btn-primary !rounded-full !px-4 !py-1.5 text-[13px]">
+              <Link href="/classic/app" className="btn btn-primary !rounded-full !px-4 !py-1.5 text-[13px]">
                 Launch app <span aria-hidden>→</span>
               </Link>
             </>
@@ -111,7 +111,7 @@ export function SkillPicker({
               onClick={() =>
                 onChange(on ? value.filter((x) => x !== s) : [...value, s])
               }
-              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-white/40 bg-white/10 text-text" : "border-line-strong text-muted hover:text-text"}`}
+              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on ? "border-ink bg-tint text-text" : "border-line-strong text-muted hover:text-text"}`}
             >
               {SKILL_LABEL[s]}
               {BETA_SKILLS.includes(s) && <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent" title="Its reports fail review more often than they pass. A failed report is refunded.">beta</span>}
@@ -132,13 +132,13 @@ export function Footer() {
           testnet
         </span>
         <span className="flex flex-wrap gap-x-5">
-          <Link href="/app" className="inline-block py-3 hover:text-text">
+          <Link href="/classic/app" className="inline-block py-3 hover:text-text">
             App
           </Link>
           <Link href="/simulation" className="inline-block py-3 hover:text-text">
             Simulation
           </Link>
-          <Link href="/record" className="inline-block py-3 hover:text-text">
+          <Link href="/classic/record" className="inline-block py-3 hover:text-text">
             Track record
           </Link>
           <Link href="/#mcp" className="inline-block py-3 hover:text-text">

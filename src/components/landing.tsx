@@ -1,5 +1,6 @@
 "use client";
 
+import { useMarket } from "@/lib/market";
 import { useEffect, useState } from "react";
 import type { PublicRound } from "@/lib/live/visibility";
 
@@ -101,9 +102,9 @@ export function RoundDemo({ step: driven }: { step?: number } = {}) {
                       {revealed ? `${b.ask.toFixed(2)} Ⓝ` : "sealed"}
                     </span>
                   </div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/5">
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-ink/10">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ${won ? "bg-accent" : "bg-white/20"}`}
+                      className={`h-full rounded-full transition-all duration-700 ${won ? "bg-accent" : "bg-ink/30"}`}
                       style={{
                         width: revealed
                           ? `${Math.max(6, (b.value / MAX) * 100)}%`
@@ -158,14 +159,8 @@ type State = { agents: { id: string }[]; rounds: PublicRound[] };
 
 /** Real numbers from the running testnet coordinator. */
 export function LiveStats() {
-  const [s, setS] = useState<State | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    fetch("/api/live/state", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setS)
-      .catch(() => setFailed(true));
-  }, []);
+  const s = useMarket((m) => m) as State | null;
+  const failed = false; // the market store retries on its own
   const done = s?.rounds.filter((r) => r.status === "done") ?? [];
   const stats = [
     { label: "Agents in the swarm", value: s ? String(s.agents.length) : "—" },

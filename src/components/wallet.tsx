@@ -1,11 +1,12 @@
 "use client";
 
-import { NearProvider, useNearWallet } from "near-connect-hooks";
+import dynamic from "next/dynamic";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -23,7 +24,7 @@ export const PAY_STEP_LABEL: Record<PayStep, string> = {
   confirm: "Confirming the payment on chain…",
 };
 
-type Auth = {
+export type Auth = {
   account: string | null;
   ready: boolean;
   busy: boolean;
@@ -70,63 +71,21 @@ export function toYocto(near: number) {
   return (BigInt(whole) * 10n ** 24n + BigInt(frac.padEnd(24, "0"))).toString();
 }
 
-function txHashOf(outcome: unknown): string | null {
-  const o = outcome as {
-    transaction?: { hash?: string };
-    transaction_outcome?: { id?: string };
-  } | null;
-  return o?.transaction?.hash || o?.transaction_outcome?.id || null;
-}
+// The wallet engine (near-connect and its crypto, about 217 KB gzipped) lives in wallet-engine.tsx and loads on the
+// first Connect or Pay, not with the page (build spec, Wallet). Until then this provider knows who is signed in
+// from the session cookie, and each action loads the engine first, then runs the engine's own function.
 
-// WalletConnect adds a "scan with any wallet" QR code. Only loaded when a project ID is set.
-const WC_PROJECT = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-const walletConnect = WC_PROJECT
-  ? typeof window === "undefined"
-    ? undefined
-    : import("@walletconnect/sign-client").then(({ default: SignClient }) =>
-        SignClient.init({
-          projectId: WC_PROJECT,
-          metadata: {
-            name: "Assay",
-            description: "AI agents bid for NEAR-paid jobs",
-            url: window.location.origin,
-            icons: [`${window.location.origin}/icon.svg`],
-          },
-        }),
-      )
-  : undefined;
+const loadEngine = () => import("./wallet-engine");
+const Engine = dynamic(() => loadEngine().then((m) => m.WalletEngine), { ssr: false });
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  return (
-    <NearProvider
-      config={{
-        network: "testnet",
-        providers: {
-          testnet: [
-            "https://rpc.testnet.fastnear.com",
-            "https://test.rpc.fastnear.com",
-          ],
-        },
-        ...(walletConnect ? { walletConnect: walletConnect as never } : {}),
-      }}
-    >
-      <AuthBridge>{children}</AuthBridge>
-    </NearProvider>
-  );
-}
-
-function AuthBridge({ children }: { children: ReactNode }) {
-  const wallet = useNearWallet();
   const [account, setAccount] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [want, setWant] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wrongNetwork, setWrongNetwork] = useState<string | null>(null); // a mainnet account that tried to connect
-  // Resolves when the wallet picker has connected an account.
-  const waiting = useRef<{
-    resolve: (id: string) => void;
-    reject: (e: Error) => void;
-  } | null>(null);
+  const [engine, setEngine] = useState<Auth | null>(null);
+  const engineRef = useRef<Auth | null>(null);
+  const waiters = useRef<{ resolve: (a: Auth) => void; reject: (e: Error) => void }[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -136,163 +95,63 @@ function AuthBridge({ children }: { children: ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
+  // Warm the engine when someone points at, or tabs to, a wallet action (a pay or connect button).
   useEffect(() => {
-    if (wallet.signedAccountId && waiting.current) {
-      waiting.current.resolve(wallet.signedAccountId);
-      waiting.current = null;
-    }
-  }, [wallet.signedAccountId]);
-
-  const connect = useCallback(async () => {
-    if (wallet.signedAccountId) return wallet.signedAccountId;
-    const connected = new Promise<string>((resolve, reject) => {
-      waiting.current = { resolve, reject };
-      setTimeout(() => {
-        if (waiting.current) {
-          waiting.current.reject(new Error("No wallet was connected."));
-          waiting.current = null;
-        }
-      }, 180_000);
-    });
-    await wallet.signIn();
-    return connected;
-  }, [wallet]);
-
-  const prove = useCallback(async () => {
-    const ch = (await (
-      await fetch("/api/auth/challenge", { cache: "no-store" })
-    ).json()) as {
-      message: string;
-      recipient: string;
-      nonce: string;
-      token: string;
+    const warm = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.("[data-wallet]")) void loadEngine().catch(() => {});
     };
-    const nonce = Uint8Array.from(atob(ch.nonce), (c) => c.charCodeAt(0));
-    const signed = await wallet.signNEP413Message({
-      message: ch.message,
-      recipient: ch.recipient,
-      nonce,
-    });
-    const res = await fetch("/api/auth/verify", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        token: ch.token,
-        accountId: signed.accountId,
-        publicKey: String(signed.publicKey),
-        signature: String(signed.signature),
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Sign-in failed.");
-    setAccount(data.accountId);
-    return data.accountId as string;
-  }, [wallet]);
+    document.addEventListener("pointerover", warm, { passive: true });
+    document.addEventListener("focusin", warm);
+    return () => {
+      document.removeEventListener("pointerover", warm);
+      document.removeEventListener("focusin", warm);
+    };
+  }, []);
 
-  const ensure = useCallback(
-    async (onStep?: (s: PayStep) => void) => {
-      onStep?.("connect");
-      const walletAccount = await connect();
-      if (!isTestnetAccount(walletAccount)) {
-        // A mainnet account: disconnect it before asking for any signature, and explain how to get a testnet one.
-        await wallet.signOut().catch(() => {});
-        setWrongNetwork(walletAccount);
-        throw new WrongNetworkError(walletAccount);
-      }
-      if (account && account === walletAccount) return account;
-      onStep?.("sign-in");
-      return prove();
-    },
-    [account, connect, prove, wallet],
-  );
+  const onValue = useCallback((v: Auth) => {
+    engineRef.current = v;
+    setEngine(v);
+    waiters.current.splice(0).forEach((w) => w.resolve(v));
+  }, []);
 
-  const signIn = useCallback(async () => {
+  /** The running engine: mounts it on first use and resolves once its connector is ready. */
+  const get = useCallback(() => {
+    if (engineRef.current) return Promise.resolve(engineRef.current);
+    setWant(true);
     setError(null);
-    setBusy(true);
-    try {
-      return await ensure();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Sign-in was cancelled.";
-      if (!(e instanceof WrongNetworkError)) setError(msg);
-      throw e;
-    } finally {
-      setBusy(false);
-    }
-  }, [ensure]);
-
-  const pay = useCallback(
-    async (near: number, to: string, onStep?: (s: PayStep) => void) => {
-      await ensure(onStep);
-      onStep?.("approve");
-      const outcome = await wallet.transfer({
-        receiverId: to,
-        amount: toYocto(near),
+    return new Promise<Auth>((resolve, reject) => {
+      waiters.current.push({ resolve, reject });
+      loadEngine().catch(() => {
+        const e = new Error("Couldn't load the wallet. Check your connection and try again.");
+        setError(e.message);
+        setWant(false);
+        waiters.current.splice(0).forEach((w) => w.reject(e));
       });
-      const hash = txHashOf(outcome);
-      if (!hash)
-        throw new Error(
-          "The wallet didn't return a transaction. Check your wallet's activity before trying again.",
-        );
-      onStep?.("confirm");
-      return hash;
-    },
-    [ensure, wallet],
-  );
+    });
+  }, []);
 
-  const callWithDeposit = useCallback(
-    async (
-      contractId: string,
-      method: string,
-      args: Record<string, unknown>,
-      near: number,
-      onStep?: (s: PayStep) => void,
-    ) => {
-      onStep?.("approve");
-      const outcome = await wallet.callFunctionRaw({
-        contractId,
-        method,
-        args,
-        deposit: toYocto(near),
-        gas: "50000000000000",
-      });
-      const hash = txHashOf(outcome);
-      if (!hash)
-        throw new Error(
-          "The wallet didn't return a transaction. Check your wallet's activity before trying again.",
-        );
-      onStep?.("confirm");
-      return hash;
-    },
-    [wallet],
+  const lazy = useMemo<Auth>(
+    () => ({
+      account,
+      ready,
+      busy: false,
+      error,
+      signIn: () => get().then((a) => a.signIn()),
+      signOut: async () => {
+        await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
+        setAccount(null);
+      },
+      pay: (near, to, onStep) => get().then((a) => a.pay(near, to, onStep)),
+      ensureSignedIn: (onStep) => get().then((a) => a.ensureSignedIn(onStep)),
+      callWithDeposit: (contractId, method, args, near, onStep) => get().then((a) => a.callWithDeposit(contractId, method, args, near, onStep)),
+    }),
+    [account, ready, error, get],
   );
-
-  const signOut = useCallback(async () => {
-    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
-    await wallet.signOut().catch(() => {});
-    setAccount(null);
-  }, [wallet]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        account,
-        ready,
-        busy,
-        error,
-        signIn,
-        signOut,
-        pay,
-        ensureSignedIn: ensure,
-        callWithDeposit,
-      }}
-    >
+    <AuthContext.Provider value={engine ?? lazy}>
       {children}
-      {wrongNetwork && (
-        <TestnetHelp
-          account={wrongNetwork}
-          onClose={() => setWrongNetwork(null)}
-        />
-      )}
+      {want && <Engine onValue={onValue} />}
     </AuthContext.Provider>
   );
 }
@@ -305,7 +164,8 @@ export function WalletButton() {
     return (
       <span className="flex flex-col items-end">
         <button
-          className="btn btn-ghost !px-3 !py-1.5 text-xs"
+          data-wallet=""
+          className="btn btn-ghost min-h-11 !px-4 !py-1.5 text-sm"
           onClick={() => signIn().catch(() => {})}
           disabled={busy}
         >
@@ -357,7 +217,7 @@ export function WalletButton() {
 }
 
 /** Shown when someone connects a mainnet wallet: what testnet is and how to get a free account in a minute. */
-function TestnetHelp({
+export function TestnetHelp({
   account,
   onClose,
 }: {
@@ -366,7 +226,7 @@ function TestnetHelp({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-ink/60 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="tn-h"

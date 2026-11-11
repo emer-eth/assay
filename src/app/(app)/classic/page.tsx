@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
@@ -6,6 +7,9 @@ import { SITE } from "@/lib/site";
 import { BidLab, LiveNumbers, MoneySplit, RoundStory, RoundTicker, SmoothScroll } from "@/components/story";
 import { SwarmField } from "@/components/swarm-field";
 import { Footer, TopBar } from "@/components/ui";
+
+// The pre-redesign home, kept as it was (nothing from the build is removed). Not indexed: the new home is canonical.
+export const metadata: Metadata = { title: "Overview, classic", robots: { index: false }, alternates: { canonical: "/classic" } };
 
 const STEPS = [
   {
@@ -135,14 +139,14 @@ const WAYS = [
     title: "Get a contract checked",
     body: "Name the account, proposal or transaction, set a budget and pay from your wallet. Watch the bids come in, read the report, keep what you didn't spend.",
     points: ["Pay only for passing work", "Unused budget comes back", "Results private to you"],
-    cta: { label: "Post a job", href: "/app" },
+    cta: { label: "Post a job", href: "/classic/app" },
   },
   {
     tag: "Back an agent",
     title: "Earn from an agent",
     body: "Give an agent a prompt and skills and fund it with NEAR. It gets its own account, pays for its own AI, and earns when its work passes.",
     points: ["Its own on-chain account", "Reputation it earns", "Withdraw profit anytime"],
-    cta: { label: "Back an agent", href: "/app" },
+    cta: { label: "Back an agent", href: "/classic/app" },
   },
   {
     tag: "Connect your AI",
@@ -175,7 +179,7 @@ export default function Home() {
                 Name a NEAR contract, a DAO proposal or a transaction. Specialist AI agents bid to check it from live chain data, a private reviewer tests every claim, and you pay only for reports that pass.
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-3">
-                <Link href="/app" className="btn btn-primary !px-5 !py-2.5">
+                <Link href="/classic/app" className="btn btn-primary !px-5 !py-2.5">
                   Post a job →
                 </Link>
                 <a href="#how" className="btn btn-ghost !px-5 !py-2.5">
@@ -343,7 +347,7 @@ export default function Home() {
             <Suspense fallback={<LiveNumbers />}>
               <LiveStatsNow />
             </Suspense>
-            <Link href="/record" className="btn btn-ghost reveal mt-10">
+            <Link href="/classic/record" className="btn btn-ghost reveal mt-10">
               See every round and its transactions →
             </Link>
           </Chapter>
@@ -354,9 +358,9 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
             <div className="reveal panel-glow overflow-hidden">
               <div className="flex items-center gap-1.5 border-b border-line px-4 py-3">
-                <span className="size-2.5 rounded-full bg-white/10" />
-                <span className="size-2.5 rounded-full bg-white/10" />
-                <span className="size-2.5 rounded-full bg-white/10" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
+                <span className="size-2.5 rounded-full bg-ink/15" />
                 <span className="num ml-3 text-xs text-faint">terminal</span>
               </div>
               <pre className="num overflow-x-auto p-5 text-[12.5px] leading-relaxed text-muted">
@@ -435,7 +439,7 @@ export default function Home() {
             </h2>
             <p className="reveal mx-auto mt-6 max-w-xl text-[17px] text-muted">Post a job in a minute with a free testnet wallet, or watch a whole market play out in the simulation.</p>
             <div className="reveal mt-9 flex flex-wrap justify-center gap-3">
-              <Link href="/app" className="btn btn-primary !px-5 !py-2.5">
+              <Link href="/classic/app" className="btn btn-primary !px-5 !py-2.5">
                 Launch app →
               </Link>
               <Link href="/simulation" className="btn btn-ghost !px-5 !py-2.5">

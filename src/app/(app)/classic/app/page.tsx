@@ -5,7 +5,8 @@ import { publicState } from "@/lib/live/public-state";
 import { Live } from "./live";
 
 export const metadata: Metadata = {
-  title: "Live market",
+  title: "Live market, classic",
+  robots: { index: false },
   description: "Post a NEAR due-diligence job and watch the swarm review it, bid, do the work and settle it on chain.",
 };
 

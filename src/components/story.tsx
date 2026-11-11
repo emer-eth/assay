@@ -1,6 +1,7 @@
 "use client";
 
 import Lenis from "lenis";
+import { useMarket, type MarketState } from "@/lib/market";
 import { useEffect, useRef, useState } from "react";
 import type { PublicRound } from "@/lib/live/visibility";
 import { RoundDemo } from "./landing";
@@ -31,21 +32,10 @@ type Agent = { id: string; name: string; quality: number };
 export type LiveSnapshot = { agents: Agent[]; rounds: PublicRound[] };
 type State = LiveSnapshot;
 
-let statePromise: Promise<State> | null = null;
-/** One fetch of the live state, shared by every component on the page. */
-function liveState() {
-  statePromise ??= fetch("/api/live/state", { cache: "no-store" }).then((r) => r.json());
-  return statePromise;
-}
-/** Live state: the server's snapshot when the page was rendered, otherwise fetched in the browser. */
+/** Live state: the server's snapshot when the page was rendered, then kept current by the shared market store. */
 function useLive(initial?: State | null) {
-  const [s, setS] = useState<State | null>(initial ?? null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (initial) return;
-    liveState().then(setS).catch(() => setFailed(true));
-  }, [initial]);
-  return { s, failed };
+  const s = useMarket((m) => m, initial as MarketState | null | undefined) as State | null;
+  return { s, failed: false };
 }
 
 const nearAmt = (n: number) => `${n < 0.01 ? n.toFixed(4) : n.toFixed(n < 1 ? 3 : 2)} Ⓝ`;
@@ -145,7 +135,7 @@ export function BidLab() {
         <p className="eyebrow">Bid lab · value = reputation^{power} ÷ price</p>
         <div className="flex rounded-lg border border-line-strong p-0.5 text-xs" role="group" aria-label="Formula">
           {([2, 3] as const).map((p) => (
-            <button key={p} type="button" aria-pressed={power === p} onClick={() => setPower(p)} className={`rounded-md px-2.5 py-1 transition-colors ${power === p ? "bg-white/10 text-text" : "text-muted hover:text-text"}`}>
+            <button key={p} type="button" aria-pressed={power === p} onClick={() => setPower(p)} className={`rounded-md px-2.5 py-1 transition-colors ${power === p ? "bg-ink/15 text-text" : "text-muted hover:text-text"}`}>
               {p === 2 ? "rep² (before)" : "rep³ (now)"}
             </button>
           ))}
@@ -166,8 +156,8 @@ export function BidLab() {
                   rep {b.rep.toFixed(2)} · asks {b.ask.toFixed(2)} Ⓝ · value <span className={won ? "text-accent" : "text-muted"}>{b.value.toFixed(2)}</span>
                 </span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
-                <div className={`h-full rounded-full transition-all duration-500 ${won ? "bg-accent" : "bg-white/20"}`} style={{ width: `${Math.max(3, (b.value / max) * 100).toFixed(1)}%` }} />
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink/10">
+                <div className={`h-full rounded-full transition-all duration-500 ${won ? "bg-accent" : "bg-ink/30"}`} style={{ width: `${Math.max(3, (b.value / max) * 100).toFixed(1)}%` }} />
               </div>
             </li>
           );
@@ -257,12 +247,12 @@ export function LiveNumbers({ initial }: { initial?: State | null }) {
 export function MoneySplit() {
   const parts = [
     { label: "To the agent", v: 0.147, cls: "bg-accent" },
-    { label: "Reviewer fee", v: 0.003, cls: "bg-white/50" },
+    { label: "Reviewer fee", v: 0.003, cls: "bg-ink/100" },
     { label: "Back to you", v: 0.15, cls: "bg-ok" },
   ];
   return (
     <div>
-      <div className="flex h-3 overflow-hidden rounded-full bg-white/5" role="img" aria-label="A 0.30 NEAR budget: 0.147 to the agent, 0.003 reviewer fee, 0.150 back to you">
+      <div className="flex h-3 overflow-hidden rounded-full bg-ink/10" role="img" aria-label="A 0.30 NEAR budget: 0.147 to the agent, 0.003 reviewer fee, 0.150 back to you">
         {parts.map((p) => (
           <div key={p.label} className={`reveal h-full ${p.cls}`} style={{ width: `${(p.v / 0.3) * 100}%` }} />
         ))}

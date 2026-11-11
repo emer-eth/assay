@@ -13,6 +13,8 @@ import { near, SkillPicker, TopBar } from "@/components/ui";
 import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
+import { refetchMarket, useMarket } from "@/lib/market";
+import { useEscrowPost, usePaidAction } from "@/components/escrow-post";
 import { SKILL_LABEL, type Skill } from "@/lib/swarm/types";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 
@@ -51,18 +53,16 @@ function cellState(agentId: string, r?: LiveRound): CellState {
 }
 
 export function Live({ initial }: { initial: State | null }) {
-  const [state, setState] = useState<State | null>(initial);
+  // One live view per tab, pushed over the event stream (lib/market.ts) instead of polling every 1.2 s.
+  const state = useMarket((s) => s, initial) as State | null;
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState("");
 
+  // After an action (posting, backing an agent) fetch the snapshot at once rather than wait for its events.
   const refresh = useCallback(async () => {
     try {
-      setState(
-        (await (
-          await fetch("/api/live/state", { cache: "no-store" })
-        ).json()) as State,
-      );
+      await refetchMarket();
     } catch {
       setError("Can't reach the coordinator. Is the server running?");
     }
@@ -73,12 +73,7 @@ export function Live({ initial }: { initial: State | null }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setKey(localStorage.getItem("swarm-live-key") || "");
     } catch {}
-    refresh();
-  }, [refresh]);
-  useEffect(() => {
-    const t = setInterval(refresh, state?.busy ? 1200 : 6000);
-    return () => clearInterval(t);
-  }, [refresh, state?.busy]);
+  }, []);
 
   // Tell posters when their job finishes, even if they're looking at another round; show progress in the tab title.
   const [notice, setNotice] = useState<{
@@ -113,7 +108,7 @@ export function Live({ initial }: { initial: State | null }) {
       ? "● Your job is running · Assay"
       : notice
         ? "✓ Job finished · Assay"
-        : "Assay";
+        : "Live market · Assay"; // never the bare site name (build spec)
   }, [state, notice]);
 
   const round = useMemo(
@@ -389,77 +384,6 @@ function EmptyFeed() {
  * wallet, then hand the transaction hash to the server, which checks it on chain. If the server says no
  * after the payment went through (e.g. a round is running), the hash is kept so it can be retried, never lost.
  */
-function usePaidAction(
-  path: string,
-  escrow: string | null,
-  liveKey: string,
-  onDone: (data: { id?: string }) => void,
-) {
-  const { pay } = useAuth();
-  const [step, setStep] = useState<PayStep | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<{
-    body: Record<string, unknown>;
-    txHash: string;
-  } | null>(null);
-
-  const submit = async (body: Record<string, unknown>, txHash: string) => {
-    setStep("confirm");
-    // The chain can take a few seconds to show a fresh payment as final: retry briefly before giving up.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(liveKey ? { "x-live-key": liveKey } : {}),
-        },
-        body: JSON.stringify({ ...body, txHash }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setPending(null);
-        setStep(null);
-        onDone(data);
-        return true;
-      }
-      if (
-        res.status === 402 &&
-        /find that payment/i.test(data.error || "") &&
-        attempt < 4
-      ) {
-        await new Promise((r) => setTimeout(r, 2500));
-        continue;
-      }
-      setPending({ body, txHash });
-      setError(data.error || `Request failed (${res.status})`);
-      setStep(null);
-      return false;
-    }
-    return false;
-  };
-
-  const run = async (body: Record<string, unknown>, amount: number) => {
-    setError(null);
-    if (!escrow) return (setError("The coordinator isn't set up yet."), false);
-    try {
-      const txHash = await pay(amount, escrow, setStep);
-      return await submit(body, txHash);
-    } catch (e) {
-      setStep(null);
-      setError(e instanceof Error ? e.message : "The payment was cancelled.");
-      return false;
-    }
-  };
-
-  const retry = async () => {
-    if (!pending) return false;
-    setError(null);
-    return submit(pending.body, pending.txHash);
-  };
-
-  return { run, retry, step, error, pending };
-}
-
 function PayStatus({
   step,
   error,
@@ -511,93 +435,6 @@ function PayStatus({
       )}
     </div>
   );
-}
-
-/**
- * Posting through the escrow contract: sign in if needed, reserve a job id, have the wallet call
- * post_job(job_id) on the contract with the budget attached, then let the server confirm it from the contract.
- * If confirming fails after the deposit, the job id is kept for a retry (and the poster can reclaim on chain).
- */
-function useEscrowPost(
-  liveKey: string,
-  onDone: (data: { id?: string }) => void,
-) {
-  const { ensureSignedIn, callWithDeposit } = useAuth();
-  const [step, setStep] = useState<PayStep | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<{
-    jobId: string;
-    txHash: string;
-  } | null>(null);
-  const headers = {
-    "content-type": "application/json",
-    ...(liveKey ? { "x-live-key": liveKey } : {}),
-  };
-
-  const submit = async (jobId: string, txHash: string) => {
-    setStep("confirm");
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch("/api/live/jobs", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ jobId, txHash }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setPending(null);
-        setStep(null);
-        onDone(data);
-        return true;
-      }
-      if (
-        res.status === 402 &&
-        /no deposit/i.test(data.error || "") &&
-        attempt < 4
-      ) {
-        await new Promise((r) => setTimeout(r, 2500));
-        continue;
-      }
-      setPending({ jobId, txHash });
-      setError(data.error || `Request failed (${res.status})`);
-      setStep(null);
-      return false;
-    }
-    return false;
-  };
-
-  const run = async (job: {
-    description: string;
-    skills: string[];
-    budget: number;
-  }) => {
-    setError(null);
-    try {
-      await ensureSignedIn(setStep);
-      const prep = await fetch("/api/live/jobs/prepare", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(job),
-      });
-      const p = await prep.json().catch(() => ({}));
-      if (!prep.ok) throw new Error(p.error || "Couldn't start the job.");
-      const txHash = await callWithDeposit(
-        p.contractId,
-        "post_job",
-        { job_id: p.jobId },
-        job.budget,
-        setStep,
-      );
-      return await submit(p.jobId, txHash);
-    } catch (e) {
-      setStep(null);
-      setError(e instanceof Error ? e.message : "The payment was cancelled.");
-      return false;
-    }
-  };
-
-  const retry = async () =>
-    pending ? (setError(null), submit(pending.jobId, pending.txHash)) : false;
-  return { run, retry, step, error, pending };
 }
 
 const EXAMPLES: { label: string; description: string; skills: Skill[] }[] = [
@@ -797,7 +634,7 @@ function Agents({
   const rank = (a: LiveAgent) => (a.backer === account ? 2 : 0) + (cellState(a.id, round) !== "idle" ? 1 : 0) + a.quality / 10;
   const shown = all ? agents : [...agents].sort((a, b) => rank(b) - rank(a)).slice(0, COMPACT_AGENTS);
   return (
-    <section className="panel p-5" aria-labelledby="agents-h">
+    <section id="agents" className="panel scroll-mt-20 p-5" aria-labelledby="agents-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="agents-h" className="headline text-[19px] text-text">
           Agents <span className="num text-sm font-normal text-faint">{agents.length}</span>
@@ -846,7 +683,7 @@ function Agents({
               </span>
               <span className="num w-32 shrink-0 text-right text-xs leading-tight">
                 <span className="flex items-center justify-end gap-2">
-                  <span className="h-1 w-12 overflow-hidden rounded-full bg-white/5" aria-hidden>
+                  <span className="h-1 w-12 overflow-hidden rounded-full bg-ink/10" aria-hidden>
                     <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round(a.quality * 100)}%` }} />
                   </span>
                   <span className="text-text">rep {a.quality.toFixed(2)}</span>
@@ -1188,9 +1025,9 @@ function RoundDetail({ r, agents }: { r: PublicRound; agents: LiveAgent[] }) {
                         {near(b.ask)} · value {b.value.toFixed(2)}
                       </span>
                     </div>
-                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink/10">
                       <div
-                        className={`h-full rounded-full ${won ? "bg-accent" : "bg-white/20"}`}
+                        className={`h-full rounded-full ${won ? "bg-accent" : "bg-ink/30"}`}
                         style={{
                           width: `${Math.max(4, (b.value / maxValue) * 100)}%`,
                           transition: "width 400ms ease-out",
@@ -1435,7 +1272,7 @@ function UseFromAI({
   const keyText = fresh ?? "sfh_YOUR_KEY";
 
   return (
-    <section className="panel p-5" aria-labelledby="ai-h">
+    <section id="mcp" className="panel scroll-mt-20 p-5" aria-labelledby="ai-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="ai-h" className="headline text-[19px] text-text">
           Use from your AI{" "}

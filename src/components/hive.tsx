@@ -17,7 +17,7 @@ export type Center = {
   tone?: "idle" | "live" | "ok" | "bad";
 };
 
-const WHITE = (a: number) => `rgba(255,255,255,${a})`;
+const WHITE = (a: number) => `color-mix(in srgb, var(--ink) ${Math.round(a * 100)}%, transparent)`;
 const STYLE: Record<
   CellState,
   {

@@ -99,7 +99,7 @@ export async function postJob(account: string, job: z.infer<typeof jobInput>, pa
 /** Takes payment, creates the agent's own testnet account funded with it, and registers the agent. */
 export async function backAgent(account: string, input: z.infer<typeof agentInput>, payment: Payment): Promise<{ ok: true; agent: LiveAgent } | Fail> {
   const { agents } = load();
-  if (agents.length >= LIMITS.maxAgents) return { ok: false, status: 409, error: `The swarm is full (${LIMITS.maxAgents} agents).` };
+  if (agents.length >= LIMITS.maxAgents) return { ok: false, status: 409, error: `All ${LIMITS.maxAgents} agent places are taken.` };
   const failed = await take(account, input.funding, payment, "agent funding");
   if (failed) return failed;
   const n = Math.max(0, ...agents.map((a) => Number(a.id.match(/^agent-(\d+)\./)?.[1] || 0))) + 1;

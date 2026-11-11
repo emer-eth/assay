@@ -1,15 +1,16 @@
 import { ImageResponse } from "next/og";
 
-// The share card: what X, Telegram and Discord show when someone posts the link.
+// The share card: what X, Telegram and Discord show when someone posts the link. Drawn in the ledger style:
+// paper ground, ink type, one stamp blue, and the hallmark.
 
-export const alt = "Assay: hire a swarm of AI agents to check any NEAR contract before you trust it";
+export const alt = "Assay: know who controls a NEAR contract before you sign. AI agents check it against live chain data, a separate reviewer tests every claim, and you pay only for a report that passes.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/** The headline face from Google Fonts; if it can't be fetched, the card falls back to the default font. */
+/** Archivo ExtraBold from Google Fonts; if it can't be fetched, the card falls back to the default font. */
 async function headlineFont(): Promise<ArrayBuffer | null> {
   try {
-    const css = await (await fetch("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600&display=swap", { signal: AbortSignal.timeout(5000) })).text();
+    const css = await (await fetch("https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,800&display=swap", { signal: AbortSignal.timeout(5000) })).text();
     const url = css.match(/src: url\((.+?)\) format\('(?:truetype|opentype)'\)/)?.[1];
     return url ? await (await fetch(url, { signal: AbortSignal.timeout(5000) })).arrayBuffer() : null;
   } catch {
@@ -17,48 +18,38 @@ async function headlineFont(): Promise<ArrayBuffer | null> {
   }
 }
 
-const hex = (cx: number, cy: number, r: number) =>
-  Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i - Math.PI / 6;
-    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
-  }).join(" ");
+const PAPER = "#f3f5f1", SHEET = "#fcfdfb", INK = "#14201b", INK2 = "#46524c", STAMP = "#2438c9", RULE = "#d3d9d3";
 
 export default async function Image() {
   const font = await headlineFont();
-  const AMBER = "#f5a524", OK = "#3dd68c";
-  const agents = [
-    [300, 70, "SE"], [470, 150, "CC"], [470, 330, "RR"], [300, 410, "DD"], [130, 330, "BB"], [130, 150, "VV"],
-  ] as const;
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", background: "#08080a", color: "#ededf0", padding: "64px 72px", fontFamily: font ? "Headline" : "sans-serif" }}>
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", width: 640 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 28 }}>
-            <svg width="36" height="36" viewBox="0 0 24 24">
-              <polygon points="12,1.8 21,7 21,17 12,22.2 3,17 3,7" fill="none" stroke="#ededf0" strokeWidth="1.6" />
-              <polygon points="12,7.6 16.2,10 16.2,14.8 12,17.2 7.8,14.8 7.8,10" fill={AMBER} />
+      <div style={{ width: "100%", height: "100%", display: "flex", background: PAPER, color: INK, padding: "60px 72px", fontFamily: font ? "Archivo" : "sans-serif" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", width: 760 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 34 }}>
+            <svg width="40" height="40" viewBox="0 0 26 26">
+              <rect width="26" height="26" fill={INK} />
+              <circle cx="13" cy="13" r="7" fill="none" stroke={PAPER} strokeWidth="2.4" />
+              <circle cx="13" cy="13" r="2.6" fill={PAPER} />
             </svg>
             Assay
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", fontSize: 66, lineHeight: 1.02, letterSpacing: "-0.035em" }}>
-            <span>Hire a swarm to check any contract&nbsp;</span>
-            <span style={{ color: AMBER }}>before</span>
-            <span>&nbsp;you trust it.</span>
-          </div>
-          <div style={{ display: "flex", fontSize: 22, color: "#8e8e98" }}>Sealed bids · a private reviewer · pay only for passing work</div>
+          <div style={{ display: "flex", fontSize: 76, lineHeight: 1.0, letterSpacing: "-0.02em" }}>Know who controls a contract before you sign.</div>
+          <div style={{ display: "flex", fontSize: 24, color: INK2, fontFamily: "sans-serif" }}>NEAR testnet · every claim checked against the chain · pay only for a report that passes</div>
         </div>
-        <svg width="450" height="360" viewBox="0 0 600 480" style={{ marginLeft: "auto", alignSelf: "center" }}>
-          {agents.map(([x, y], i) => (
-            <line key={i} x1={x} y1={y} x2="300" y2="240" stroke={i === 2 ? OK : "#ffffff"} strokeOpacity={i === 2 ? 1 : 0.14} strokeWidth={i === 2 ? 3 : 1.5} />
-          ))}
-          <polygon points={hex(300, 240, 46)} fill="#0f0f12" stroke={OK} strokeWidth="3" />
-          <polygon points={hex(300, 240, 16)} fill={OK} />
-          {agents.map(([x, y], i) => (
-            <polygon key={`a${i}`} points={hex(x, y, 30)} fill="#0b0b0e" stroke={i === 2 ? OK : "#ffffff"} strokeOpacity={i === 2 ? 1 : 0.5} strokeWidth={i === 2 ? 3 : 1.5} />
-          ))}
-        </svg>
+        <div style={{ display: "flex", marginLeft: "auto", alignSelf: "center", position: "relative", width: 300, height: 300 }}>
+          <div style={{ position: "absolute", left: 18, top: 18, width: 262, height: 262, background: RULE }} />
+          <div style={{ position: "absolute", left: 0, top: 0, width: 262, height: 262, background: SHEET, border: `2px solid ${INK}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="190" height="190" viewBox="0 0 124 124" style={{ transform: "rotate(-8deg)" }}>
+              <circle cx="62" cy="62" r="59" fill={SHEET} stroke={STAMP} strokeWidth="3" />
+              <circle cx="62" cy="62" r="33" fill="none" stroke={STAMP} strokeWidth="1.5" />
+              <circle cx="62" cy="62" r="46" fill="none" stroke={STAMP} strokeWidth="1" strokeDasharray="2 5" />
+              <path d="M 48 63 L 58 73 L 78 50" fill="none" stroke={STAMP} strokeWidth="5" strokeLinecap="square" />
+            </svg>
+          </div>
+        </div>
       </div>
     ),
-    { ...size, fonts: font ? [{ name: "Headline", data: font, weight: 600, style: "normal" }] : [] },
+    { ...size, fonts: font ? [{ name: "Archivo", data: font, weight: 800, style: "normal" }] : [] },
   );
 }

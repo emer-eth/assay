@@ -14,7 +14,8 @@ import { load, update, updateRound, type LiveRound } from "./store";
 // happens, so the page can show progress. Rounds run one at a time through a queue, so the coordinator never
 // signs two transactions at once; anyone can post while another round runs, and theirs starts next.
 
-export const ACTIVE: LiveRound["status"][] = ["queued", "reviewing", "bidding", "working", "grading", "settling"];
+import { ACTIVE } from "./status";
+export { ACTIVE };
 
 export function createRound(job: Omit<Job, "id" | "poster">, poster: string, payment: Payment) {
   const deposit = payment.via === "wallet" ? payment.txHash : payment.via === "escrow" ? payment.txHash : undefined;

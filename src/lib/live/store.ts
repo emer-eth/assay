@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from "node:path";
 import { DATA_DIR, KEYS_DIR } from "../paths";
 import { skillQualityFrom } from "../swarm/round";
+import { publishChanges } from "./bus";
 import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from "../swarm/types";
 
 // Local state for the live coordinator: a JSON file in data/ (git-ignored). One Node process,
@@ -101,6 +102,7 @@ export function save(state: State) {
   const tmp = `${FILE}.tmp`;
   writeFileSync(tmp, JSON.stringify(state, null, 2));
   renameSync(tmp, FILE); // atomic replace, so a crash never leaves half a file
+  publishChanges(state); // tell open event streams what changed (bus.ts)
 }
 
 /** Read-modify-write in one step. */
