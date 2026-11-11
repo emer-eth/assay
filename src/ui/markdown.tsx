@@ -63,7 +63,7 @@ export function Markdown({ text }: { text: string }) {
         i++;
       }
       blocks.push(
-        <div key={k++} className="my-4 overflow-x-auto">
+        <div key={k++} className="relative my-4 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <tbody>{rows.map((r, j) => <tr key={j} className={`border-b border-rule ${j === 0 ? "font-semibold" : ""}`}>{r.map((c, n) => <td key={n} className="py-2 pr-4 align-top">{inline(c, `t${k}-${j}-${n}`)}</td>)}</tr>)}</tbody>
           </table>

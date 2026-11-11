@@ -7,7 +7,9 @@ const STYLE: Record<Verdict, string> = {
   blocked: "border-ink bg-ink text-on-ink",
 };
 
-export function VerdictStamp({ verdict, size = "md", className = "" }: { verdict: Verdict; size?: "sm" | "md"; className?: string }) {
+export function VerdictStamp({ verdict, size = "md", className = "" }: { verdict: Verdict; size?: "xs" | "sm" | "md"; className?: string }) {
+  // xs: the flat badge for tables (no tilt, so rows stay aligned).
+  if (size === "xs") return <span className={`stamp-word inline-block border-[1.5px] px-1.5 py-px font-archivo text-[11px] font-extrabold uppercase ${STYLE[verdict]} ${className}`}>{verdict}</span>;
   return (
     <span
       className={`stamp-word inline-block border-[3px] font-archivo font-extrabold uppercase ${size === "sm" ? "px-2.5 py-0.5 text-sm" : "px-3.5 py-[3px] text-[22px] leading-[30px]"} ${STYLE[verdict]} ${className}`}

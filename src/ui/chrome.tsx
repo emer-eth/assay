@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { buttonClass } from "./controls";
 import { ThemeToggle } from "./bits";
+import { CONTAINER } from "./layout";
 
 // The top bar and footer from the build spec. This file never imports wallet code: the app routes pass the
 // wallet button in through `right` (components/app-header.tsx), the public routes pass "Check a contract".
@@ -17,7 +18,6 @@ export const NAV = [
   { href: "/classic/app#mcp", label: "Connect", match: "/connect" },
 ] as const;
 
-export const CONTAINER = "mx-auto w-full max-w-[1264px] px-5 sm:px-8";
 
 export function Logo() {
   return (
@@ -32,7 +32,11 @@ export function Logo() {
   );
 }
 
-export function TopBar({ right }: { right: ReactNode }) {
+/**
+ * `site`: on public pages, links into the app don't prefetch, because prefetching an app route downloads
+ * its wallet code in the background. The public pages themselves ship none (build spec, step 3).
+ */
+export function TopBar({ right, site = false }: { right: ReactNode; site?: boolean }) {
   const path = usePathname();
   return (
     <header className="border-b border-rule bg-paper">
@@ -43,7 +47,7 @@ export function TopBar({ right }: { right: ReactNode }) {
           {NAV.map((n) => {
             const on = path === n.href || path.startsWith(("match" in n ? n.match : n.href) + "/") || ("match" in n && path === n.match);
             return (
-              <Link key={n.label} href={n.href} aria-current={on ? "page" : undefined} className={`flex min-h-11 items-center px-3 text-[15px] font-medium whitespace-nowrap text-ink ${on ? "underline decoration-2 underline-offset-[10px]" : "hover:underline hover:underline-offset-[10px]"}`}>
+              <Link key={n.label} href={n.href} prefetch={site ? false : undefined} aria-current={on ? "page" : undefined} className={`flex min-h-11 items-center px-3 text-[15px] font-medium whitespace-nowrap text-ink ${on ? "underline decoration-2 underline-offset-[10px]" : "hover:underline hover:underline-offset-[10px]"}`}>
                 {n.label}
               </Link>
             );
@@ -57,7 +61,7 @@ export function TopBar({ right }: { right: ReactNode }) {
 
 /** The right side on public pages (home, rules): the one primary action. */
 export function CheckButton() {
-  return <Link href="/check" className={buttonClass("primary")}>Check a contract</Link>;
+  return <Link href="/check" prefetch={false} className={buttonClass("primary")}>Check a contract</Link>;
 }
 
 export function Footer() {
@@ -67,7 +71,7 @@ export function Footer() {
         <p className="text-sm text-ink-2">Assay · built at the NEAR Hackathon · testnet</p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 text-sm">
           {[["/ledger", "Ledger"], ["/rules", "Rules"], ["/simulation", "Simulation"], ["/classic", "Classic site"], ["https://github.com/emer-eth/assay", "GitHub"]].map(([href, label]) => (
-            <Link key={href} href={href} className="inline-flex min-h-11 items-center text-ink underline underline-offset-4">{label}</Link>
+            <Link key={href} href={href} prefetch={false} className="inline-flex min-h-11 items-center text-ink underline underline-offset-4">{label}</Link>
           ))}
         </nav>
         <ThemeToggle />

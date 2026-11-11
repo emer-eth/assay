@@ -1,10 +1,14 @@
 import type { LiveAgent, LiveRound } from "./store";
+import { phaseOf, type Phase } from "./timeline";
 
 // Slim ledger rows: one balanced line per round (budget = paid + fee + refunded), no report text or evidence.
 export type RoundRow = {
   id: string;
   createdAt: string;
   status: LiveRound["status"];
+  phase: Phase;
+  /** One line for the ledger: the job, or for a refused job the reviewer's reason (the brief stays withheld). */
+  title: string;
   skills: LiveRound["job"]["skills"];
   winner: string | null;
   passed: boolean | null;
@@ -27,6 +31,8 @@ export function toRow(r: LiveRound, agents: Pick<LiveAgent, "id" | "name">[]): R
     id: r.id,
     createdAt: r.createdAt,
     status: r.status,
+    phase: phaseOf(r),
+    title: r.status === "blocked" ? `Refused by the reviewer${r.review?.reasons[0] ? `: ${r.review.reasons[0]}` : ""}` : r.job.description,
     skills: r.job.skills,
     winner: r.winner ? (agents.find((a) => a.id === r.winner)?.name ?? r.winner) : null,
     passed: r.grade ? r.grade.passed : null,

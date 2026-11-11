@@ -8,7 +8,7 @@ export type BidRow = { agent: string; reputation: number; ask?: number; value?: 
 /** Sealed until bidding closes (hatched cells), then revealed with the winner tinted. */
 export function BidTable({ bids, sealed, caption = "Sealed bids" }: { bids: BidRow[]; sealed?: boolean; caption?: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[420px] border-collapse text-[15px]">
         <caption className="mb-3 text-left">
           <span className="flex flex-wrap items-baseline justify-between gap-2">
@@ -100,19 +100,19 @@ export function MoneyBar({ paid, fee, refunded, label }: { paid: number; fee: nu
   );
 }
 
-export type LedgerRow = { id: string; href: string; date: string; check: string; winner?: string; verdict: ReactNode; budget: number; paid: number; fee: number; refunded: number; txs: number };
+export type LedgerRow = { id: string; href: string; date: string; check: ReactNode; winner?: string; verdict: ReactNode; budget: number; paid: number; fee: number; refunded: number; txs: number };
 
 /** One balanced line per round, totals in the foot under a double rule. Scrolls sideways in its own box on a phone. */
 export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty?: ReactNode; loading?: boolean }) {
   const sum = (k: "budget" | "paid" | "fee" | "refunded" | "txs") => rows.reduce((s, r) => s + r[k], 0);
   return (
-    <div className="ledger-scroll overflow-x-auto" tabIndex={0} aria-label="Ledger, scrolls sideways">
+    <div className="ledger-scroll relative overflow-x-auto" tabIndex={0} aria-label="Ledger, scrolls sideways">
       <table className="w-full min-w-[980px] border-collapse text-[15px]" aria-busy={loading || undefined}>
         <caption className="sr-only">Every round, one balanced line each, in NEAR</caption>
         <thead className="border-y-2 border-t-ink border-b-rule bg-tint text-sm text-ink-2">
           <tr>
-            {["Date", "Round", "Check", "Winner", "Verdict", "Budget", "Paid", "Fee", "Refunded", "On chain"].map((h, i) => (
-              <th key={h} scope="col" className={`px-3 py-3 font-normal ${i >= 5 ? "text-right" : "text-left"}`}>{h}</th>
+            {["Date, UTC", "Round", "Check", "Winner", "Verdict", "Budget", "Paid", "Fee", "Refunded", "On chain"].map((h, i) => (
+              <th key={h} scope="col" className={`px-3 py-3 font-normal whitespace-nowrap ${i >= 5 ? "text-right" : "text-left"}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -126,13 +126,13 @@ export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty
               <tr key={r.id} className="ledger-row border-b border-rule">
                 <td className="px-3 py-3 font-mono text-sm whitespace-nowrap text-ink-2">{r.date}</td>
                 <th scope="row" className="px-3 py-3 text-left font-normal"><a href={r.href} className="font-mono text-stamp underline underline-offset-2">{r.id}</a></th>
-                <td className="px-3 py-3">{r.check}</td>
-                <td className="px-3 py-3">{r.winner ?? "—"}</td>
+                <td className="max-w-[340px] px-3 py-3">{r.check}</td>
+                <td className="px-3 py-3 whitespace-nowrap">{r.winner ?? "No agent saw it"}</td>
                 <td className="px-3 py-3">{r.verdict}</td>
                 {(["budget", "paid", "fee", "refunded"] as const).map((k) => (
-                  <td key={k} className="px-3 py-3 text-right font-mono">{n(r[k])}</td>
+                  <td key={k} className="px-3 py-3 text-right font-mono">{n(r[k], 4)}</td>
                 ))}
-                <td className="px-3 py-3 text-right font-mono">{r.txs}</td>
+                <td className="px-3 py-3 text-right font-mono whitespace-nowrap">{r.txs ? <a href={r.href} className="text-stamp underline underline-offset-2">{r.txs} tx<span className="sr-only"> for round {r.id}</span></a> : "—"}</td>
               </tr>
             ))
           )}
@@ -140,11 +140,11 @@ export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty
         {!loading && rows.length > 0 && (
           <tfoot>
             <tr className="double-rule font-semibold">
-              <th scope="row" colSpan={5} className="px-3 py-3 text-left">Total, {rows.length} rounds</th>
+              <th scope="row" colSpan={5} className="px-3 py-3 text-left">Totals, {rows.length} rounds</th>
               {(["budget", "paid", "fee", "refunded"] as const).map((k) => (
-                <td key={k} className="px-3 py-3 text-right font-mono">{n(sum(k))}</td>
+                <td key={k} className="px-3 py-3 text-right font-mono">{n(sum(k), 4)}</td>
               ))}
-              <td className="px-3 py-3 text-right font-mono">{sum("txs")}</td>
+              <td className="px-3 py-3 text-right font-mono whitespace-nowrap">{sum("txs")} tx</td>
             </tr>
           </tfoot>
         )}

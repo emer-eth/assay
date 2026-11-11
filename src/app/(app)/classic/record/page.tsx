@@ -9,7 +9,8 @@ import { forViewer } from "@/lib/live/visibility";
 import { Footer, near, TopBar } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Track record",
+  title: "Track record, classic",
+  robots: { index: false },
   description: "Every round the live market has run on NEAR testnet: what was asked, who won, whether the work passed review, and the transactions that moved the money.",
 };
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-export const explorerTx = (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`;
+import { explorerTx } from "./layout";
 const shortHash = (h: string) => (h.length > 14 ? `${h.slice(0, 8)}…${h.slice(-4)}` : h);
 
 /** Label, short hash and an arrow, opening the explorer. */

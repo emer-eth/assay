@@ -68,7 +68,7 @@ export function SectionNav() {
 const PAGES = [
   { href: "/", label: "Overview", key: "home" },
   { href: "/classic/app", label: "App", key: "app" },
-  { href: "/record", label: "Track record", key: "record" },
+  { href: "/classic/record", label: "Track record", key: "record" },
   { href: "/simulation", label: "Simulation", key: "sim" },
   { href: "/#mcp", label: "MCP", key: "mcp" },
 ] as const;

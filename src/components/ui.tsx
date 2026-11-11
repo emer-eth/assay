@@ -138,7 +138,7 @@ export function Footer() {
           <Link href="/simulation" className="inline-block py-3 hover:text-text">
             Simulation
           </Link>
-          <Link href="/record" className="inline-block py-3 hover:text-text">
+          <Link href="/classic/record" className="inline-block py-3 hover:text-text">
             Track record
           </Link>
           <Link href="/#mcp" className="inline-block py-3 hover:text-text">

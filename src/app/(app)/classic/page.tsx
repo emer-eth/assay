@@ -347,7 +347,7 @@ export default function Home() {
             <Suspense fallback={<LiveNumbers />}>
               <LiveStatsNow />
             </Suspense>
-            <Link href="/record" className="btn btn-ghost reveal mt-10">
+            <Link href="/classic/record" className="btn btn-ghost reveal mt-10">
               See every round and its transactions →
             </Link>
           </Chapter>

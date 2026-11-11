@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/live", destination: "/check", permanent: false },
       { source: "/app", destination: "/check", permanent: false },
+      { source: "/record", destination: "/ledger", permanent: false },
       // Old bookmarks and checkers still ask for /favicon.ico.
       { source: "/favicon.ico", destination: "/icon.svg", permanent: true },
     ];
