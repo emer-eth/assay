@@ -304,15 +304,6 @@ async function nearblocks(net: Net, path: string): Promise<unknown> {
   return null;
 }
 
-async function fetchJson(url: string) {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT) });
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
-  }
-}
-
 // ---------- GitHub source ----------
 
 const gh = (url: string) =>
