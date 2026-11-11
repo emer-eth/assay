@@ -73,10 +73,15 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
     };
   }, [key, skill, text]);
 
+  // Once the server confirms the payment, say so and keep the button locked while the round page opens
+  // (it takes a few seconds). Without this the form looked untouched and invited a second payment.
+  const [posted, setPosted] = useState<string | null>(null);
   const post = useEscrowPost(liveKey, (data) => {
-    if (data.id) router.push(`/rounds/${data.id}?new`);
+    if (!data.id) return;
+    setPosted(data.id);
+    router.push(`/rounds/${data.id}?new`);
   });
-  const ready = !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking";
+  const ready = !posted && !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking";
   const payLabel = `${account ? "Pay" : "Connect wallet and pay"} ${Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR`;
   const win = skill ? winning[skill] : undefined;
   const t = (ms: number | null | undefined, fallback: string) => (ms == null ? fallback : duration(ms));
@@ -173,9 +178,14 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
                 </div>
               )}
               <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-                <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={post.step ? PAY_STEP_LABEL[post.step] : undefined}>{payLabel}</Button>
+                <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={posted ? "Opening your round…" : post.step ? PAY_STEP_LABEL[post.step] : undefined}>{payLabel}</Button>
                 <p className="text-[15px] text-ink-2">Testnet NEAR is free. No account yet? <a href="https://testnet.mynearwallet.com/" target="_blank" rel="noreferrer" className="text-stamp underline underline-offset-2">Create one in a minute</a>.</p>
               </div>
+              {posted && (
+                <p role="status" className="mt-5 border-l-4 border-stamp bg-stamp-tint px-4 py-3 text-[15px] text-ink">
+                  Payment confirmed. Round <a href={`/rounds/${posted}?new`} className="font-mono text-stamp underline underline-offset-2">{posted}</a> is starting, and the page is opening it now.
+                </p>
+              )}
               {post.error && (
                 <div role="alert" className="mt-5 border-l-4 border-refund bg-sheet px-4 py-3 text-[15px]">
                   <p className="text-refund">{post.error}</p>
