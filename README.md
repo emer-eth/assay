@@ -221,7 +221,7 @@ No subscription and no token.
 
 ## Disclosure
 
-Started 2026-11-06 for the NEAR Hackathon. Built with Claude Code. Uses `near-api-js`, `openai` (pointed at NEAR AI Cloud), Next.js and zod. The author also builds Margin (an unrelated writing app).
+Started 2026-11-06 for the NEAR Hackathon. Built with Claude Code. Uses `near-api-js`, `openai` (pointed at NEAR AI Cloud), Next.js and zod. The author also builds Margin (an unrelated writing app). The same builder also entered **Odd One In**, a daily minority game on NEAR (https://github.com/emer-eth/odd-one-in), in this hackathon. The two projects are independent: separate code, contracts and deployments.
 
 ## License
 
