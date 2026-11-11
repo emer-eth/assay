@@ -63,7 +63,7 @@ export async function targetProblem(job: Pick<Job, "description" | "skills">): P
     const hash = findTxHash(job.description);
     if (!hash) return "Transaction forensics needs the transaction hash (or a NearBlocks link to it), or the deposit address of a 1Click swap.";
     const tx = await findTx(hash, job.description).catch(() => undefined);
-    if (tx === null) return "Couldn't find that transaction on NEAR mainnet or testnet, or a 1Click swap with that deposit address. For a testnet transaction, also name the account that sent it.";
+    if (tx === null) return "Couldn't find that transaction on NEAR mainnet or testnet, or a 1Click swap with that deposit address. Check the hash, or also name the account that sent it.";
   }
   return null;
 }
@@ -229,15 +229,15 @@ export async function accountReport(id: string): Promise<{ facts: string; summar
     if (roles.length) summary.push(roles.join("; "));
   }
 
-  // Activity (mainnet only: the public indexer dropped testnet)
-  if (net === "mainnet") {
-    const [info, txs] = await Promise.all([
-      fetchJson(`https://api.nearblocks.io/v1/account/${id}`),
-      fetchJson(`https://api.nearblocks.io/v1/account/${id}/txns-only?per_page=25`),
-    ]);
-    const created = info?.account?.[0]?.created?.block_timestamp;
+  // Activity, from the NearBlocks indexer (both networks)
+  {
+    const [info, txs] = (await Promise.all([nearblocks(net, `accounts/${id}`), nearblocks(net, `accounts/${id}/txns?limit=25`)])) as [
+      { created?: { block_timestamp?: string } } | null,
+      { signer_account_id: string; receiver_account_id: string; block_timestamp: string; actions?: { action: string; method?: string }[] }[] | null,
+    ];
+    const created = info?.created?.block_timestamp;
     if (created) lines.push(`- Created: ${date(created)}`);
-    const t: { signer_account_id: string; receiver_account_id: string; block_timestamp: string; actions?: { action: string; method?: string }[] }[] = txs?.txns ?? [];
+    const t = Array.isArray(txs) ? txs : [];
     if (t.length) {
       const signers = new Set(t.map((x) => x.signer_account_id));
       const methods = new Map<string, number>();
@@ -272,6 +272,36 @@ async function daoPolicy(dao: string) {
     line: `Owner DAO ${dao} (Sputnik, read from get_policy): ${parts.join("; ")}. Proposals run ${days} days.`,
     short: `DAO ${dao.split(".")[0]}: ${council ? `${membersOf(council)!.length}-member ${council.name}` : "open voting"}`,
   };
+}
+
+/** NearBlocks API v3 on either network (v1 was retired on testnet on 5 Nov 2026 and on mainnet on 22 Nov 2026).
+ *  Returns the response's `data`, or null if NearBlocks can't be reached or doesn't know it. */
+// The free API is rate-limited: answers are cached for 5 minutes (one round asks for the same transaction more
+// than once), and a 429 is retried once after a pause.
+const nbCache = new Map<string, { at: number; data: unknown }>();
+async function nearblocks(net: Net, path: string): Promise<unknown> {
+  const base = net === "mainnet" ? "https://api.nearblocks.io" : "https://api-testnet.nearblocks.io";
+  const url = `${base}/v3/${path}`;
+  const hit = nbCache.get(url);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.data;
+  const key = process.env.NEARBLOCKS_API_KEY;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: key ? { authorization: `Bearer ${key}` } : {} });
+      if (res.status === 429 && attempt === 0) {
+        await new Promise((ok) => setTimeout(ok, 2000));
+        continue;
+      }
+      if (!res.ok) return null;
+      const data = ((await res.json()) as { data?: unknown }).data ?? null;
+      if (nbCache.size > 500) nbCache.clear();
+      nbCache.set(url, { at: Date.now(), data });
+      return data;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 async function fetchJson(url: string) {
@@ -613,9 +643,13 @@ type TxStatus = {
 export async function findTx(hash: string, text: string): Promise<{ tx: TxStatus; net: Net } | null> {
   const senders = findAccounts(text);
   if (!senders.length) {
-    const nb = await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`);
-    const s = nb?.txns?.[0]?.signer_account_id;
-    if (s) senders.push(s);
+    for (const net of ["mainnet", "testnet"] as const) {
+      const nb = (await nearblocks(net, `txns/${hash}`)) as { signer_account_id?: string } | null;
+      if (nb?.signer_account_id) {
+        senders.push(nb.signer_account_id);
+        break;
+      }
+    }
   }
   for (const sender of senders) {
     const tx = await rpcMethod(ARCHIVE[netOf(sender)], "EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "NONE" }).catch(() => null);
@@ -666,7 +700,7 @@ async function describeLogs(logs: string[]) {
 
 export async function txReport(hash: string, text: string): Promise<{ facts: string; summary: string; intents?: IntentView[] }> {
   const found = await findTx(hash, text);
-  if (!found) return { facts: `TRANSACTION ${hash}: not found on NEAR mainnet or testnet (if it's on testnet, name the account that sent it).`, summary: `transaction ${hash} not found` };
+  if (!found) return { facts: `TRANSACTION ${hash}: not found on NEAR mainnet or testnet (check the hash, or name the account that sent it).`, summary: `transaction ${hash} not found` };
   const { tx, net } = found;
   const t = tx.transaction;
   const err = errorText(tx.status);
@@ -690,8 +724,8 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
   if (inner.length) lines.push(`- Inside the call, a message signed by ${inner.join(", ")} (signer_id in the arguments). ${t.signer_id} only submitted it, like a relayer; the user behind this is most likely ${inner[0]}, and fees were paid by ${t.signer_id}.`);
   // NEAR Intents: decode what each signed intent says (amounts in real units, the deadline against the time
   // the call ran, and flags such as a transfer to oneself or a new key).
-  const nbTime = net === "mainnet" ? await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`) : null;
-  const ranAt = nbTime?.txns?.[0]?.block_timestamp ? new Date(Number(BigInt(nbTime.txns[0].block_timestamp) / 1_000_000n)) : null;
+  const nbTime = (await nearblocks(net, `txns/${hash}`)) as { block_timestamp?: string } | null;
+  const ranAt = nbTime?.block_timestamp ? new Date(Number(BigInt(nbTime.block_timestamp) / 1_000_000n)) : null;
   const intentAmount = async (id: string, raw: string) => {
     const t = tokenContract(id);
     return t.contract ? tokenAmount(t.contract, raw) : `${raw} raw units of ${t.label}`;
@@ -716,7 +750,7 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
   }
   if (tx.receipts_outcome.length > 30) lines.push(`  … ${tx.receipts_outcome.length - 30} more receipts not shown`);
   lines.push(`- Total gas fees burnt: ${nearExact(fees.toString())}`);
-  const ts = nbTime?.txns?.[0]?.block_timestamp;
+  const ts = nbTime?.block_timestamp;
   if (ts) lines.push(`- Time: ${new Date(Number(BigInt(ts) / 1_000_000n)).toISOString().replace("T", " ").slice(0, 19)} UTC`);
   return { facts: lines.join("\n"), summary: `transaction ${hash.slice(0, 8)}… from ${t.signer_id} to ${t.receiver_id}: ${err ? `failed (${err.slice(0, 80)})` : "succeeded"}, ${tx.receipts_outcome.length} receipts`, intents: intents.length ? intents : undefined };
 }
