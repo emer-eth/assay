@@ -2,6 +2,7 @@ import "server-only";
 import { RPC_URLS } from "../near";
 import type { Job } from "../swarm/types";
 import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode } from "./detect";
+import { intentEvidence, tokenContract } from "./intents";
 
 // The pure finders live in detect.ts (the browser uses them to name the check as you type).
 export { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode };
@@ -682,6 +683,18 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
   // Relayed messages (NEAR Intents, meta-transactions): the account that signed the message isn't the one that sent the transaction.
   const inner = [...new Set([...JSON.stringify(t.actions.map((x) => (typeof x === "string" ? x : decodeArgs(Object.values(x)[0]?.args ?? "")))).matchAll(/signer_id\\*":\\*"([a-z0-9._-]+)/g)].map((m) => m[1]))].filter((x) => x !== t.signer_id);
   if (inner.length) lines.push(`- Inside the call, a message signed by ${inner.join(", ")} (signer_id in the arguments). ${t.signer_id} only submitted it, like a relayer; the user behind this is most likely ${inner[0]}, and fees were paid by ${t.signer_id}.`);
+  // NEAR Intents: decode what each signed intent says (amounts in real units, the deadline against the time
+  // the call ran, and flags such as a transfer to oneself or a new key).
+  const nbTime = net === "mainnet" ? await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`) : null;
+  const ranAt = nbTime?.txns?.[0]?.block_timestamp ? new Date(Number(BigInt(nbTime.txns[0].block_timestamp) / 1_000_000n)) : null;
+  const intentAmount = async (id: string, raw: string) => {
+    const t = tokenContract(id);
+    return t.contract ? tokenAmount(t.contract, raw) : `${raw} raw units of ${t.label}`;
+  };
+  for (const a of t.actions) {
+    const v = typeof a === "string" ? null : (a as Record<string, Record<string, string>>).FunctionCall;
+    if (v && /^(execute|simulate)_intents$/.test(v.method_name)) lines.push(...(await intentEvidence(decodeArgs(v.args), ranAt, intentAmount)));
+  }
   lines.push("- Receipts, in the order they ran (each runs on its own; a failure does NOT undo receipts that already succeeded, and a failed receipt's attached NEAR is refunded):");
   for (const [i, r] of tx.receipts_outcome.slice(0, 30).entries()) {
     const rc = byId.get(r.id);
@@ -696,8 +709,7 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
   }
   if (tx.receipts_outcome.length > 30) lines.push(`  … ${tx.receipts_outcome.length - 30} more receipts not shown`);
   lines.push(`- Total gas fees burnt: ${nearExact(fees.toString())}`);
-  const nb = net === "mainnet" ? await fetchJson(`https://api.nearblocks.io/v1/txns/${hash}`) : null;
-  const ts = nb?.txns?.[0]?.block_timestamp;
+  const ts = nbTime?.txns?.[0]?.block_timestamp;
   if (ts) lines.push(`- Time: ${new Date(Number(BigInt(ts) / 1_000_000n)).toISOString().replace("T", " ").slice(0, 19)} UTC`);
   return { facts: lines.join("\n"), summary: `transaction ${hash.slice(0, 8)}… from ${t.signer_id} to ${t.receiver_id}: ${err ? `failed (${err.slice(0, 80)})` : "succeeded"}, ${tx.receipts_outcome.length} receipts` };
 }
