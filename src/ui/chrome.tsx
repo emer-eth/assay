@@ -40,7 +40,7 @@ export function TopBar({ right, site = false }: { right: ReactNode; site?: boole
   const path = usePathname();
   return (
     <header className="border-b border-rule bg-paper">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-sheet focus:px-4 focus:py-2">Skip to content</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-sheet focus:px-4">Skip to content</a>
       <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2.5`}>
         <Logo />
         <nav aria-label="Main" className="order-3 -mx-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:mx-0 sm:w-auto">

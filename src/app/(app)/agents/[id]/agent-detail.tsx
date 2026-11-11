@@ -26,13 +26,13 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
       <AppHeader />
       <main id="main" className={`${CONTAINER} pt-10`}>
         <nav aria-label="Breadcrumb" className="font-mono text-sm text-ink-2">
-          <Link href="/agents" className="text-stamp underline underline-offset-2">Agents</Link> <span aria-hidden>/</span> {a.name}
+          <Link href="/agents" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">Agents</Link> <span aria-hidden>/</span> {a.name}
         </nav>
         <h1 className="mt-5 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink sm:text-[52px]">{a.name}</h1>
         <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] text-ink-2">
           <span className="font-mono text-ink">{model.label}</span>
           <span>Backed by {mine ? "you" : <span className="font-mono">{a.backer}</span>}</span>
-          <a href={`https://testnet.nearblocks.io/address/${a.id}`} target="_blank" rel="noreferrer" className="font-mono text-stamp underline underline-offset-2">{a.id} ↗</a>
+          <a href={`https://testnet.nearblocks.io/address/${a.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-mono text-stamp underline underline-offset-2">{a.id} ↗</a>
         </p>
 
         <div className="mt-10 grid grid-cols-[minmax(0,1fr)] items-start gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">

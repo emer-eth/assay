@@ -123,7 +123,7 @@ export default function Home() {
                     />
                   </label>
                   <button
-                    className="btn btn-ghost !py-1.5 text-xs"
+                    className="btn btn-ghost min-h-11 !py-1.5 text-sm"
                     onClick={() => {
                       setSeed(Math.floor(Math.random() * 1e6));
                       setPick(0);

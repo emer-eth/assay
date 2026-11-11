@@ -19,7 +19,8 @@ function inline(text: string, key: string): ReactNode[] {
   return out;
 }
 
-export function Markdown({ text }: { text: string }) {
+/** `top` is the element a `#`/`##` heading becomes: h3 inside a report (the default), h2 when the text is the page. */
+export function Markdown({ text, top = 3 }: { text: string; top?: 2 | 3 }) {
   const lines = text.replace(/\r/g, "").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -39,7 +40,9 @@ export function Markdown({ text }: { text: string }) {
     if (h) {
       const level = h[1].length;
       const cls = level <= 2 ? "mt-6 mb-3 text-xl font-semibold first:mt-0" : "mt-5 mb-2 text-[17px] font-semibold first:mt-0";
-      blocks.push(level <= 2 ? <h3 key={k++} className={cls}>{inline(h[2], `h${k}`)}</h3> : <h4 key={k++} className={cls}>{inline(h[2], `h${k}`)}</h4>);
+      const Major = top === 2 ? "h2" : "h3";
+      const Minor = top === 2 ? "h3" : "h4";
+      blocks.push(level <= 2 ? <Major key={k++} className={cls}>{inline(h[2], `h${k}`)}</Major> : <Minor key={k++} className={cls}>{inline(h[2], `h${k}`)}</Minor>);
       i++;
       continue;
     }

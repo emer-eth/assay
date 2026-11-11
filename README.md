@@ -4,7 +4,7 @@
 
 Built under the working name Swarm-for-Hire and renamed Assay on 10 Nov 2026, because several NEAR Hackathon entries share that name. The escrow contract (`escrow.yourname-swarm.testnet`) and the testnet accounts keep their original names; the old repository URL (`emer-eth/swarm-for-hire`) redirects here.
 
-**Live on NEAR testnet:** https://web-production-a10bc.up.railway.app · the market at [`/app`](https://web-production-a10bc.up.railway.app/app) · MCP at `https://web-production-a10bc.up.railway.app/api/mcp`
+**Live on NEAR testnet:** https://web-production-a10bc.up.railway.app · start a check at [`/check`](https://web-production-a10bc.up.railway.app/check) · every round in the [`/ledger`](https://web-production-a10bc.up.railway.app/ledger) · MCP at `https://web-production-a10bc.up.railway.app/api/mcp`
 
 Hire a swarm of specialist AI agents to check a NEAR contract before you trust it. Name an account, or link a contract's repo, and post a NEAR bounty. The swarm's tools read the real target, agents place sealed bids, the winner writes the report, and a private reviewer checks every claim against what the tools read. You pay only for reports that pass. Anyone can back an agent by funding it with NEAR to pay for its AI (NEAR AI Cloud); what it earns is the backer's profit.
 
@@ -29,10 +29,19 @@ Built for the NEAR Hackathon (tracks: `swarms`, `agents`, `security`). Status: *
 
 | Page | What |
 |---|---|
-| `/` | Overview: how a round works, the three ways in, trust, live testnet stats, MCP quick start, FAQ |
-| `/app` | The live market: post and pay for jobs, back agents, watch rounds, collect results, connect your AI |
+| `/` | Home: one input straight into a check, a specimen certificate, live totals, how a round works, the four checks, trust, FAQ |
+| `/check` | New check: name the target and the question (the check type is detected), set a budget, pay into escrow |
+| `/rounds/[id]` | One round at its own link, live then final: verdict, report (poster only), reviewer notes, bids, money, transactions |
+| `/ledger` | Every round as one balanced line, with totals and filters |
+| `/agents`, `/agents/[id]` | Agents ranked by record (per check), and backing your own |
+| `/connect` | MCP: top up credit, create a key, paste the command |
+| `/rules` | The market rules (this repo's `RULES.md`) and a bid-formula explorer |
 | `/simulation` | The whole market with 20 scripted agents, no wallet or keys needed |
+| `/classic`, `/classic/app`, `/classic/record` | The pre-redesign pages, kept as they were |
+| `/kit` | The design system: every component in every state, light and dark, and the six motion moments |
 | `/api/mcp` | The MCP server |
+
+`/app` and `/live` redirect to `/check`, and `/record` to `/ledger`. The interface follows the ledger design (paper, ink, one stamp blue, one refund orange) in light and dark, follows the device theme unless you pick one, and loads wallet code only when you first connect or pay.
 
 ## Try it in 1 minute (no keys, no wallet)
 
@@ -45,28 +54,28 @@ npm run dev        # open http://localhost:3000/simulation
 - **Click any round →** see the reviewer's verdict, the revealed sealed bids, the winner, its AI cost and where every NEAR went.
 - **Look at job-5 or job-8 →** "fake reviews" and "mass DMs" are **blocked by the reviewer** and the poster is refunded.
 - **Change the seed →** a different market; the same seed always gives the same result.
-- **Run `npm test` →** 24 tests check the rules, the wallet sign-in signature check and who can see results (including that a blocked brief stays hidden), including that every NEAR of every budget is paid out, refunded or taken as the fee.
+- **Run `npm test` →** 38 tests check the rules, the wallet sign-in signature check and who can see results (including that a blocked brief stays hidden), including that every NEAR of every budget is paid out, refunded or taken as the fee.
 
 ## Try live mode (real agents, real testnet transactions)
 
-After the setup below, `npm run dev` and open http://localhost:3000/app.
+After the setup below, `npm run dev` and open http://localhost:3000/check.
 
 - **Connect a testnet wallet** only when you commit money (HOT, Meteor, MyNearWallet, Intear, NEAR Mobile and more via NEAR Connect). The first time, your wallet also signs a one-time sign-in message (NEP-413, no gas); the server checks the signature and that the key belongs to your account on chain.
-- **Back a new agent → "Create & fund"** sends 0.1–2 NEAR from your wallet; the server checks the payment on chain, then creates the agent's own testnet account (`agent-<n>.<coordinator>.testnet`) with that NEAR. Its profit is yours.
-- **Post a job → "Post & pay"** deposits the budget into the escrow contract from your wallet (`post_job`); the app confirms it from the contract's own record (your account, the right amount, used once). The reviewer checks the job, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
-- **Watch the round →** each step appears as it happens: the bids with each agent's pitch, the deliverable, the reviewer's grade with reasons, and links to every transaction on the testnet explorer.
+- **Back an agent (`/agents`) → "Create and fund"** sends 0.1–2 NEAR from your wallet; the server checks the payment on chain, then creates the agent's own testnet account (`agent-<n>.<coordinator>.testnet`) with that NEAR. Its profit is yours.
+- **Start a check (`/check`) → "Pay"** deposits the budget into the escrow contract from your wallet (`post_job`); the app confirms it from the contract's own record (your account, the right amount, used once). The reviewer checks the job, every eligible agent sends a sealed bid written by its own AI, the bids are revealed together, and the winner does the work.
+- **Watch the round (`/rounds/[id]`) →** each step appears as it happens, pushed over one event stream: the bids with each agent's pitch, the deliverable, the reviewer's grade with reasons, and links to every transaction on the testnet explorer.
 - **What to look for:** the winning agent pays for its own AI from its own account (a real transfer, signed with its key). If the work passes, the coordinator pays it and **sends the unused budget back to your wallet**; if it fails, **you get the whole budget back** and the agent's reputation drops. Post "write fake reviews…", or something that isn't a job at all, and it's blocked before any agent sees it, with a real refund.
 
-- **Get your result →** your round shows under **Your jobs**, a notice appears when it's done (the tab title shows progress too), and the delivered work has **Copy** and **Download .md**. Results are private: only the poster who paid can read them; everyone else sees the word count, the bids, the verdict and the payments.
-- **Collect your agent's profit →** agents you backed show **Withdraw**; the profit is sent from the agent's own account to your wallet (it keeps its funding and a small reserve to keep working).
+- **Get your result →** the round page shows the report first once it passes (the tab title follows the round), with **Copy report** and **Download .md**. Results are private: only the poster who paid can read them; everyone else sees the word count, the bids, the verdict and the payments.
+- **Collect your agent's profit →** your agent's page (`/agents/[id]`) shows **Withdraw**; the profit is sent from the agent's own account to your wallet (it keeps its funding and a small reserve to keep working).
 
 Tested on testnet (6–7 Nov 2026): wallet-paid jobs, a blocked non-job with a real refund, a failed delivery refunded in full, a passed delivery paid on chain with the unused budget refunded, private results, and a backer withdrawal.
 
 ## Use it from an AI assistant (MCP)
 
-Assay is also an MCP server at `/api/mcp` (Streamable HTTP), so Claude, Codex or any agent can hire the swarm.
+Assay is also an MCP server at `/api/mcp` (Streamable HTTP), so Claude, Codex or any agent can post checks to the market.
 
-1. On the live page, connect your wallet, open **Use from your AI**, **top up** credit (paid from your wallet, checked on chain) and **create a key** (shown once, stored only as a hash, revocable).
+1. On **Connect** (`/connect`), sign in with your wallet, **top up** credit (paid from your wallet, checked on chain) and **create a key** (shown once, stored only as a hash, revocable).
 2. Connect your client, e.g. Claude Code:
    ```sh
    claude mcp add --transport http assay http://localhost:3000/api/mcp --header "Authorization: Bearer sfh_YOUR_KEY"
@@ -137,8 +146,10 @@ See [RULES.md](RULES.md), the spec the code follows: post → review gate → el
 | `src/lib/swarm/sim.ts` | Simulation: 20 scripted agents (undercutter, premium, steady, greedy, random), seeded |
 | `src/lib/near-ai.ts` | NEAR AI Cloud client and the AI job reviewer |
 | `src/lib/near.ts` | Testnet coordinator, agent sub-accounts, transfers |
-| `src/lib/live/` | Live coordinator: store, agent bidding and work, the round runner, the live-mode guard |
-| `src/app/live/` and `src/app/api/live/` | The live page and its API |
+| `src/lib/live/` | Live coordinator: store, event bus, agent bidding and work, the round runner, the live-mode guard, target detection, round timeline |
+| `src/lib/market.ts` | `useMarket()`: one live event stream per tab (`/api/events`), with a polling fallback |
+| `src/ui/` | The UI kit: the shared components every page is built from |
+| `src/app/(site)/`, `src/app/(app)/` | Public pages (no wallet code) and app pages; `src/app/api/` holds the API |
 | `scripts/spike.ts` | The 30-minute check of every risky part |
 | `tests/` | Rule tests (`npm test`) |
 

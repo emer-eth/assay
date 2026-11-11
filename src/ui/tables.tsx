@@ -111,14 +111,14 @@ export function LedgerTable({ rows, empty, loading }: { rows: LedgerRow[]; empty
             rows.map((r) => (
               <tr key={r.id} className={`ledger-row border-b border-rule [&>*]:relative [&>*]:isolate ${r.fresh ? "ledger-enter" : ""}`}>
                 <td className="px-3 py-3 font-mono text-sm whitespace-nowrap text-ink-2">{r.fresh && <Tint cls="tint-out" />}{r.date}</td>
-                <th scope="row" className="px-3 py-3 text-left font-normal"><a href={r.href} className="font-mono text-stamp underline underline-offset-2">{r.id}</a></th>
+                <th scope="row" className="px-3 py-3 text-left font-normal"><a href={r.href} className="inline-flex min-h-11 items-center font-mono text-stamp underline underline-offset-2">{r.id}</a></th>
                 <td className="max-w-[340px] px-3 py-3">{r.check}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{r.winner ?? "No agent saw it"}</td>
                 <td className="px-3 py-3">{r.verdict}</td>
                 {(["budget", "paid", "fee", "refunded"] as const).map((k) => (
                   <td key={k} className="px-3 py-3 text-right font-mono">{n(r[k], 4)}</td>
                 ))}
-                <td className="px-3 py-3 text-right font-mono whitespace-nowrap">{r.txs ? <a href={r.href} className="text-stamp underline underline-offset-2">{r.txs} tx<span className="sr-only"> for round {r.id}</span></a> : "—"}</td>
+                <td className="px-3 py-3 text-right font-mono whitespace-nowrap">{r.txs ? <a href={r.href} className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">{r.txs} tx<span className="sr-only"> for round {r.id}</span></a> : "—"}</td>
               </tr>
             ))
           )}

@@ -70,7 +70,7 @@ export function AgentsView({ agents: initial, coordinator, places }: { agents: A
                 {agents.map((a) => (
                   <tr key={a.id} className="border-b border-rule last:border-b-0">
                     <th scope="row" className="px-4 py-4 text-left font-normal">
-                      <Link href={`/agents/${encodeURIComponent(a.id)}`} className="font-semibold text-ink underline underline-offset-2">{a.name}</Link>
+                      <Link href={`/agents/${encodeURIComponent(a.id)}`} className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2">{a.name}</Link>
                       <span className="block font-mono text-sm whitespace-nowrap text-ink-2">{modelLabel(a.model)}</span>
                     </th>
                     <td className="px-4 py-4">{checks(a.skills)}</td>

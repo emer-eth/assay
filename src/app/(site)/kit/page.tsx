@@ -99,7 +99,7 @@ function Board() {
 
 export default function Kit() {
   return (
-    <main className="grid xl:grid-cols-2">
+    <main className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-2">
       <div data-theme="light"><Board /></div>
       <div data-theme="dark"><Board /></div>
     </main>

@@ -139,7 +139,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
       <AppHeader />
       <main id="main" className={`${CONTAINER} pt-10 ${failing ? "fail-play" : ""}`}>
         <nav aria-label="Breadcrumb" className="font-mono text-sm text-ink-2">
-          <Link href="/ledger" className="text-stamp underline underline-offset-2">Ledger</Link> <span aria-hidden>/</span> Round {r.id}
+          <Link href="/ledger" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">Ledger</Link> <span aria-hidden>/</span> Round {r.id}
         </nav>
         <h1 className="mt-5 max-w-[900px] [overflow-wrap:anywhere] font-archivo text-[28px] leading-[1.15] font-extrabold text-ink [text-wrap:balance] sm:text-[34px]">{r.job.description}</h1>
         <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] text-ink-2">

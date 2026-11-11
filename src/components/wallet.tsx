@@ -165,7 +165,7 @@ export function WalletButton() {
       <span className="flex flex-col items-end">
         <button
           data-wallet=""
-          className="btn btn-ghost !px-3 !py-1.5 text-xs"
+          className="btn btn-ghost min-h-11 !px-4 !py-1.5 text-sm"
           onClick={() => signIn().catch(() => {})}
           disabled={busy}
         >
