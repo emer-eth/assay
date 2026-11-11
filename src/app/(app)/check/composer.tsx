@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { useEscrowPost } from "@/components/escrow-post";
 import { PAY_STEP_LABEL, useAuth } from "@/components/wallet";
 import { detectCheck } from "@/lib/live/detect";
+import { IS_MAINNET, LIMITS, WALLET_SIGNUP } from "@/lib/network";
 import { duration, type StageTimes } from "@/lib/live/timeline";
 import { BETA_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label, Tag, explorerTx } from "@/ui";
@@ -24,7 +25,7 @@ const EXAMPLES: { label: string; text: string }[] = [
 ];
 const PLACEHOLDER = "PASTE_THE_DEPOSIT_ADDRESS_HERE";
 const MIN = 0.05;
-const MAX = 5;
+const MAX = LIMITS.maxBudget;
 
 type Times = { [K in keyof StageTimes]: number | null } | null;
 type Target = { state: "idle" | "checking" | "ok" | "problem"; problem?: string };
@@ -198,7 +199,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
               )}
               <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
                 <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={posted ? "Opening your round…" : post.step ? PAY_STEP_LABEL[post.step] : undefined}>{payLabel}</Button>
-                <p className="text-[15px] text-ink-2">Testnet NEAR is free. No account yet? <a href="https://testnet.mynearwallet.com/" target="_blank" rel="noreferrer" className="text-stamp underline underline-offset-2">Create one in a minute</a>.</p>
+                <p className="text-[15px] text-ink-2">{IS_MAINNET ? "Real NEAR, held by the escrow contract." : "Testnet NEAR is free."} No account yet? <a href={WALLET_SIGNUP} target="_blank" rel="noreferrer" className="text-stamp underline underline-offset-2">Create one in a minute</a>.</p>
               </div>
               {posted && (
                 <p role="status" className="mt-5 border-l-4 border-stamp bg-stamp-tint px-4 py-3 text-[15px] text-ink">

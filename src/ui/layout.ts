@@ -4,5 +4,5 @@
 /** Content is 1200 wide with 32 side padding, 20 on a phone (build spec, Space and shape). */
 export const CONTAINER = "mx-auto w-full max-w-[1264px] px-5 sm:px-8";
 
-/** A testnet transaction in the explorer. */
-export const explorerTx = (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`;
+/** A transaction in the explorer, on this deployment's network. */
+export { explorerTx } from "@/lib/network";

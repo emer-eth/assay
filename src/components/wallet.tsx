@@ -1,5 +1,6 @@
 "use client";
 
+import { explorerAccount, IS_MAINNET, isNetworkAccount, NETWORK, OTHER_NETWORK, OTHER_NETWORK_URL, WALLET_SIGNUP } from "@/lib/network";
 import dynamic from "next/dynamic";
 import {
   createContext,
@@ -55,13 +56,12 @@ export const useAuth = () => {
   return ctx;
 };
 
-/** Named testnet accounts end in .testnet; 64-hex implicit accounts exist on every network. */
-export const isTestnetAccount = (id: string) =>
-  id.endsWith(".testnet") || /^[0-9a-f]{64}$/.test(id);
+/** An account this deployment's network can use (see lib/network.ts). */
+export const isTestnetAccount = isNetworkAccount;
 
 export class WrongNetworkError extends Error {
   constructor(account: string) {
-    super(`${account} is a mainnet account. This demo runs on NEAR testnet.`);
+    super(`${account} is a ${OTHER_NETWORK} account. This Assay runs on NEAR ${NETWORK}.`);
   }
 }
 
@@ -169,7 +169,7 @@ export function WalletButton() {
           onClick={() => signIn().catch(() => {})}
           disabled={busy}
         >
-          {busy ? "Check your wallet…" : "Connect testnet wallet"}
+          {busy ? "Check your wallet…" : `Connect ${NETWORK} wallet`}
         </button>
         {error && (
           <span
@@ -201,7 +201,7 @@ export function WalletButton() {
           </a>
           <a
             className="rounded-md px-3 py-2 text-muted hover:bg-panel-2 hover:text-text"
-            href={`https://testnet.nearblocks.io/address/${account}`}
+            href={explorerAccount(account)}
             target="_blank"
             rel="noreferrer"
           >
@@ -222,7 +222,7 @@ export function WalletButton() {
   );
 }
 
-/** Shown when someone connects a mainnet wallet: what testnet is and how to get a free account in a minute. */
+/** Shown when someone connects an account from the other network: which network this is, and where to go. */
 export function TestnetHelp({
   account,
   onClose,
@@ -230,6 +230,7 @@ export function TestnetHelp({
   account: string;
   onClose: () => void;
 }) {
+  const link = "text-text underline underline-offset-4";
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-ink/60 p-4"
@@ -242,18 +243,25 @@ export function TestnetHelp({
         className="panel-glow enter w-full max-w-lg p-6 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="eyebrow">NEAR testnet</p>
+        <p className="eyebrow">NEAR {NETWORK}</p>
         <h2 id="tn-h" className="headline mt-2 text-2xl text-text">
-          This demo runs on testnet
+          This Assay runs on {NETWORK}
         </h2>
         <p className="mt-3 text-[15px] leading-relaxed text-muted">
-          You connected <span className="num text-text">{account}</span>, a
-          mainnet account with real NEAR. Assay uses free test NEAR on
-          testnet, so nothing you do here can cost real money. We&apos;ve
-          disconnected it.
+          You connected <span className="num text-text">{account}</span>, a {OTHER_NETWORK} account. We&apos;ve disconnected it.{" "}
+          {IS_MAINNET ? "Here jobs are paid in real NEAR, or in any token through NEAR Intents." : "Here everything uses free test NEAR, so nothing can cost real money."}
         </p>
         <ol className="mt-5 grid gap-3 text-[14px]">
-          {[
+          {(IS_MAINNET
+            ? [
+                <>
+                  Connect a mainnet account (it ends in <span className="num text-text">.near</span>), or create one in{" "}
+                  <a className={link} href={WALLET_SIGNUP} target="_blank" rel="noreferrer">Meteor Wallet</a>.
+                </>,
+                <>Or pay for a job without connecting at all: choose &ldquo;Pay with any token&rdquo; on the job form.</>,
+                ...(OTHER_NETWORK_URL ? [<>To use <span className="num text-text">{account}</span> with free test NEAR, open <a className={link} href={OTHER_NETWORK_URL}>Assay on testnet</a>.</>] : []),
+              ]
+            : [
             <>
               Create a free testnet account in{" "}
               <a
@@ -289,7 +297,8 @@ export function TestnetHelp({
               if it starts empty.
             </>,
             <>Come back and connect that testnet account.</>,
-          ].map((step, i) => (
+            ...(OTHER_NETWORK_URL ? [<>Or use <span className="num text-text">{account}</span> with real NEAR on <a className={link} href={OTHER_NETWORK_URL}>Assay on mainnet</a>.</>] : []),
+          ]).map((step, i) => (
             <li key={i} className="flex gap-3">
               <span className="num grid size-6 shrink-0 place-items-center rounded-full border border-line-strong text-xs text-muted">
                 {i + 1}

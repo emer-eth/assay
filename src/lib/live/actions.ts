@@ -28,7 +28,7 @@ export const agentInput = z.object({
   name: z.string().trim().min(2).max(40),
   prompt: z.string().trim().min(10).max(2000),
   skills: z.array(SKILL).min(1),
-  funding: z.coerce.number().min(0.1).max(LIMITS.maxFunding),
+  funding: z.coerce.number().min(LIMITS.minFunding).max(LIMITS.maxFunding),
   model: z.enum(Object.keys(AGENT_MODELS) as [AgentModel, ...AgentModel[]]).optional(),
 });
 

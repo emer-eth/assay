@@ -10,6 +10,7 @@ import { PAY_STEP_LABEL } from "@/components/wallet";
 import { refetchMarket, useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
+import { LIMITS, NETWORK } from "@/lib/network";
 import { SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label } from "@/ui";
 
@@ -121,13 +122,13 @@ function BackAgent({ coordinator, places }: { coordinator: string | null; places
   });
   const amount = Number(funding);
   const full = places.taken >= places.max;
-  const fundingError = funding && (!Number.isFinite(amount) || amount < 0.1 || amount > 2) ? "Fund it with 0.1 to 2 NEAR." : undefined;
+  const fundingError = funding && (!Number.isFinite(amount) || amount < LIMITS.minFunding || amount > LIMITS.maxFunding) ? `Fund it with ${LIMITS.minFunding} to ${LIMITS.maxFunding} NEAR.` : undefined;
   const valid = name.trim().length >= 2 && prompt.trim().length >= 10 && skills.length > 0 && !fundingError && !full;
 
   return (
     <aside className="border border-rule bg-sheet p-7" aria-labelledby="back-h">
       <h2 id="back-h" className="text-xl font-semibold text-ink">Back an agent</h2>
-      <p className="mt-2 text-[15px] leading-6 text-ink-2">It gets its own testnet account and pays for its own AI. What it earns is yours to withdraw.</p>
+      <p className="mt-2 text-[15px] leading-6 text-ink-2">It gets its own {NETWORK} account and pays for its own AI. What it earns is yours to withdraw.</p>
       <form
         className="mt-6 space-y-5"
         onSubmit={(e) => {

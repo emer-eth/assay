@@ -1,5 +1,6 @@
 "use client";
 
+import { NETWORK } from "@/lib/network";
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { usePaidAction } from "@/components/escrow-post";
@@ -58,7 +59,7 @@ export function Connect({ coordinator }: { coordinator: string | null }) {
               <h2 id="c1" className="flex items-baseline gap-3 border-b-2 border-ink pb-3 text-lg font-semibold"><span className="font-mono text-sm">1</span> Top up credit</h2>
               {!account ? (
                 <div className="mt-5 flex flex-wrap items-center gap-4">
-                  <Button onClick={() => void signIn().catch(() => {})} busy={signingIn ? "Check your wallet…" : undefined}>Connect testnet wallet</Button>
+                  <Button onClick={() => void signIn().catch(() => {})} busy={signingIn ? "Check your wallet…" : undefined}>Connect {NETWORK} wallet</Button>
                   <p className="text-[15px] text-ink-2">Sign in with your wallet to top up credit and create keys.</p>
                 </div>
               ) : (

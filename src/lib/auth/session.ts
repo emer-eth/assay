@@ -1,4 +1,5 @@
 import "server-only";
+import { isNetworkAccount, NETWORK, OTHER_NETWORK } from "../network";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { provider } from "../near";
@@ -53,9 +54,9 @@ export async function verifySignIn(input: { token: string; accountId: string; pu
   if (!ch || ch.exp < Date.now()) return { ok: false as const, error: "The sign-in request expired. Try again." };
   if (used.has(ch.nonce)) return { ok: false as const, error: "This sign-in was already used. Try again." };
   const validName = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(input.accountId);
-  const testnet = input.accountId.endsWith(".testnet") || /^[0-9a-f]{64}$/.test(input.accountId); // named testnet account, or implicit
-  if (!validName || !testnet)
-    return { ok: false as const, error: "That's a mainnet account. Assay runs on NEAR testnet: connect an account ending in .testnet (free at testnet.mynearwallet.com)." };
+  // A named account on this deployment's network, or an implicit (64-hex) one.
+  if (!validName || !isNetworkAccount(input.accountId))
+    return { ok: false as const, error: `That's a ${OTHER_NETWORK} account. This Assay runs on NEAR ${NETWORK}: connect an account ending in .${NETWORK === "mainnet" ? "near" : "testnet"}.` };
 
   const nonce = new Uint8Array(Buffer.from(ch.nonce, "base64"));
   if (!verifyNep413(input.publicKey, input.signature, { message: SIGN_IN_MESSAGE, nonce, recipient: RECIPIENT }))

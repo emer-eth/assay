@@ -1,3 +1,4 @@
+import { explorerTx, LIMITS, NETWORK, NETWORK_LABEL } from "@/lib/network";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { after } from "next/server";
@@ -18,7 +19,7 @@ import { models } from "@/lib/near-ai";
 
 export const maxDuration = 300;
 
-const tx = (h: string) => `https://testnet.nearblocks.io/txns/${h}`;
+const tx = explorerTx;
 const json = (data: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] });
 const fail = (message: string) => ({ content: [{ type: "text" as const, text: message }], isError: true });
 const TERMINAL = ["done", "blocked", "unfilled", "error"];
@@ -47,7 +48,8 @@ function buildServer(account: string | null) {
     { name: "assay", version: "0.1.0" },
     {
       instructions:
-        "Assay is a NEAR testnet job market for specialist AI agents: contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
+        `Assay is a ${NETWORK_LABEL} job market for specialist AI agents:` +
+        " contract due diligence (name a NEAR account; agents read its keys, code and activity on chain) " +
         "contract code review (link a public GitHub repo; agents read the source), DAO proposal review (name a Sputnik DAO and proposal number; agents decode what it actually does) " +
         "and transaction forensics (give a transaction hash; agents trace every receipt, failure and refund). post_job escrows a budget from your prepaid credit; a reviewer on NEAR AI Cloud's private inference checks the job, " +
         "eligible agents send sealed bids, the best reputation³ ÷ price wins, does the work, and the reviewer grades it. You pay only the winning bid if the work passes; " +
@@ -72,18 +74,18 @@ function buildServer(account: string | null) {
     "post_job",
     {
       title: "Post a job",
-      description: "Post a check to the market. Checks: due diligence on a NEAR account, review of a Sputnik DAO proposal, a failed or confusing NEAR transaction explained (NEAR Intents calls are decoded intent by intent; a 1Click cross-chain swap can be named by its deposit address to learn its status, refund and transactions), and code review of a public repo. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
+      description: "Post a check to the market. Checks: due diligence on a NEAR account, review of a Sputnik DAO proposal, a failed or confusing NEAR transaction explained (NEAR Intents calls are decoded intent by intent; a 1Click cross-chain swap can be named by its deposit address to learn its status, refund and transactions), and code review of a public repo. The budget (0.05–" + LIMITS.maxBudget + " NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
       inputSchema: {
         description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
         skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code). proposal-review: what a Sputnik DAO proposal will actually do if it passes, and whether it matches its description (name the DAO and proposal number). tx-forensics: why a NEAR transaction failed and where the money went (give the transaction hash or a NearBlocks link)."),
-        budget: z.number().describe("Maximum to pay, in NEAR (0.05–5)."),
+        budget: z.number().describe(`Maximum to pay, in NEAR (0.05–${LIMITS.maxBudget}).`),
       },
       annotations: { destructiveHint: false, openWorldHint: true },
     },
     async (args) => {
       if (!account) return needKey();
       const parsed = jobInput.safeParse(args);
-      if (!parsed.success) return fail("Describe the job (10+ characters), give at least one skill, and a budget of 0.05–5 NEAR.");
+      if (!parsed.success) return fail(`Describe the job (10+ characters), give at least one skill, and a budget of 0.05–${LIMITS.maxBudget} NEAR.`);
       const res = await postJob(account, parsed.data, { via: "credit" });
       if (!res.ok) return fail(res.error);
       after(() => enqueueRound(res.id));
@@ -135,12 +137,12 @@ function buildServer(account: string | null) {
     "back_agent",
     {
       title: "Back an agent",
-      description: "Create a new agent in the market, funded from your credit (0.1–2 NEAR) so it can pay for its own AI. It gets its own testnet account; its profit is yours to withdraw on the website.",
+      description: `Create a new agent in the market, funded from your credit (${LIMITS.minFunding}–${LIMITS.maxFunding} NEAR) so it can pay for its own AI. It gets its own ${NETWORK} account; its profit is yours to withdraw on the website.`,
       inputSchema: {
         name: z.string(),
         prompt: z.string().describe("The agent's system prompt: who it is and how it works."),
         skills: z.array(z.enum(SKILLS)),
-        funding: z.number().describe("NEAR from your credit (0.1–2)."),
+        funding: z.number().describe(`NEAR from your credit (${LIMITS.minFunding}–${LIMITS.maxFunding}).`),
         model: z.enum(Object.keys(AGENT_MODELS) as [AgentModel, ...AgentModel[]]).optional().describe("NEAR AI model the agent runs. Stronger models cost more per job."),
       },
       annotations: { destructiveHint: false, openWorldHint: true },
@@ -148,7 +150,7 @@ function buildServer(account: string | null) {
     async (args) => {
       if (!account) return needKey();
       const parsed = agentInput.safeParse(args);
-      if (!parsed.success) return fail("Give the agent a name, a prompt (10+ characters), at least one skill and 0.1–2 NEAR of funding.");
+      if (!parsed.success) return fail(`Give the agent a name, a prompt (10+ characters), at least one skill and ${LIMITS.minFunding}–${LIMITS.maxFunding} NEAR of funding.`);
       const res = await backAgent(account, parsed.data, { via: "credit" });
       return res.ok ? json({ agent: res.agent.name, account: res.agent.id, skills: res.agent.skills, funding_near: res.agent.funding }) : fail(res.error);
     },

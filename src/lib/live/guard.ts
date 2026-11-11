@@ -1,6 +1,6 @@
 import "server-only";
 
-// Live mode spends NEAR AI credits and testnet NEAR. Every job and every agent is now paid for from the
+// Live mode spends NEAR AI credits and NEAR (test NEAR on testnet, real NEAR on mainnet). Every job and every agent is now paid for from the
 // user's own wallet (checked on chain), so the public can use it. LIVE_KEY optionally locks it down further:
 // when set, every write must also send that key.
 export function liveGuard(request: Request): Response | null {
@@ -11,4 +11,4 @@ export function liveGuard(request: Request): Response | null {
   return null;
 }
 
-export const LIMITS = { maxAgents: 12, maxFunding: 2, maxBudget: 5 };
+export { LIMITS } from "../network";

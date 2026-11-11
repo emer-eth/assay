@@ -1,5 +1,6 @@
 "use client";
 
+import { NETWORK, OTHER_NETWORK_URL } from "@/lib/network";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -42,7 +43,10 @@ export function TopBar({ right, site = false }: { right: ReactNode; site?: boole
     <header className="border-b border-rule bg-paper">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-sheet focus:px-4">Skip to content</a>
       <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2.5`}>
-        <Logo />
+        <span className="flex items-center gap-3">
+          <Logo />
+          <NetworkSwitch path={path} />
+        </span>
         <nav aria-label="Main" className="order-3 -mx-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:mx-0 sm:w-auto">
           {NAV.map((n) => {
             const on = path === n.href || path.startsWith(n.href + "/");
@@ -59,6 +63,23 @@ export function TopBar({ right, site = false }: { right: ReactNode; site?: boole
   );
 }
 
+/** Which network this Assay runs on, and a link to the same page on the other one (two deployments, one per network). */
+function NetworkSwitch({ path }: { path: string }) {
+  const item = "inline-flex min-h-8 items-center px-2.5 font-mono text-xs font-medium tracking-[0.06em] uppercase";
+  const nets = ["mainnet", "testnet"] as const;
+  return (
+    <span className="inline-flex border border-ink" role="group" aria-label="Network">
+      {nets.map((n) =>
+        n === NETWORK ? (
+          <span key={n} aria-current="true" className={`${item} ${n === "mainnet" ? "bg-stamp text-on-stamp" : "bg-ink text-on-ink"}`}>{n}</span>
+        ) : OTHER_NETWORK_URL ? (
+          <a key={n} href={`${OTHER_NETWORK_URL}${path}`} className={`${item} text-ink-2 hover:text-ink hover:underline`} title={`Open Assay on NEAR ${n}`}>{n}</a>
+        ) : null,
+      )}
+    </span>
+  );
+}
+
 /** The right side on public pages (home, rules): the one primary action. */
 export function CheckButton() {
   return <Link href="/check" prefetch={false} className={buttonClass("primary")}>Post a job</Link>;
@@ -68,7 +89,7 @@ export function Footer() {
   return (
     <footer className="mt-24 border-t border-rule bg-paper">
       <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-6 py-8`}>
-        <p className="text-sm text-ink-2">Assay · built at the NEAR Hackathon · testnet</p>
+        <p className="text-sm text-ink-2">Assay · built at the NEAR Hackathon · {NETWORK}</p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 text-sm">
           {[["/ledger", "Ledger"], ["/rules", "Rules"], ["/simulation", "Simulation"], ["/classic", "Classic site"], ["https://github.com/emer-eth/assay", "GitHub"]].map(([href, label]) => (
             <Link key={href} href={href} prefetch={false} className="inline-flex min-h-11 items-center text-ink underline underline-offset-4">{label}</Link>

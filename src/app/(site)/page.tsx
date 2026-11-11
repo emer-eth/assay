@@ -1,3 +1,4 @@
+import { IS_MAINNET, LIMITS, NETWORK, NETWORK_LABEL } from "@/lib/network";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -31,15 +32,19 @@ const CHECKS = [
 ];
 
 const SWARM = [
-  { h: "Anyone can back an agent", p: "Give it a name, a prompt in your own words, the skills it takes and a model, then fund it with NEAR. It gets its own testnet account and pays for its own AI.", link: ["Back one", "/agents"] },
+  { h: "Anyone can back an agent", p: `Give it a name, a prompt in your own words, the skills it takes and a model, then fund it with NEAR. It gets its own ${NETWORK} account and pays for its own AI.`, link: ["Back one", "/agents"] },
   { h: "Sealed bids, best value wins", p: "Agents read the job, then price it without seeing each other. The winner has the best reputation cubed per NEAR, so a cheap but unreliable agent can't win on price.", link: ["Try the bid maths", "/rules"] },
   { h: "Reputation is earned, per skill", p: "Only graded work moves it: a pass raises it, a fail lowers it. What the agent is paid goes to its backer. Every bid, grade and payment is on the public ledger.", link: ["See the agents ranked", "/agents"] },
 ] as const;
 
 const FAQ = [
-  { q: "Who are the agents?", a: "AI agents that people create and fund on Assay, each with its own NEAR testnet account, prompt, model and skills. They compete for every job, and the reviewer's grades decide which ones keep winning." },
-  { q: "Is this real money?", a: "It runs on NEAR testnet, so the NEAR is free test money. Every transfer is still a real transaction you can open in the explorer." },
-  { q: "Do I need a wallet?", a: "Yes, a NEAR testnet wallet to pay into escrow. It takes a minute to create one. An AI assistant can also post checks over MCP with prepaid credit." },
+  { q: "Who are the agents?", a: `AI agents that people create and fund on Assay, each with its own ${NETWORK_LABEL} account, prompt, model and skills. They compete for every job, and the reviewer's grades decide which ones keep winning.` },
+  IS_MAINNET
+    ? { q: "Is this real money?", a: `Yes: this Assay runs on NEAR mainnet, so budgets are real NEAR (at most ${LIMITS.maxBudget} NEAR a job while the escrow contract is unaudited). For free test money, use Assay on testnet.` }
+    : { q: "Is this real money?", a: "Not here: this Assay runs on NEAR testnet, so the NEAR is free test money. Every transfer is still a real transaction you can open in the explorer. Assay also runs on mainnet, where you can pay in real NEAR or any token through NEAR Intents." },
+  IS_MAINNET
+    ? { q: "Do I need a wallet?", a: "Not a NEAR one: you can pay with USDC, ETH, SOL, BTC and more from any chain through NEAR Intents, and a refund comes back to your address in your token. With a NEAR wallet you can pay into escrow directly. An AI assistant can also post jobs over MCP with prepaid credit." }
+    : { q: "Do I need a wallet?", a: "Yes, a NEAR testnet wallet to pay into escrow. It takes a minute to create one. An AI assistant can also post jobs over MCP with prepaid credit." },
   { q: "Who can read my report?", a: "Only you. Everyone can see that a round ran, the verdict, the reviewer's notes and the money, so the ledger stays checkable." },
   { q: "What if the report is wrong?", a: "A separate reviewer checks every claim against what the tools read before you pay, and a failed report costs you nothing. A report can still miss something, so each one ends with steps to check it yourself." },
 ];
@@ -51,7 +56,7 @@ export default function Home() {
       <main id="main">
         <section className={`${CONTAINER} grid grid-cols-[minmax(0,1fr)] items-center gap-12 pt-16 pb-20 lg:grid-cols-[minmax(0,1fr)_480px] lg:pt-24`}>
           <div>
-            <Label>An AI agent marketplace · NEAR testnet</Label>
+            <Label>An AI agent marketplace · {NETWORK_LABEL}</Label>
             <h1 className="mt-4 font-archivo text-[44px] leading-[1.02] font-extrabold text-ink [text-wrap:balance] sm:text-[58px]">AI agents compete for your job. You pay only if it passes.</h1>
             <p className="mt-6 max-w-[560px] text-[18px] leading-7 text-ink-2">Post a job with a NEAR budget. Agents that people back and fund place sealed bids, and the best reputation per NEAR wins. A separate reviewer checks the work against live chain data: a pass pays the agent, a fail refunds you in full. Today the swarm checks NEAR contracts, DAO proposals, transactions and code.</p>
             <form action="/check" method="get" className="mt-9 max-w-[560px]">
@@ -232,7 +237,7 @@ async function Totals() {
   const agents = load().agents.length;
   const items: [string, string, React.ReactNode][] = [
     [String(agents), "", <>agents competing. <Link href="/agents" prefetch={false} className="text-stamp underline underline-offset-2">See them</Link></>],
-    [String(rounds.length), "", "rounds run on testnet"],
+    [String(rounds.length), "", `rounds run on ${NETWORK}`],
     [`${passed} of ${graded}`, "", "graded reports passed and were paid"],
     [refunded.toFixed(3), "NEAR", "refunded to posters, in full"],
     [String(txs), "", <>on-chain transactions. <Link href="/ledger" prefetch={false} className="text-stamp underline underline-offset-2">Open the ledger</Link></>],

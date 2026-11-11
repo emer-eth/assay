@@ -1,4 +1,5 @@
 import "server-only";
+import { NETWORK, PUBLIC_RPCS } from "../network";
 import { RPC_URLS } from "../near";
 import type { Job } from "../swarm/types";
 import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode } from "./detect";
@@ -20,8 +21,9 @@ export { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode };
 
 type Net = "mainnet" | "testnet";
 const RPC: Record<Net, string[]> = {
-  mainnet: ["https://rpc.mainnet.fastnear.com", "https://free.rpc.fastnear.com"],
-  testnet: RPC_URLS,
+  // The deployment's own network may have its RPC overridden (NEAR_RPC_URL); the other uses the public one.
+  mainnet: NETWORK === "mainnet" ? RPC_URLS : PUBLIC_RPCS.mainnet,
+  testnet: NETWORK === "testnet" ? RPC_URLS : PUBLIC_RPCS.testnet,
 };
 const NO_CODE = "11111111111111111111111111111111";
 const TIMEOUT = 10_000;
@@ -595,7 +597,7 @@ export async function proposalReport(dao: string, id: number): Promise<{ facts: 
 
 const ARCHIVE: Record<Net, string[]> = {
   mainnet: ["https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.fastnear.com"],
-  testnet: ["https://archival-rpc.testnet.fastnear.com", ...RPC_URLS],
+  testnet: ["https://archival-rpc.testnet.fastnear.com", ...PUBLIC_RPCS.testnet],
 };
 
 type Outcome = { executor_id: string; logs: string[]; status: Record<string, unknown>; gas_burnt: number; tokens_burnt: string; receipt_ids: string[] };

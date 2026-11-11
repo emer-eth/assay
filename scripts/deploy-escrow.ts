@@ -1,10 +1,12 @@
-// Deploys the escrow contract to escrow.<coordinator>.testnet and initialises it.
-//   npm run deploy:escrow             first deploy: creates the account (3 NEAR for storage), deploys, calls new()
-//   npm run deploy:escrow -- --update redeploys the code only (state is kept)
+// Deploys the escrow contract to escrow.<coordinator> and initialises it, on the network in the env file.
+//   npm run deploy:escrow              testnet (.env): creates the account, deploys, calls new()
+//   npm run deploy:escrow:mainnet      mainnet (.env.mainnet, with NEXT_PUBLIC_NEAR_NETWORK=mainnet): the same wasm
+//   ... -- --update                    redeploys the code only (state is kept)
+// The wasm is the one already built from contract/ (its source is unchanged), so both networks run the same code.
 // The contract account's key goes to .contract-keys/ (git-ignored), never to the terminal.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Account, KeyPair, KeyPairSigner, nearToYocto, type KeyPairString } from "near-api-js";
-import { coordinator, provider } from "../src/lib/near";
+import { coordinator, explorerAccount, NETWORK, provider } from "../src/lib/near";
 
 const parent = process.env.NEAR_ACCOUNT_ID!;
 const escrowId = `escrow.${parent}`;
@@ -16,10 +18,14 @@ async function main() {
   if (!update) {
     if (existsSync(keyFile)) throw new Error(`${keyFile} already exists: use --update to redeploy`);
     const kp = KeyPair.fromRandom("ed25519");
-    await coordinator().createSubAccount({ accountOrPrefix: "escrow", publicKey: kp.getPublicKey(), nearToTransfer: nearToYocto(3) });
+    // Contract storage costs 1 NEAR per 100 KB. Testnet NEAR is free, so it gets room to spare; mainnet gets the
+    // code's size plus 0.3 NEAR for the jobs it will hold.
+    const fund = NETWORK === "mainnet" ? Math.ceil((wasm.length / 100_000 + 0.3) * 100) / 100 : 3;
+    console.log(`network: ${NETWORK} · creating ${escrowId} with ${fund} NEAR for storage`);
+    await coordinator().createSubAccount({ accountOrPrefix: "escrow", publicKey: kp.getPublicKey(), nearToTransfer: nearToYocto(fund) });
     mkdirSync(".contract-keys", { recursive: true });
     writeFileSync(keyFile, JSON.stringify({ accountId: escrowId, secretKey: kp.toString() }, null, 2), { mode: 0o600 });
-    console.log(`✅ created ${escrowId} with 3 NEAR (key saved to ${keyFile})`);
+    console.log(`✅ created ${escrowId} (key saved to ${keyFile})`);
   }
   const { secretKey } = JSON.parse(readFileSync(keyFile, "utf8")) as { secretKey: KeyPairString };
   const escrow = new Account(escrowId, provider(), KeyPairSigner.fromSecretKey(secretKey));
@@ -31,7 +37,7 @@ async function main() {
   }
   const config = await provider().callFunction({ contractId: escrowId, method: "get_config", args: {} });
   console.log("config:", JSON.stringify(config));
-  console.log(`https://testnet.nearblocks.io/address/${escrowId}`);
+  console.log(explorerAccount(escrowId));
 }
 main().catch((e) => {
   console.error("❌", e instanceof Error ? e.message : e);

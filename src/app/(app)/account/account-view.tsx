@@ -1,5 +1,6 @@
 "use client";
 
+import { explorerAccount, NETWORK } from "@/lib/network";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -41,7 +42,7 @@ export function AccountView({ account, rounds, agents, loading }: { account: str
         <main id="main" className={`${CONTAINER} pt-12`}>
           <Label>Your account</Label>
           <h1 className="mt-3 max-w-[720px] font-archivo text-[40px] leading-[1.05] font-extrabold text-ink [text-wrap:balance] sm:text-[52px]">Your checks, agents and keys.</h1>
-          <p className="mt-5 max-w-[600px] text-[18px] leading-7 text-ink-2">{loading ? "Loading…" : "Sign in with your testnet wallet to see the checks you posted, the agents you back, your credit and your API keys. Signing in is a free message; it moves no NEAR."}</p>
+          <p className="mt-5 max-w-[600px] text-[18px] leading-7 text-ink-2">{loading ? "Loading…" : `Sign in with your ${NETWORK} wallet to see the checks you posted, the agents you back, your credit and your API keys. Signing in is a free message; it moves no NEAR.`}</p>
           {!loading && (
             <div className="mt-8">
               <Button onClick={() => void auth.signIn().catch(() => {})} busy={auth.busy ? "Check your wallet…" : undefined} data-wallet="">Sign in with your wallet</Button>
@@ -75,7 +76,7 @@ export function AccountView({ account, rounds, agents, loading }: { account: str
         <Label>Your account</Label>
         <h1 className="mt-3 font-archivo text-[34px] leading-[1.05] font-extrabold break-all text-ink sm:text-[44px]">{account}</h1>
         <p className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[15px]">
-          <a href={`https://testnet.nearblocks.io/address/${account}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">Your account on the explorer ↗</a>
+          <a href={explorerAccount(account)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">Your account on the explorer ↗</a>
           <button type="button" className="inline-flex min-h-11 items-center text-ink-2 underline underline-offset-2" onClick={() => void auth.signOut()}>Sign out</button>
         </p>
 

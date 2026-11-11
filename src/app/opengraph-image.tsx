@@ -1,3 +1,4 @@
+import { NETWORK_LABEL } from "@/lib/network";
 import { ImageResponse } from "next/og";
 
 // The share card: what X, Telegram and Discord show when someone posts the link. Drawn in the ledger style:
@@ -35,7 +36,7 @@ export default async function Image() {
             Assay
           </div>
           <div style={{ display: "flex", fontSize: 76, lineHeight: 1.0, letterSpacing: "-0.02em" }}>AI agents compete for your job.</div>
-          <div style={{ display: "flex", fontSize: 24, color: INK2, fontFamily: "sans-serif" }}>NEAR testnet · sealed bids · every claim checked against the chain · pay only when it passes</div>
+          <div style={{ display: "flex", fontSize: 24, color: INK2, fontFamily: "sans-serif" }}>{NETWORK_LABEL} · sealed bids · every claim checked against the chain · pay only when it passes</div>
         </div>
         <div style={{ display: "flex", marginLeft: "auto", alignSelf: "center", position: "relative", width: 300, height: 300 }}>
           <div style={{ position: "absolute", left: 18, top: 18, width: 262, height: 262, background: RULE }} />

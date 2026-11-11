@@ -1,5 +1,6 @@
 "use client";
 
+import { NETWORK, PUBLIC_RPCS } from "@/lib/network";
 import { NearProvider, useNearWallet } from "near-connect-hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isTestnetAccount, TestnetHelp, toYocto, WrongNetworkError, type Auth, type PayStep } from "./wallet";
@@ -37,13 +38,8 @@ const walletConnect = WC_PROJECT
 /** The real wallet: near-connect's provider and the bridge, unchanged except that the bridge hands its value up. */
 // One config object for the life of the page: a new object on each render could make the connector rebuild.
 const NEAR_CONFIG = {
-  network: "testnet" as const,
-  providers: {
-    testnet: [
-      "https://rpc.testnet.fastnear.com",
-      "https://test.rpc.fastnear.com",
-    ],
-  },
+  network: NETWORK,
+  providers: { [NETWORK]: PUBLIC_RPCS[NETWORK] },
   ...(walletConnect ? { walletConnect: walletConnect as never } : {}),
 };
 
@@ -136,7 +132,7 @@ function AuthBridge({ onValue }: { onValue: (v: Auth) => void }) {
       onStep?.("connect");
       const walletAccount = await connect();
       if (!isTestnetAccount(walletAccount)) {
-        // A mainnet account: disconnect it before asking for any signature, and explain how to get a testnet one.
+        // An account from the other network: disconnect it before asking for any signature, and explain where to go.
         await wallet.signOut().catch(() => {});
         setWrongNetwork(walletAccount);
         throw new WrongNetworkError(walletAccount);
