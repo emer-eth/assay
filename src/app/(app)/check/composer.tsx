@@ -252,7 +252,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                 </div>
               )}
               <dl className="mt-5 grid gap-5 sm:grid-cols-3">
-                <div><dt className="text-sm text-ink-2">Held by the contract</dt><dd className="mt-1 font-mono text-lg text-ink">{Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR</dd></div>
+                <div><dt className="text-sm text-ink-2">{method === "intents" ? "Held on NEAR Intents" : "Held by the contract"}</dt><dd className="mt-1 font-mono text-lg text-ink">{Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR</dd></div>
                 <div><dt className="text-sm text-ink-2">If a report passes</dt><dd className="mt-1 text-[16px] text-ink">You pay the winning bid</dd></div>
                 <div><dt className="text-sm text-ink-2">If nothing passes</dt><dd className="mt-1 text-[16px] text-ink">You pay nothing</dd></div>
               </dl>
@@ -263,7 +263,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
               )}
               <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
                 {method === "intents" ? (
-                  <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={posted ? "Opening your round…" : intentsPost.step ? INTENTS_STEP_LABEL[intentsPost.step] : undefined}>{account ? "Pay" : "Connect wallet and pay"} {Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR with a NEAR Intent</Button>
+                  <Button type="submit" variant="pay" size="lg" className="max-w-full whitespace-normal!" disabled={!ready} busy={posted ? "Opening your round…" : intentsPost.step ? INTENTS_STEP_LABEL[intentsPost.step] : undefined}>{account ? "Pay" : "Connect and pay"} {Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR with an intent</Button>
                 ) : method === "oneclick" ? (
                   <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={intents.busy ? "Getting a quote…" : undefined}>Pay {Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR in {asset.label}</Button>
                 ) : (
