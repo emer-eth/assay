@@ -1,4 +1,5 @@
 import "server-only";
+import { IS_MAINNET } from "../network";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR, KEYS_DIR } from "../paths";
@@ -34,7 +35,11 @@ export type LiveRound = {
   /** What the winner's tools read before working (shown to the poster; the full facts also go to the reviewer). */
   evidence?: { summary: string[]; facts: string; intents?: IntentView[]; swap?: SwapView };
   deposit?: string; // escrow payment tx hash, when paid from a wallet
-  paidWith?: "escrow" | "wallet" | "credit"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
+  paidWith?: "escrow" | "wallet" | "credit" | "intents"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
+  /** Paid with NEAR Intents (1Click): who paid, in which token, and where a refund goes (their own address, same token). */
+  payer?: { payment: string; asset: string; assetLabel: string; refundTo: string; depositAddress: string };
+  /** A refund sent back through 1Click: the deposit address to follow it by, and how much NEAR went in. */
+  refundSwaps?: { depositAddress: string; near: number; txHash: string; at: string }[];
   escrowJobId?: string; // the job id in the escrow contract, when paidWith is "escrow"
 };
 
@@ -49,24 +54,47 @@ type State = {
   apiKeys: ApiKey[];
   /** Jobs waiting for their escrow deposit: the job id the wallet passes to post_job, and what was asked for. */
   drafts: Record<string, { account: string; job: Job_; expires: number }>;
+  /** Jobs being paid through NEAR Intents (1Click), from quote to the round they become. */
+  intentPayments: IntentPayment[];
+};
+
+export type IntentPayment = {
+  id: string;
+  createdAt: string;
+  /** The 1Click quote's deadline: after it, an unpaid quote is dead and 1Click refunds anything sent late. */
+  deadline: string;
+  asset: string; // key in PAY_ASSETS
+  assetLabel: string;
+  refundTo: string;
+  depositAddress: string;
+  depositMemo?: string;
+  amountInFormatted: string;
+  job: Job_;
+  status: "waiting" | "posting" | "posted" | "expired" | "failed";
+  /** The last status 1Click reported (PENDING_DEPOSIT, KNOWN_DEPOSIT_TX, PROCESSING, SUCCESS, ...). */
+  swapStatus?: string;
+  roundId?: string;
+  note?: string;
 };
 type Job_ = { description: string; skills: Skill[]; budget: number };
 
 const DIR = DATA_DIR;
 const FILE = join(DIR, "live.json");
 const KEYS = KEYS_DIR;
-// A fresh host starts from the demo agents in seed/agents.json (no rounds, credit or keys).
+// A fresh testnet host starts from the demo agents in seed/agents.json (no rounds, credit or keys). Those are
+// testnet accounts, so a mainnet host starts with no agents: backers create them with real NEAR.
 const SEED = join(process.cwd(), "seed", "agents.json");
 const ALL_SKILLS: Skill[] = [...SKILLS];
 
 export function load(): State {
   const state: State = existsSync(FILE)
     ? JSON.parse(readFileSync(FILE, "utf8"))
-    : { agents: existsSync(SEED) ? JSON.parse(readFileSync(SEED, "utf8")) : [], rounds: [], deposits: [], credits: {}, apiKeys: [], drafts: {} };
+    : { agents: existsSync(SEED) && !IS_MAINNET ? JSON.parse(readFileSync(SEED, "utf8")) : [], rounds: [], deposits: [], credits: {}, apiKeys: [], drafts: {}, intentPayments: [] };
   state.deposits ??= [];
   state.credits ??= {};
   state.apiKeys ??= [];
   state.drafts ??= {};
+  state.intentPayments ??= [];
   // Adopt agents created by `npm run spike -- --create` that aren't registered yet.
   if (existsSync(KEYS)) {
     for (const f of readdirSync(KEYS).filter((x) => x.endsWith(".json"))) {

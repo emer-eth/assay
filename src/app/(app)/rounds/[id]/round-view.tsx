@@ -173,6 +173,18 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
           <MoneyBar paid={r.payout.toAgent} fee={r.payout.fee} refunded={r.payout.refundToPoster} label={`Of ${r.job.budget} NEAR: ${r.payout.toAgent} to the agent, ${r.payout.fee} fee, ${r.payout.refundToPoster} back`} />
         </div>
       )}
+      {r.payer && (
+        <div className="mt-6 border-t border-rule pt-4 text-[15px]">
+          <p className="text-ink">Paid in {r.payer.assetLabel} through NEAR Intents. 1Click delivered the budget as NEAR, and the coordinator deposited it into the escrow contract.</p>
+          <p className="mt-2 text-ink-2">Refunds go back through NEAR Intents to <span className="font-mono [overflow-wrap:anywhere]">{r.payer.refundTo}</span> in {r.payer.assetLabel}.</p>
+          <ul className="mt-2">
+            <li><a href={`https://explorer.near-intents.org/transactions/${r.payer.depositAddress}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">The payment swap on the NEAR Intents explorer ↗</a></li>
+            {r.refundSwaps?.map((x) => (
+              <li key={x.depositAddress}><a href={`https://explorer.near-intents.org/transactions/${x.depositAddress}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-stamp underline underline-offset-2">Refund of {x.near} NEAR, as a swap ↗</a></li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="mt-6 hidden lg:block">{chain}</div>
     </section>
   );
@@ -189,7 +201,8 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
           {skill && <Tag>{SHORT_SKILL[skill]}</Tag>}
           {skill && BETA_SKILLS.includes(skill) && <Tag tone="refund">Beta</Tag>}
           <span>Budget <span className="font-mono text-ink">{r.job.budget.toFixed(3)} NEAR</span></span>
-          <span>Posted by {r.mine ? "you" : <span className="font-mono">{r.job.poster}</span>}</span>
+          <span>Posted by {r.mine ? "you" : <span className="font-mono [overflow-wrap:anywhere]">{r.job.poster}</span>}</span>
+          {r.payer && <span className="flex items-center gap-2"><Tag tone="stamp">NEAR Intents</Tag> paid in {r.payer.assetLabel}</span>}
           <span className="font-mono">{dateUtc(r.createdAt)}</span>
         </p>
 

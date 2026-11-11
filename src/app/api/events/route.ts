@@ -1,11 +1,11 @@
-import { currentAccount } from "@/lib/auth/session";
+import { currentViewer } from "@/lib/auth/session";
 import { subscribe, type MarketEvent } from "@/lib/live/bus";
 import { forViewer } from "@/lib/live/visibility";
 
 // One server-sent event stream per tab (build spec, Live data): round.created, round.updated and agent.updated,
 // each carrying only the changed record, filtered for this viewer like every other read (visibility.ts).
 export async function GET(request: Request) {
-  const viewer = await currentAccount();
+  const { account: viewer, payments } = await currentViewer();
   const enc = new TextEncoder();
   let stop = () => {};
   const body = new ReadableStream<Uint8Array>({
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       const off = subscribe((e: MarketEvent) => {
         try {
           if (e.type === "agent.updated") send(e.type, e.agent);
-          else send(e.type, forViewer(e.round, viewer));
+          else send(e.type, forViewer(e.round, viewer, payments));
         } catch {
           stop();
         }

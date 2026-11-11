@@ -91,3 +91,26 @@ export async function currentAccount() {
 export async function signOut() {
   (await cookies()).delete(COOKIE);
 }
+
+// Paying with NEAR Intents needs no NEAR wallet, so there's no account to sign in with. Instead the browser holds
+// the ids of the payments it made, sealed in a cookie. A payment id is a random UUID that only the payer is given,
+// so knowing it is what lets someone read that round's private report.
+const PAY_COOKIE = "assay_pay";
+const PAY_TTL = 30 * 24 * 3600_000;
+
+/** Ids of the NEAR Intents payments this browser made (newest first). */
+export async function paidIds(): Promise<string[]> {
+  const s = open<{ ids: string[] }>((await cookies()).get(PAY_COOKIE)?.value);
+  return Array.isArray(s?.ids) ? s.ids.filter((x) => typeof x === "string").slice(0, 20) : [];
+}
+
+/** Remembers a payment in this browser (call from a route handler or server action). */
+export async function rememberPayment(id: string) {
+  const ids = [id, ...(await paidIds()).filter((x) => x !== id)].slice(0, 20);
+  (await cookies()).set(PAY_COOKIE, seal({ ids }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: PAY_TTL / 1000 });
+}
+
+/** Everyone this browser is: the signed-in account, and the Intents payments it made. */
+export async function currentViewer() {
+  return { account: await currentAccount(), payments: await paidIds() };
+}

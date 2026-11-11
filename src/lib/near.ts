@@ -91,3 +91,40 @@ export async function ensureEscrowAgent(agentId: string) {
   const res = await coordinator().callFunctionRaw({ contractId: escrowId(), methodName: "register_agent", args: { agent: agentId }, gas: GAS });
   return res.transaction.hash as string;
 }
+
+/** The coordinator deposits a budget into the escrow contract itself (jobs paid through NEAR Intents, where the
+ *  payer has no NEAR wallet). The contract then holds it exactly as it holds a wallet deposit. */
+export async function escrowPost(jobId: string, near: number) {
+  const res = await coordinator().callFunctionRaw({ contractId: escrowId(), methodName: "post_job", args: { job_id: jobId }, deposit: BigInt(yocto(near)), gas: GAS });
+  return res.transaction.hash as string;
+}
+
+// ---------- wNEAR (wrap.near), the token NEAR Intents delivers and takes ----------
+
+const WRAP = "wrap.near";
+const ONE_YOCTO = 1n;
+
+export async function wnearBalance(accountId: string) {
+  return BigInt((await provider().callFunction({ contractId: WRAP, method: "ft_balance_of", args: { account_id: accountId } })) as string);
+}
+
+/** wNEAR back to NEAR on the coordinator (after a 1Click swap delivered it). */
+export async function unwrapNear(yoctoAmount: bigint) {
+  const res = await coordinator().callFunctionRaw({ contractId: WRAP, methodName: "near_withdraw", args: { amount: yoctoAmount.toString() }, deposit: ONE_YOCTO, gas: GAS });
+  return res.transaction.hash as string;
+}
+
+/** NEAR to wNEAR on the coordinator (before sending a refund through 1Click). */
+export async function wrapNear(yoctoAmount: bigint) {
+  const res = await coordinator().callFunctionRaw({ contractId: WRAP, methodName: "near_deposit", args: {}, deposit: yoctoAmount, gas: GAS });
+  return res.transaction.hash as string;
+}
+
+/** Sends wNEAR, registering the receiver with the token contract first if it isn't (a fresh 1Click deposit address isn't). */
+export async function sendWnear(to: string, yoctoAmount: bigint) {
+  const c = coordinator();
+  const registered = await provider().callFunction({ contractId: WRAP, method: "storage_balance_of", args: { account_id: to } });
+  if (!registered) await c.callFunctionRaw({ contractId: WRAP, methodName: "storage_deposit", args: { account_id: to, registration_only: true }, deposit: 1_250_000_000_000_000_000_000n, gas: GAS });
+  const res = await c.callFunctionRaw({ contractId: WRAP, methodName: "ft_transfer", args: { receiver_id: to, amount: yoctoAmount.toString() }, deposit: ONE_YOCTO, gas: GAS });
+  return res.transaction.hash as string;
+}

@@ -6,7 +6,8 @@ import { AppHeader } from "@/components/app-header";
 import { useEscrowPost } from "@/components/escrow-post";
 import { PAY_STEP_LABEL, useAuth } from "@/components/wallet";
 import { detectCheck } from "@/lib/live/detect";
-import { IS_MAINNET, LIMITS, WALLET_SIGNUP } from "@/lib/network";
+import { IS_MAINNET, LIMITS, OTHER_NETWORK_URL, WALLET_SIGNUP } from "@/lib/network";
+import { PAY_ASSETS, payAsset, refundAddressProblem } from "@/lib/live/pay-assets";
 import { duration, type StageTimes } from "@/lib/live/timeline";
 import { BETA_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label, Tag, explorerTx } from "@/ui";
@@ -85,7 +86,22 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load is the point (see above)
     window.location.assign(`/rounds/${data.id}?new`);
   });
-  const ready = !posted && !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking";
+  // Mainnet can also be paid with any token through NEAR Intents (1Click): no NEAR wallet needed.
+  const [method, setMethod] = useState<"intents" | "wallet">(IS_MAINNET ? "intents" : "wallet");
+  const [assetKey, setAssetKey] = useState(PAY_ASSETS[0].key);
+  const [refundTo, setRefundTo] = useState("");
+  const [intents, setIntents] = useState<{ busy?: boolean; error?: string }>({});
+  const asset = payAsset(assetKey)!;
+  const refundProblem = refundTo.trim() ? refundAddressProblem(asset, refundTo) : null;
+  async function payWithIntents() {
+    setIntents({ busy: true });
+    const res = await fetch("/api/pay", { method: "POST", headers: { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) }, body: JSON.stringify({ description: text.trim(), skills: [skill], budget: amount, asset: assetKey, refundTo }) }).catch(() => null);
+    const data = await res?.json().catch(() => ({}));
+    if (!res?.ok || !data?.id) return setIntents({ error: data?.error || "Couldn't reach Assay. Try again." });
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the payment page is a fresh start
+    window.location.assign(`/pay/${data.id}`);
+  }
+  const ready = !posted && !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking" && (method === "wallet" || (!!refundTo.trim() && !refundProblem));
   const payLabel = `${account ? "Pay" : "Connect wallet and pay"} ${Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR`;
   const win = skill ? winning[skill] : undefined;
   const t = (ms: number | null | undefined, fallback: string) => (ms == null ? fallback : duration(ms));
@@ -102,7 +118,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
             className="space-y-12"
             onSubmit={(e) => {
               e.preventDefault();
-              if (ready && skill) void post.run({ description: text.trim(), skills: [skill], budget: amount });
+              if (!ready || !skill) return;
+              if (method === "intents") void payWithIntents();
+              else void post.run({ description: text.trim(), skills: [skill], budget: amount });
             }}
           >
             <section aria-labelledby="s1">
@@ -187,6 +205,41 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
 
             <section aria-labelledby="s3">
               <h2 id="s3" className="flex items-baseline gap-3 border-b-2 border-ink pb-3 text-lg font-semibold"><span className="font-mono text-sm">3</span> Pay into escrow</h2>
+              {IS_MAINNET ? (
+                <fieldset className="mt-5">
+                  <legend className="mb-3 text-sm text-ink-2">How do you want to pay?</legend>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {([
+                      ["intents", "Any token, any chain", "USDC, ETH, SOL, BTC and more, through NEAR Intents. No NEAR wallet needed."],
+                      ["wallet", "NEAR wallet", "Pay the budget in NEAR straight into the escrow contract."],
+                    ] as const).map(([m, h, p]) => (
+                      <label key={m} className={`flex cursor-pointer gap-3 border p-4 ${method === m ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
+                        <input type="radio" name="method" value={m} checked={method === m} onChange={() => setMethod(m)} className="mt-1 size-5 accent-[var(--ink)]" />
+                        <span>
+                          <span className="flex flex-wrap items-center gap-2 font-semibold text-ink">{h}{m === "intents" && <Tag>NEAR Intents</Tag>}</span>
+                          <span className="mt-1 block text-[15px] text-ink-2">{p}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : (
+                <p className="mt-4 text-[15px] text-ink-2">
+                  On mainnet you can also pay with any token on any chain through NEAR Intents.{OTHER_NETWORK_URL && <> <a href={`${OTHER_NETWORK_URL}/check`} className="text-stamp underline underline-offset-2">Open Assay on mainnet</a>.</>}
+                </p>
+              )}
+              {method === "intents" && (
+                <div className="mt-5 grid gap-5 sm:grid-cols-[220px_1fr]">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-ink-2">Pay with</span>
+                    <select value={assetKey} onChange={(e) => setAssetKey(e.target.value)} className="h-12 w-full rounded-[2px] border border-ink bg-sheet px-3 text-base text-ink">
+                      {PAY_ASSETS.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                    </select>
+                  </label>
+                  <Field label={`Refund address (${asset.addressHint})`} value={refundTo} onChange={(e) => setRefundTo(e.target.value)} placeholder={asset.chain === "Solana" ? "So1…" : asset.chain === "Bitcoin" ? "bc1…" : asset.chain === "NEAR" ? "you.near" : "0x…"} error={refundProblem ?? undefined} spellCheck={false} autoComplete="off" />
+                  <p className="text-[15px] text-ink-2 sm:col-span-2">You&apos;ll get a deposit address and the exact amount of {asset.symbol} to send. 1Click turns it into {Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR for the escrow contract. Any refund (unused budget, or a report that fails review) comes back to this address in {asset.label}.</p>
+                </div>
+              )}
               <dl className="mt-5 grid gap-5 sm:grid-cols-3">
                 <div><dt className="text-sm text-ink-2">Held by the contract</dt><dd className="mt-1 font-mono text-lg text-ink">{Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR</dd></div>
                 <div><dt className="text-sm text-ink-2">If a report passes</dt><dd className="mt-1 text-[16px] text-ink">You pay the winning bid</dd></div>
@@ -198,14 +251,21 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                 </div>
               )}
               <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-                <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={posted ? "Opening your round…" : post.step ? PAY_STEP_LABEL[post.step] : undefined}>{payLabel}</Button>
-                <p className="text-[15px] text-ink-2">{IS_MAINNET ? "Real NEAR, held by the escrow contract." : "Testnet NEAR is free."} No account yet? <a href={WALLET_SIGNUP} target="_blank" rel="noreferrer" className="text-stamp underline underline-offset-2">Create one in a minute</a>.</p>
+                {method === "intents" ? (
+                  <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={intents.busy ? "Getting a quote…" : undefined}>Pay {Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR in {asset.label}</Button>
+                ) : (
+                  <>
+                    <Button type="submit" variant="pay" size="lg" disabled={!ready} busy={posted ? "Opening your round…" : post.step ? PAY_STEP_LABEL[post.step] : undefined}>{payLabel}</Button>
+                    <p className="text-[15px] text-ink-2">{IS_MAINNET ? "Real NEAR, held by the escrow contract." : "Testnet NEAR is free."} No account yet? <a href={WALLET_SIGNUP} target="_blank" rel="noreferrer" className="text-stamp underline underline-offset-2">Create one in a minute</a>.</p>
+                  </>
+                )}
               </div>
               {posted && (
                 <p role="status" className="mt-5 border-l-4 border-stamp bg-stamp-tint px-4 py-3 text-[15px] text-ink">
                   Payment confirmed. Round <a href={`/rounds/${posted}?new`} className="font-mono text-stamp underline underline-offset-2">{posted}</a> is starting, and the page is opening it now.
                 </p>
               )}
+              {intents.error && <p role="alert" className="mt-5 border-l-4 border-refund bg-sheet px-4 py-3 text-[15px] text-refund">{intents.error}</p>}
               {post.error && (
                 <div role="alert" className="mt-5 border-l-4 border-refund bg-sheet px-4 py-3 text-[15px]">
                   <p className="text-refund">{post.error}</p>

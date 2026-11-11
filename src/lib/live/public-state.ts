@@ -9,7 +9,7 @@ import { forViewer } from "./visibility";
 // the server render, so the first HTML already carries the real agents and rounds.
 let coordinatorCache: { at: number; near: number | null } = { at: 0, near: null };
 
-export async function publicState(viewer: string | null, opts: { balance?: boolean } = {}) {
+export async function publicState(viewer: string | null, opts: { balance?: boolean; payments?: string[] } = {}) {
   recoverInterrupted();
   const state = load();
   const id = process.env.NEAR_ACCOUNT_ID || null;
@@ -21,7 +21,7 @@ export async function publicState(viewer: string | null, opts: { balance?: boole
     viewer,
     coordinator: { id, near: coordinatorCache.near },
     agents: state.agents,
-    rounds: state.rounds.slice(0, 30).map((r) => forViewer(r, viewer)),
+    rounds: state.rounds.slice(0, 30).map((r) => forViewer(r, viewer, opts.payments)),
     busy: state.rounds.some((r) => ACTIVE.includes(r.status)),
   };
 }

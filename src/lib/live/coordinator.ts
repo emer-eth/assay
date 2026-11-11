@@ -1,13 +1,15 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { gradeDelivery, reviewJob } from "../near-ai";
-import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob, escrowRefund, escrowSettle, sendNear } from "../near";
+import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob, escrowRefund, escrowSettle, sendNear, unwrapNear, wnearBalance, escrowPost } from "../near";
 import { decide, eligibleAgents, settle } from "../swarm/round";
 import type { Job } from "../swarm/types";
 import type { Payment } from "./actions";
 import { agentBid, agentWork, modelOf, usageToNear } from "./agent-ai";
 import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
+import { refundThroughIntents } from "./intents-pay";
+import { yoctoOf } from "./pay-assets";
 import { load, update, updateRound, type LiveRound } from "./store";
 
 // Runs one live round, following RULES.md step by step. Every step is written to the store as it
@@ -29,7 +31,9 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
       {
         at: new Date().toISOString(),
         text:
-          payment.via === "escrow"
+          payment.via === "intents"
+            ? `${poster} paid ${job.budget} NEAR in ${payment.assetLabel} through NEAR Intents (1Click); the coordinator deposits it into the escrow contract (job ${payment.jobId}) when the round starts`
+            : payment.via === "escrow"
             ? `${poster} posted the job; ${job.budget} NEAR is held by the escrow contract (job ${payment.jobId})`
             : deposit
               ? `${poster} posted the job and paid ${job.budget} NEAR into escrow`
@@ -41,7 +45,7 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
     txs: [],
     deposit,
     paidWith: payment.via,
-    escrowJobId: payment.via === "escrow" ? payment.jobId : undefined,
+    escrowJobId: payment.via === "escrow" || payment.via === "intents" ? payment.jobId : undefined,
   };
   update((s) => s.rounds.unshift(round));
   return round;
@@ -56,6 +60,22 @@ async function refund(id: string, poster: string, near: number, why: string) {
     updateRound(id, {}, `Returned ${near} NEAR to ${poster}'s credit (${why})`);
     return;
   }
+  if (r.paidWith === "intents") {
+    // The budget is in escrow (deposited by the coordinator), or still with the coordinator if the round never got
+    // that far. Either way it goes back through NEAR Intents, to the payer's own address in the token they paid with.
+    const onChain = r.escrowJobId ? await escrowJob(r.escrowJobId) : null;
+    if (onChain && onChain.status === "Open") {
+      const hash = await escrowRefund(r.escrowJobId!);
+      updateRound(id, (x) => x.txs.push({ label: `Escrow contract returned ${r.job.budget} NEAR to the coordinator, to send back through NEAR Intents (${why})`, hash }));
+    } else if (onChain) return; // already settled or refunded on the contract: nothing left to return here
+    else if (!r.txs.some((t) => t.label.startsWith("Unwrapped"))) {
+      // Never unwrapped: the budget is still wNEAR. Unwrap it so the refund path is the same.
+      const hash = await unwrapNear(BigInt(yoctoOf(near)));
+      updateRound(id, (x) => x.txs.push({ label: `Unwrapped ${near} wNEAR to send back`, hash }));
+    }
+    await refundThroughIntents(id, near, why);
+    return;
+  }
   if (r.paidWith === "escrow" && r.escrowJobId) {
     // The contract refunds the whole budget itself (only while the job is still open there).
     const onChain = await escrowJob(r.escrowJobId);
@@ -67,6 +87,19 @@ async function refund(id: string, poster: string, near: number, why: string) {
   if (!r.deposit) return; // early demo rounds funded by the coordinator
   const hash = await sendNear(coordinator(), poster, near);
   updateRound(id, (x) => x.txs.push({ label: `Refunded ${near} NEAR to ${poster} (${why})`, hash }));
+}
+
+async function fundIntentsEscrow(round: LiveRound) {
+  const budget = round.job.budget;
+  const yocto = BigInt(yoctoOf(budget));
+  if (!round.txs.some((t) => t.label.startsWith("Unwrapped"))) {
+    const have = await wnearBalance(coordinator().accountId);
+    if (have < yocto) throw new Error(`the coordinator holds less wNEAR than the ${budget} NEAR budget`);
+    const hash = await unwrapNear(yocto);
+    updateRound(round.id, (r) => r.txs.push({ label: `Unwrapped the ${budget} wNEAR NEAR Intents delivered`, hash }));
+  }
+  const hash = await escrowPost(round.escrowJobId!, budget);
+  updateRound(round.id, (r) => r.txs.push({ label: `Coordinator deposited ${budget} NEAR into the escrow contract for this job`, hash }));
 }
 
 // Kept on globalThis so every route (the app, MCP, page renders) shares one queue even if bundled separately.
@@ -101,13 +134,24 @@ export function recoverInterrupted() {
     }
     const unpaid = r.status !== "settling"; // before settling, nothing has been paid out of the budget
     updateRound(r.id, { status: "error", error: "The server restarted during this round." }, "The server restarted mid-round. The round was closed and the poster refunded.");
-    if (unpaid || r.paidWith === "escrow") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
+    if (unpaid || r.paidWith === "escrow" || r.paidWith === "intents") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
   }
 }
 
 export async function runLiveRound(id: string) {
   const round = load().rounds.find((r) => r.id === id);
   if (!round || round.status !== "queued") return;
+  // Paid through NEAR Intents: the wNEAR 1Click delivered becomes the escrow deposit now, in the queue, so the
+  // coordinator signs one thing at a time (also after a restart, which re-queues rounds that hadn't started).
+  if (round.paidWith === "intents" && !round.txs.some((t) => t.label.startsWith("Coordinator deposited"))) {
+    try {
+      await fundIntentsEscrow(round);
+    } catch (e) {
+      updateRound(id, { status: "error", error: e instanceof Error ? e.message : String(e) }, "The payment couldn't be moved into escrow. Nothing was paid out; the budget goes back to the payer.");
+      await refund(id, round.job.poster, round.job.budget, "couldn't start the round").catch((err) => updateRound(id, {}, `The refund couldn't be sent automatically (${err instanceof Error ? err.message : err}). It's owed to ${round.job.poster}.`));
+      return;
+    }
+  }
   updateRound(id, { status: "reviewing" });
   const { job } = round;
   let paidOut = 0; // NEAR already paid out of this job's escrow, so a crash never refunds more than is left
@@ -191,6 +235,9 @@ export async function runLiveRound(id: string) {
       updateRound(id, (r) => r.txs.push({ label: `Coordinator paid ${winner.name} ${s.payout.toAgent} NEAR`, hash }));
     }
     if (!escrowJobId) await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
+    // An Intents payer's unused budget came back from the escrow to the coordinator (it posted the job); send it on.
+    else if (grade.passed && s.payout.refundToPoster > 0 && load().rounds.find((r) => r.id === id)?.paidWith === "intents")
+      await refundThroughIntents(id, s.payout.refundToPoster, "unused budget").catch((err) => updateRound(id, {}, `The unused ${s.payout.refundToPoster} NEAR couldn't be sent back automatically (${err instanceof Error ? err.message : err}). It's owed to ${job.poster}.`));
     paidOut = job.budget;
     update((st) => {
       const a = st.agents.find((x) => x.id === winner.id);
