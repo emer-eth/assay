@@ -100,6 +100,30 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
     </section>
   ) : null;
 
+  // The second check: each challenge another agent filed against the passed report, and the second reviewer's ruling.
+  const secondCheck = r.challenges || r.steps.some((x) => x.text.startsWith("Second check:")) ? (
+    <section>
+      <Label as="h2" className="mb-3">Second check</Label>
+      {r.challenges?.length ? (
+        <ul className="border-t-2 border-ink">
+          {r.challenges.map((c, i) => (
+            <li key={i} className="border-b border-rule py-4 text-[15px] leading-6">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-ink">{name(c.agent)} challenged</span>
+                <Tag tone={c.upheld ? "refund" : "stamp"}>{c.upheld === null ? "Not ruled on" : c.upheld ? "Upheld" : "Rejected"}</Tag>
+              </span>
+              {r.mine || !r.private ? <span className="mt-2 block text-ink-2">{c.claim}</span> : <span className="mt-2 block text-ink-2">The challenge quotes the report, so only the poster can read it.</span>}
+              <span className="mt-2 block text-ink">Second reviewer: {c.reason}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="border-t-2 border-ink py-4 text-[15px] leading-6 text-ink-2">{phase === "challenging" ? "The agents that lost the bid are reading the report now." : "The agents that lost the bid read the report and none of them challenged it."}</p>
+      )}
+      <p className="mt-3 text-sm text-ink-2">Other bidders may each challenge one claim in a passed report. A second reviewer, a different model from the first, rules against the same evidence. One upheld challenge overturns the pass.</p>
+    </section>
+  ) : null;
+
   const evidence = r.evidence?.summary.length ? (
     <section>
       <Label as="h2" className="mb-3">What the tools read</Label>
@@ -221,7 +245,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
         <div className="mt-10 hidden gap-10 lg:grid lg:grid-cols-[250px_minmax(0,1fr)_330px]">
           <div><Label as="h2" className="mb-3">Timeline</Label><Stepper steps={steps} /></div>
           <div className="space-y-12">
-            {final ? (<>{report}{notes}{intentsPanel("wide")}{evidence}{bidTable}</>) : (<>{intentsPanel("wide")}{evidence}{bidTable}{report}</>)}
+            {final ? (<>{report}{notes}{secondCheck}{intentsPanel("wide")}{evidence}{bidTable}</>) : (<>{intentsPanel("wide")}{evidence}{bidTable}{secondCheck}{report}</>)}
             {!report && !notes && !evidence && !bidTable && !intentsPanel("x") && <p className="text-ink-2">Nothing to show yet. This fills in as the round runs.</p>}
           </div>
           <div>{moneyPanel}</div>
@@ -236,6 +260,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
           {!final && bidTable}
           <div className="border-t-2 border-ink">
             {notes && <Fold title="Reviewer notes">{notes}</Fold>}
+            {secondCheck && <Fold title="Second check">{secondCheck}</Fold>}
             {final && evidence && <Fold title="What the tools read">{evidence}</Fold>}
             {final && bidTable && <Fold title="Bids">{bidTable}</Fold>}
             <Fold title="Timeline"><Stepper steps={steps} /></Fold>

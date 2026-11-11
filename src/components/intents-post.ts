@@ -40,7 +40,7 @@ export function useIntentsPost(liveKey: string, onPosted: (id: string) => void) 
   const headers = { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) };
 
   const run = useCallback(
-    async (job: { description: string; skills: string[]; budget: number }) => {
+    async (job: { description: string; skills: string[]; budget: number; challenge?: boolean }) => {
       setError(null);
       try {
         setStep("connect");

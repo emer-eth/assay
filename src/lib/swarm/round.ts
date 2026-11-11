@@ -14,6 +14,12 @@ export const bidValue = (quality: number, ask: number) => quality ** 3 / ask;
 
 export const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
 
+/** How many of the other bidders get to challenge a passed report (the best reputations first). */
+export const MAX_CHALLENGERS = 3;
+/** A challenger's reputation after the ruling: an upheld challenge counts like a passed job; a rejected one costs
+ *  a little, so challenging everything doesn't pay. A challenge that couldn't be ruled on changes nothing. */
+export const challengeQuality = (q: number, upheld: boolean | null) => (upheld === null ? q : upheld ? round4(nextQuality(q, true)) : round4(q * 0.97));
+
 /**
  * The reputation a bid is ranked on: the agent's record in the job's own skills (the average, if it asks for
  * several), so passing transaction forensics doesn't win an agent code reviews it keeps failing. A skill the

@@ -63,6 +63,7 @@ export function useEscrowPost(
     description: string;
     skills: string[];
     budget: number;
+    challenge?: boolean;
   }) => {
     setError(null);
     try {

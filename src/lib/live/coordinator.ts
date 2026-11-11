@@ -1,17 +1,17 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { gradeDelivery, reviewJob } from "../near-ai";
+import { gradeDelivery, reviewJob, ruleChallenge } from "../near-ai";
 import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob, escrowRefund, escrowSettle, sendNear, unwrapNear, wnearBalance, escrowPost } from "../near";
-import { decide, eligibleAgents, settle } from "../swarm/round";
+import { challengeQuality, decide, eligibleAgents, jobQuality, MAX_CHALLENGERS, settle } from "../swarm/round";
 import type { Job } from "../swarm/types";
 import type { Payment } from "./actions";
-import { agentBid, agentWork, modelOf, usageToNear } from "./agent-ai";
+import { agentBid, agentChallenge, agentWork, modelOf, usageToNear } from "./agent-ai";
 import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
 import { recoverClaimedIntents, settleThroughIntents } from "./intents-jobs";
 import { refundThroughIntents } from "./intents-pay";
 import { yoctoOf } from "./pay-assets";
-import { load, update, updateRound, type LiveRound } from "./store";
+import { load, update, updateRound, type Challenge, type LiveRound } from "./store";
 
 // Runs one live round, following RULES.md step by step. Every step is written to the store as it
 // happens, so the page can show progress. Rounds run one at a time through a queue, so the coordinator never
@@ -146,7 +146,7 @@ export function recoverInterrupted() {
       queue.tail = queue.tail.then(() => runLiveRound(r.id)).catch(() => {});
       continue;
     }
-    const unpaid = r.status !== "settling"; // before settling, nothing has been paid out of the budget
+    const unpaid = r.status !== "settling"; // before settling (the second check included), nothing has been paid out of the budget
     updateRound(r.id, { status: "error", error: "The server restarted during this round." }, "The server restarted mid-round. The round was closed and the poster refunded.");
     if (unpaid || r.paidWith === "escrow" || r.paidWith === "oneclick" || r.paidWith === "intents") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
   }
@@ -226,10 +226,57 @@ export async function runLiveRound(id: string) {
 
     // 5. Delivery review
     updateRound(id, { status: "grading" }, "Reviewer is grading the work");
-    const grade = await gradeDelivery(job.description, work.text, evidence?.facts, { code: job.skills.includes("contract-review") });
+    let grade = await gradeDelivery(job.description, work.text, evidence?.facts, { code: job.skills.includes("contract-review") });
+    updateRound(id, { grade }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);
+
+    // 5b. The second check (when the poster left it on): the other bidders read the passed report and the same
+    // evidence, and each may challenge one claim. A second reviewer, a different model, rules. One upheld
+    // challenge overturns the pass: nothing is paid and the poster is refunded in full.
+    if (grade.passed && job.challenge && evidence) {
+      const others = bids
+        .filter((b) => b.agent !== winner.id)
+        .map((b) => agents.find((a) => a.id === b.agent)!)
+        .filter(Boolean)
+        .sort((x, y) => jobQuality(y, job) - jobQuality(x, job))
+        .slice(0, MAX_CHALLENGERS);
+      if (others.length) {
+        updateRound(id, { status: "challenging" }, `Second check: ${others.map((a) => a.name).join(", ")} can challenge the report`);
+        const filed = await Promise.all(others.map(async (a) => ({ a, ...(await agentChallenge(a, job, evidence, work.text)) })));
+        const challenges: Challenge[] = [];
+        for (const f of filed) {
+          // Each challenger pays for its own check, from its own account, like a bid.
+          const spent = usageToNear(f.usage, modelOf(f.a));
+          if (spent > 0) {
+            const hash = await sendNear(agentAccount(f.a.id), process.env.NEAR_ACCOUNT_ID!, spent).catch(() => null);
+            if (hash) updateRound(id, (r) => r.txs.push({ label: `${f.a.name} paid ${spent} NEAR for its own AI (second check)`, hash }));
+          }
+          if (!f.claim) continue;
+          const ruling = await ruleChallenge(job.description, work.text, evidence.facts, f.claim);
+          challenges.push({ agent: f.a.id, claim: f.claim, upheld: ruling.upheld, reason: ruling.reason, at: new Date().toISOString() });
+          updateRound(id, { challenges: [...challenges] }, `Challenge by ${f.a.name} ${ruling.upheld === null ? "not ruled on" : ruling.upheld ? "upheld" : "rejected"}: ${ruling.reason}`);
+        }
+        // Reputation follows the ruling, in the job's own skills.
+        update((st) => {
+          for (const c of challenges) {
+            const a = st.agents.find((x) => x.id === c.agent);
+            if (!a) continue;
+            a.skillQuality ??= {};
+            for (const s of job.skills) a.skillQuality[s] = challengeQuality(a.skillQuality[s] ?? 0.5, c.upheld);
+          }
+        });
+        const won = challenges.find((c) => c.upheld);
+        if (won) {
+          const by = agents.find((a) => a.id === won.agent)?.name ?? won.agent;
+          grade = { passed: false, reasons: [`Overturned on challenge by ${by}: ${won.reason}`, ...grade.reasons.slice(0, 1).map((r) => `The first reviewer had passed it: ${r}`)] };
+          updateRound(id, { grade, overturned: true }, `Second check: the pass was overturned on ${by}'s challenge. Nothing is paid; the poster is refunded in full.`);
+        } else {
+          updateRound(id, { challenges }, `Second check: ${challenges.length ? `${challenges.length} challenge${challenges.length === 1 ? "" : "s"}, none upheld` : "no agent challenged the report"}. The pass stands.`);
+        }
+      }
+    }
 
     // 6. Settlement
-    updateRound(id, { grade, status: "settling" }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);
+    updateRound(id, { status: "settling" });
     const s = settle(job, winner, decision.winner.ask, { passed: grade.passed, aiCost });
     const escrowJobId = load().rounds.find((r) => r.id === id)?.escrowJobId;
     const viaIntents = load().rounds.find((r) => r.id === id)?.paidWith === "intents";

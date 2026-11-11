@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const viaEscrow = escrowInput.safeParse(body);
   let res;
   if (viaEscrow.success) {
-    res = await postJob(account, { description: "", skills: ["due-diligence"], budget: 0 }, { via: "escrow", jobId: viaEscrow.data.jobId, txHash: viaEscrow.data.txHash });
+    res = await postJob(account, { description: "", skills: ["due-diligence"], budget: 0, challenge: true }, { via: "escrow", jobId: viaEscrow.data.jobId, txHash: viaEscrow.data.txHash });
   } else {
     const parsed = transferInput.safeParse(body);
     if (!parsed.success) return Response.json({ error: `Describe the job (10+ characters), pick at least one skill, set a budget of 0.05–${LIMITS.maxBudget} NEAR, and pay it from your wallet.` }, { status: 400 });

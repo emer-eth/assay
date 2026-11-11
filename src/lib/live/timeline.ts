@@ -5,7 +5,7 @@ import type { PublicRound } from "./visibility";
 // its phase, the seven-step timeline with times, the status banner and the money lines.
 // Times are formatted from the ISO string in UTC, so the server and the browser print the same thing.
 
-export type Phase = "queued" | "reviewing" | "bidding" | "working" | "grading" | "settling" | "passed" | "refunded" | "unfilled" | "blocked" | "error";
+export type Phase = "queued" | "reviewing" | "bidding" | "working" | "grading" | "challenging" | "settling" | "passed" | "refunded" | "unfilled" | "blocked" | "error";
 export type StepState = "done" | "running" | "waiting" | "failed";
 export type TimelineStep = { label: string; detail?: string; time?: string; state: StepState };
 
@@ -15,7 +15,7 @@ export function phaseOf(r: PublicRound): Phase {
 }
 /** The word for each phase: the page title and the ledger use it. */
 export const PHASE_WORD: Record<Phase, string> = {
-  queued: "Queued", reviewing: "Reviewing", bidding: "Bidding", working: "Working", grading: "Grading", settling: "Settling",
+  queued: "Queued", reviewing: "Reviewing", bidding: "Bidding", working: "Working", grading: "Grading", challenging: "Second check", settling: "Settling",
   passed: "Passed", refunded: "Refunded", unfilled: "Refunded", blocked: "Blocked", error: "Refunded",
 };
 
@@ -44,11 +44,12 @@ export function timeline(r: PublicRound, agents: Pick<LiveAgent, "id" | "name">[
   const work = find(r, / delivered \(/);
   const graded = find(r, /^Work (passed|failed) review/);
   const settled = find(r, /^Settled|^Something went wrong|server restarted/i);
+  const second = find(r, /^Second check: (the pass was overturned|.*The pass stands)/);
   const since = (a?: { at: string }, b?: { at: string }) => (a && b ? ` · ${duration(Date.parse(b.at) - Date.parse(a.at))}` : "");
   const stopped = p === "error";
   const state = (done: unknown, running: boolean, failed = false): StepState => (failed ? "failed" : done ? "done" : running ? "running" : "waiting");
   const winner = nameOf(r.winner, agents);
-  return [
+  const steps: TimelineStep[] = [
     { label: "Posted", detail: `${fmt(r.job.budget)} NEAR ${r.paidWith === "credit" ? "from credit" : "in escrow"}`, time: clock(posted?.at ?? r.createdAt), state: "done" },
     { label: "Job review", detail: p === "blocked" ? "Refused" : review ? `Approved${since(posted, review)}` : undefined, time: clock(review?.at), state: state(review, p === "reviewing" || p === "queued", p === "blocked") },
     { label: "Evidence", detail: tools ? `${r.evidence?.summary.length ?? 1} source${(r.evidence?.summary.length ?? 1) === 1 ? "" : "s"} read${since(review, tools)}` : p === "blocked" ? "Not read" : undefined, time: clock(tools?.at), state: p === "blocked" ? "waiting" : state(tools, p === "reviewing" && !!review) },
@@ -57,6 +58,17 @@ export function timeline(r: PublicRound, agents: Pick<LiveAgent, "id" | "name">[
     { label: "Delivery review", detail: graded ? `${r.grade?.passed ? "Passed" : "Failed"}${since(work, graded)}` : undefined, time: clock(graded?.at), state: state(graded && r.grade?.passed, p === "grading", !!graded && !r.grade?.passed) },
     { label: "Settlement", detail: settled ? (p === "passed" ? "Paid on chain" : stopped ? "Stopped, refunded" : "Refunded") + since(graded ?? bids ?? review, settled) : undefined, time: clock(settled?.at), state: state(settled && !stopped, p === "settling", stopped) },
   ];
+  // The second check has its own step, on rounds that ran it (or are running it now).
+  if (second || p === "challenging") {
+    const n = r.challenges?.length ?? 0;
+    steps.splice(6, 0, {
+      label: "Second check",
+      detail: second ? (r.overturned ? "Pass overturned" : n ? `${n} challenge${n === 1 ? "" : "s"}, none upheld` : "No challenges") + since(graded, second) : "Other agents are checking",
+      time: clock(second?.at),
+      state: state(second && !r.overturned, p === "challenging", !!r.overturned),
+    });
+  }
+  return steps;
 }
 
 export type Banner = { title: string; detail?: string; running: boolean; verdict?: "passed" | "refunded" | "blocked"; startedAt: string; endedAt?: string };
@@ -73,9 +85,10 @@ export function banner(r: PublicRound, agents: Pick<LiveAgent, "id" | "name">[])
     case "bidding": return { ...base, title: "Agents are sending sealed bids", detail: `${r.eligible.length} agents can bid. Bids open together when all are in.` };
     case "working": return { ...base, title: `${winner} won and is writing the report`, detail: "It reads the evidence, writes the report, then checks every claim against the evidence. This usually takes one to three minutes." };
     case "grading": return { ...base, title: "The reviewer is checking every claim against the evidence", detail: code ? "A code review can take up to 10 minutes to grade." : "This usually takes under a minute or two." };
+    case "challenging": return { ...base, title: "Second check: other agents are looking for a mistake", detail: "The report passed. The agents that lost the bid can each challenge one claim, and a second reviewer rules. This usually takes about a minute. Your report is already below." };
     case "settling": return { ...base, title: "Settling on chain" };
     case "passed": return { ...base, verdict: "passed", title: `${winner}'s report passed review.`, detail: r.payout ? `You paid ${fmt(r.payout.toAgent + r.payout.fee)} NEAR. The other ${fmt(r.payout.refundToPoster)} ${back}.` : undefined };
-    case "refunded": return { ...base, verdict: "refunded", title: "The report failed review. The whole budget came back.", detail: r.grade?.reasons[0] };
+    case "refunded": return { ...base, verdict: "refunded", title: r.overturned ? "The report passed, then lost a challenge. The whole budget came back." : "The report failed review. The whole budget came back.", detail: r.grade?.reasons[0] };
     case "unfilled": return { ...base, verdict: "refunded", title: "No agent bid. The whole budget came back." };
     case "blocked": return { ...base, verdict: "blocked", title: "The reviewer refused this job before any agent saw it.", detail: r.review?.reasons.join(" ") };
     case "error": return { ...base, verdict: "refunded", title: "The round stopped. The budget came back.", detail: r.steps.find((s) => /server restarted/i.test(s.text)) ? "The server restarted mid-round." : r.error };

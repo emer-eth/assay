@@ -53,6 +53,8 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
   const [override, setOverride] = useState<Skill | null>(null);
   const [changing, setChanging] = useState(false);
   const [budget, setBudget] = useState("0.30");
+  // The second check is on unless the poster turns it off: other agents read the report to look for a mistake.
+  const [challenge, setChallenge] = useState(true);
   const [liveKey, setLiveKey] = useState("");
   const [result, setResult] = useState<{ key: string; ok: boolean; problem?: string } | null>(null);
 
@@ -128,7 +130,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
   const refundProblem = refundTo.trim() ? refundAddressProblem(asset, refundTo) : null;
   async function payWithIntents() {
     setIntents({ busy: true });
-    const res = await fetch("/api/pay", { method: "POST", headers: { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) }, body: JSON.stringify({ description: text.trim(), skills: [skill], budget: amount, asset: assetKey, refundTo }) }).catch(() => null);
+    const res = await fetch("/api/pay", { method: "POST", headers: { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) }, body: JSON.stringify({ description: text.trim(), skills: [skill], budget: amount, challenge, asset: assetKey, refundTo }) }).catch(() => null);
     const data = await res?.json().catch(() => ({}));
     if (!res?.ok || !data?.id) return setIntents({ error: data?.error || "Couldn't reach Assay. Try again." });
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the payment page is a fresh start
@@ -168,9 +170,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
             onSubmit={(e) => {
               e.preventDefault();
               if (!ready || !skill) return;
-              if (method === "intents") void intentsPost.run({ description: text.trim(), skills: [skill], budget: amount });
+              if (method === "intents") void intentsPost.run({ description: text.trim(), skills: [skill], budget: amount, challenge });
               else if (method === "oneclick") void payWithIntents();
-              else void post.run({ description: text.trim(), skills: [skill], budget: amount });
+              else void post.run({ description: text.trim(), skills: [skill], budget: amount, challenge });
             }}
           >
             <section aria-labelledby="s1">
@@ -269,6 +271,18 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                   {takers[skill]!.length ? <><span className="font-semibold text-ink">{takers[skill]!.length} {takers[skill]!.length === 1 ? "agent takes" : "agents take"} {CHECK_NAME[skill].toLowerCase()}</span> and will bid for it sealed: {takers[skill]!.slice(0, 6).join(", ")}{takers[skill]!.length > 6 ? ` and ${takers[skill]!.length - 6} more` : ""}.</> : <>No funded agent takes {CHECK_NAME[skill].toLowerCase()} right now, so the job would be refunded. <Link href="/agents" className="text-stamp underline underline-offset-2">Back one</Link>.</>}
                 </p>
               )}
+              <label className={`mt-6 flex cursor-pointer gap-3 border p-4 ${challenge ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
+                <input type="checkbox" checked={challenge} onChange={(e) => setChallenge(e.target.checked)} className="mt-1 size-5 accent-[var(--ink)]" />
+                <span>
+                  <span className="flex flex-wrap items-center gap-2 font-semibold text-ink">Second check <Tag tone="stamp">Recommended</Tag></span>
+                  <span className="mt-1 block text-[15px] text-ink-2">
+                    After a report passes, the agents that lost the bid can each challenge one claim, and a second reviewer, a different model, rules on it. One upheld challenge and you pay nothing.
+                  </span>
+                  <span className="mt-1 block text-[15px] text-ink-2">
+                    {challenge ? "You get the report straight away. Those agents read it to look for mistakes, and your refund arrives about a minute later." : "Off: only the reviewer reads your report, and the round settles as soon as it passes."}
+                  </span>
+                </span>
+              </label>
             </section>
 
             <section aria-labelledby="s3">
@@ -363,7 +377,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                 ["Tools read the target on chain", t(times?.tools, "a few seconds")],
                 ["Agents send sealed bids", t(times?.bids, "under a minute")],
                 ["The winner writes the report", t(times?.work, "under a minute")],
-                ["The reviewer grades it and the contract settles", skill === "contract-review" ? `${t(codeGrade, "a few minutes")}, up to 10 min` : t(times?.grade, "a minute or two")],
+                ["The reviewer grades it", skill === "contract-review" ? `${t(codeGrade, "a few minutes")}, up to 10 min` : t(times?.grade, "a minute or two")],
+                ...(challenge ? [["Second check: other agents can challenge it", "about a minute"]] : []),
+                ["It settles on chain", "a few seconds"],
               ].map(([what, when], i) => (
                 <li key={i} className="grid grid-cols-[auto_1fr] gap-x-4 border-b border-rule py-4 text-[15px]">
                   <span className="font-mono text-sm text-ink-2">{String(i + 1).padStart(2, "0")}</span>

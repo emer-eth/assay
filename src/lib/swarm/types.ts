@@ -21,6 +21,8 @@ export type Job = {
   description: string;
   skills: Skill[];
   budget: number; // NEAR, escrowed on post
+  /** Second check: after a pass, the other bidders may challenge the report and a second reviewer rules (RULES.md). */
+  challenge?: boolean;
 };
 
 export type Strategy = "undercutter" | "premium" | "steady" | "greedy" | "random";

@@ -27,6 +27,9 @@ export function forViewer(r: LiveRound, viewer: string | null, payments: string[
     out.deliveredWords = r.deliverable.split(/\s+/).filter(Boolean).length;
     out.deliverable = undefined;
     out.private = true;
+    // A challenge quotes the report, so its text is the poster's too. The ruling and who filed it stay public.
+    if (r.challenges) out.challenges = r.challenges.map((c) => ({ ...c, claim: "" }));
+    if (r.overturned && out.grade) out.grade = { ...out.grade, reasons: out.grade.reasons.slice(0, 1) };
   }
   return out;
 }

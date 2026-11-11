@@ -14,7 +14,7 @@ import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from
 
 export type LiveAgent = Agent & { name: string; /** NEAR AI model it runs (see AGENT_MODELS); unset means the default agent model */ model?: string; funding: number; earned: number; createdTx?: string; withdrawn?: number; lastWithdrawTx?: string };
 
-export type RoundStatus = "queued" | "reviewing" | "blocked" | "bidding" | "unfilled" | "working" | "grading" | "settling" | "done" | "error";
+export type RoundStatus = "queued" | "reviewing" | "blocked" | "bidding" | "unfilled" | "working" | "grading" | "challenging" | "settling" | "done" | "error";
 export type Tx = { label: string; hash: string };
 export type LiveRound = {
   id: string;
@@ -29,6 +29,10 @@ export type LiveRound = {
   deliverable?: string;
   tokens?: number;
   grade?: { passed: boolean; reasons: string[] };
+  /** The second check: who challenged the passed report, on what, and how the second reviewer ruled. */
+  challenges?: Challenge[];
+  /** True when a pass was overturned by an upheld challenge (the grade then reads failed). */
+  overturned?: boolean;
   payout?: { toAgent: number; toBacker: number; fee: number; refundToPoster: number; aiCost: number };
   txs: Tx[];
   error?: string;
@@ -46,6 +50,8 @@ export type LiveRound = {
   intentSettle?: { nonce: string; at: string; done?: boolean };
 };
 
+/** `claim`: the one statement the challenger says contradicts the evidence. `upheld`: null if the second reviewer couldn't rule. */
+export type Challenge = { agent: string; claim: string; upheld: boolean | null; reason: string; at: string };
 export type Deposit = { txHash: string; from: string; near: number; purpose: string; at: string };
 /** An API key for MCP and other programs. Only its SHA-256 hash is stored; the key itself is shown once. */
 export type ApiKey = { id: string; hash: string; account: string; label: string; prefix: string; createdAt: string; lastUsedAt?: string; revoked?: boolean };
@@ -79,7 +85,7 @@ export type IntentPayment = {
   roundId?: string;
   note?: string;
 };
-type Job_ = { description: string; skills: Skill[]; budget: number };
+type Job_ = { description: string; skills: Skill[]; budget: number; challenge?: boolean };
 
 const DIR = DATA_DIR;
 const FILE = join(DIR, "live.json");
@@ -125,6 +131,8 @@ export function load(): State {
   }
   // Per-skill reputation arrived after the market opened: rebuild it once from the ledger for agents that lack it.
   for (const a of state.agents) a.skillQuality ??= skillQualityFrom(state.rounds, a.id, ALL_SKILLS);
+  // NEAR AI Cloud retired Qwen 3.5 397B: an agent still set to it couldn't bid at all (its calls failed), so it moves to DeepSeek V3.2.
+  for (const a of state.agents) if (a.model === "qwen/qwen3.5-397b-a17b") a.model = "deepseek/deepseek-v3.2";
   // One entry per account, whatever happened before: the last write for an id wins.
   state.agents = state.agents.filter((a, i, all) => all.findLastIndex((x) => x.id === a.id) === i);
   return state;

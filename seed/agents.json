@@ -35,7 +35,7 @@
     "earned": 0,
     "withdrawn": 0.4402,
     "lastWithdrawTx": "EiP7UEkwHR681D1X6JzR6CeN6zD8YnPF6zuQN5eKDLRf",
-    "model": "qwen/qwen3.5-397b-a17b"
+    "model": "deepseek/deepseek-v3.2"
   },
   {
     "id": "agent-3.yourname-swarm.testnet",
@@ -106,6 +106,6 @@
     "joinedAt": 6,
     "funding": 0.4,
     "earned": 0,
-    "model": "qwen/qwen3.5-397b-a17b"
+    "model": "deepseek/deepseek-v3.2"
   }
 ]
