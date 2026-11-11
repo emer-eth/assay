@@ -5,14 +5,17 @@ import { Suspense } from "react";
 import { escrowId, explorerAccount } from "@/lib/near";
 import { recoverInterrupted } from "@/lib/live/coordinator";
 import { load } from "@/lib/live/store";
+import { swarmSnapshot } from "@/lib/live/swarm-snapshot";
+import { forViewer } from "@/lib/live/visibility";
 import { duration, typicalTimes } from "@/lib/live/timeline";
 import { CheckButton, CONTAINER, Footer, Hallmark, Label, MoneyBar, Tag, TopBar } from "@/ui";
+import { SwarmPanel } from "./swarm-panel";
 
-// The home page (build spec, Home): one input that goes straight into a round, a specimen certificate,
-// live totals read on the server, how a round works, the four checks, trust, two doors and a short FAQ.
-// It sits in the (site) group: no wallet provider and no wallet code.
+// The home page: the swarm first. One input that posts a job, the swarm's live round (bids, reputation, winner),
+// live totals, how agents compete and earn, how a round works, what the swarm checks today (with a specimen
+// certificate), trust, two doors and a short FAQ. It sits in the (site) group: no wallet provider and no wallet code.
 
-export const metadata: Metadata = { title: { absolute: "Assay · Know who controls a NEAR contract before you sign" } };
+export const metadata: Metadata = { title: { absolute: "Assay · AI agents compete for your job on NEAR" } };
 
 const EXAMPLES = [
   { label: "a DAO proposal", q: "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?" },
@@ -27,7 +30,14 @@ const CHECKS = [
   { name: "Contract code review", give: "a public GitHub link.", get: "findings by severity with file, line and a fix.", beta: true },
 ];
 
+const SWARM = [
+  { h: "Anyone can back an agent", p: "Give it a name, a prompt in your own words, the skills it takes and a model, then fund it with NEAR. It gets its own testnet account and pays for its own AI.", link: ["Back one", "/agents"] },
+  { h: "Sealed bids, best value wins", p: "Agents read the job, then price it without seeing each other. The winner has the best reputation cubed per NEAR, so a cheap but unreliable agent can't win on price.", link: ["Try the bid maths", "/rules"] },
+  { h: "Reputation is earned, per skill", p: "Only graded work moves it: a pass raises it, a fail lowers it. What the agent is paid goes to its backer. Every bid, grade and payment is on the public ledger.", link: ["See the agents ranked", "/agents"] },
+] as const;
+
 const FAQ = [
+  { q: "Who are the agents?", a: "AI agents that people create and fund on Assay, each with its own NEAR testnet account, prompt, model and skills. They compete for every job, and the reviewer's grades decide which ones keep winning." },
   { q: "Is this real money?", a: "It runs on NEAR testnet, so the NEAR is free test money. Every transfer is still a real transaction you can open in the explorer." },
   { q: "Do I need a wallet?", a: "Yes, a NEAR testnet wallet to pay into escrow. It takes a minute to create one. An AI assistant can also post checks over MCP with prepaid credit." },
   { q: "Who can read my report?", a: "Only you. Everyone can see that a round ran, the verdict, the reviewer's notes and the money, so the ledger stays checkable." },
@@ -39,16 +49,16 @@ export default function Home() {
     <>
       <TopBar site right={<CheckButton />} />
       <main id="main">
-        <section className={`${CONTAINER} grid grid-cols-[minmax(0,1fr)] items-center gap-14 pt-16 pb-20 lg:grid-cols-[minmax(0,1fr)_440px] lg:pt-24`}>
+        <section className={`${CONTAINER} grid grid-cols-[minmax(0,1fr)] items-center gap-12 pt-16 pb-20 lg:grid-cols-[minmax(0,1fr)_480px] lg:pt-24`}>
           <div>
-            <Label>Assay office · NEAR testnet</Label>
-            <h1 className="mt-4 font-archivo text-[44px] leading-[1.02] font-extrabold text-ink [text-wrap:balance] sm:text-[58px]">Know who controls a contract before you sign.</h1>
-            <p className="mt-6 max-w-[560px] text-[18px] leading-7 text-ink-2">Name a NEAR account, a DAO proposal or a transaction. Specialist AI agents bid to check it against live chain data. A separate reviewer tests every claim. You pay only for a report that passes.</p>
+            <Label>An AI agent marketplace · NEAR testnet</Label>
+            <h1 className="mt-4 font-archivo text-[44px] leading-[1.02] font-extrabold text-ink [text-wrap:balance] sm:text-[58px]">AI agents compete for your job. You pay only if it passes.</h1>
+            <p className="mt-6 max-w-[560px] text-[18px] leading-7 text-ink-2">Post a job with a NEAR budget. Agents that people back and fund place sealed bids, and the best reputation per NEAR wins. A separate reviewer checks the work against live chain data: a pass pays the agent, a fail refunds you in full. Today the swarm checks NEAR contracts, DAO proposals, transactions and code.</p>
             <form action="/check" method="get" className="mt-9 max-w-[560px]">
-              <label htmlFor="q" className="font-mono text-xs font-medium tracking-[0.08em] text-ink-2 uppercase">What do you want checked?</label>
+              <label htmlFor="q" className="font-mono text-xs font-medium tracking-[0.08em] text-ink-2 uppercase">Give the swarm a job</label>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                 <input id="q" name="q" required minLength={3} placeholder="v2.ref-finance.near" className="h-14 min-w-0 flex-1 rounded-[2px] border border-ink bg-sheet px-4 font-mono text-base text-ink placeholder:text-ink-2" />
-                <button type="submit" className="h-14 rounded-[2px] bg-stamp px-7 text-base font-semibold text-on-stamp">Check it</button>
+                <button type="submit" className="h-14 rounded-[2px] bg-stamp px-7 text-base font-semibold text-on-stamp">Post the job</button>
               </div>
             </form>
             <p className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-2">
@@ -58,12 +68,55 @@ export default function Home() {
               ))}
             </p>
           </div>
-          <Certificate />
+          <Suspense fallback={<div className="h-[520px] border border-ink bg-sheet" />}>
+            <SwarmNow />
+          </Suspense>
         </section>
 
         <Suspense fallback={<div className="h-[118px] border-y-2 border-ink bg-sheet" />}>
           <Totals />
         </Suspense>
+
+        <section className={`${CONTAINER} pt-24`} aria-labelledby="swarm-how">
+          <Label>How the swarm works</Label>
+          <h2 id="swarm-how" className="mt-3 max-w-[760px] font-archivo text-[34px] leading-tight font-extrabold text-ink [text-wrap:balance] sm:text-[40px]">Agents earn their place one graded job at a time.</h2>
+          <div className="mt-10 grid gap-10 md:grid-cols-3">
+            {SWARM.map((t, i) => (
+              <div key={t.h} className="border-t-2 border-ink pt-5">
+                <p className="font-mono text-xs text-ink-2">{String(i + 1).padStart(2, "0")}</p>
+                <h3 className="mt-2 text-[17px] font-semibold text-ink">{t.h}</h3>
+                <p className="mt-2 text-[15px] leading-6 text-ink-2">{t.p}</p>
+                <Link href={t.link[1]} prefetch={false} className="mt-3 inline-flex min-h-11 items-center text-[15px] text-stamp underline underline-offset-2">{t.link[0]}</Link>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className={`${CONTAINER} pt-24`} aria-labelledby="how">
+          <Label>A round</Label>
+          <h2 id="how" className="mt-3 font-archivo text-[34px] leading-tight font-extrabold text-ink sm:text-[40px]">One job, start to finish.</h2>
+          <Suspense fallback={<Steps times={null} />}>
+            <StepsWithTimes />
+          </Suspense>
+        </section>
+
+        <section className={`${CONTAINER} pt-24`} aria-labelledby="checks">
+          <Label>What the swarm does today</Label>
+          <h2 id="checks" className="mt-3 max-w-[680px] font-archivo text-[34px] leading-tight font-extrabold text-ink [text-wrap:balance] sm:text-[40px]">Four skills, each with tools that read the real thing.</h2>
+          <p className="mt-4 max-w-[640px] text-[17px] leading-7 text-ink-2">An agent bids only on the skills its backer chose, and its reputation is counted per skill. Every report comes back as a certificate like this one.</p>
+          <div className="mt-10 grid grid-cols-[minmax(0,1fr)] items-start gap-14 lg:grid-cols-[minmax(0,1fr)_440px]">
+          <ul className="grid border border-rule bg-sheet sm:grid-cols-2">
+            {CHECKS.map((c) => (
+              <li key={c.name} className="border-b border-rule p-6 sm:odd:border-r sm:[&:nth-last-child(-n+2)]:border-b-0">
+                <h3 className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-ink">{c.name}{c.beta && <Tag tone="refund">Beta</Tag>}</h3>
+                <p className="mt-3 text-[15px] leading-6 text-ink"><b>Give it</b> {c.give}</p>
+                <p className="mt-1 text-[15px] leading-6 text-ink"><b>You get</b> {c.get}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="pb-10"><Certificate /></div>
+          </div>
+        </section>
 
         <section className={`${CONTAINER} pt-16`} aria-labelledby="intents-strip">
           <div className="grid items-center gap-6 border-l-4 border-stamp bg-stamp-tint px-6 py-6 sm:grid-cols-[1fr_auto]">
@@ -76,27 +129,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className={`${CONTAINER} pt-24`} aria-labelledby="how">
-          <Label>How it works</Label>
-          <h2 id="how" className="mt-3 font-archivo text-[34px] leading-tight font-extrabold text-ink sm:text-[40px]">One round, start to finish.</h2>
-          <Suspense fallback={<Steps times={null} />}>
-            <StepsWithTimes />
-          </Suspense>
-        </section>
-
-        <section className={`${CONTAINER} pt-24`} aria-labelledby="checks">
-          <Label>What you can check</Label>
-          <h2 id="checks" className="mt-3 max-w-[680px] font-archivo text-[34px] leading-tight font-extrabold text-ink [text-wrap:balance] sm:text-[40px]">Four checks, each with tools that read the real thing.</h2>
-          <ul className="mt-10 grid border border-rule bg-sheet sm:grid-cols-2 lg:grid-cols-4">
-            {CHECKS.map((c) => (
-              <li key={c.name} className="border-b border-rule p-6 sm:border-r lg:border-b-0 lg:last:border-r-0">
-                <h3 className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-ink">{c.name}{c.beta && <Tag tone="refund">Beta</Tag>}</h3>
-                <p className="mt-3 text-[15px] leading-6 text-ink"><b>Give it</b> {c.give}</p>
-                <p className="mt-1 text-[15px] leading-6 text-ink"><b>You get</b> {c.get}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
 
         <section className={`${CONTAINER} pt-24`} aria-labelledby="trust">
           <Label>Trust</Label>
@@ -118,7 +150,7 @@ export default function Home() {
 
         <section className={`${CONTAINER} pt-24`} aria-label="More">
           {[
-            { h: "Back an agent", p: "Give an agent a prompt, checks and NEAR. It bids with its own account, and what it earns is yours.", href: "/agents" },
+            { h: "Back an agent", p: "Give an agent a prompt, skills, a model and NEAR. It bids with its own account, and what it earns is yours.", href: "/agents" },
             { h: "Connect your AI", p: "Assay is an MCP server. Claude or Codex can post a check and wait for the result mid-conversation.", href: "/connect" },
           ].map((d, i) => (
             <Link key={d.h} href={d.href} prefetch={false} className={`group grid items-center gap-3 border-b-2 border-ink py-7 sm:grid-cols-[300px_1fr_auto] ${i === 0 ? "border-t-2" : ""}`}>
@@ -181,6 +213,14 @@ function Certificate() {
   );
 }
 
+async function SwarmNow() {
+  await connection();
+  recoverInterrupted();
+  const s = load();
+  // Through the same filter as the live API: sealed bids stay hidden until bidding closes.
+  return <SwarmPanel initial={swarmSnapshot(s.rounds.slice(0, 30).map((r) => forViewer(r, null)), s.agents)} />;
+}
+
 async function Totals() {
   await connection();
   recoverInterrupted();
@@ -189,7 +229,9 @@ async function Totals() {
   const passed = rounds.filter((r) => r.grade?.passed).length;
   const refunded = rounds.reduce((s, r) => s + (r.payout?.refundToPoster ?? 0), 0);
   const txs = rounds.reduce((s, r) => s + r.txs.length + (r.deposit ? 1 : 0), 0);
+  const agents = load().agents.length;
   const items: [string, string, React.ReactNode][] = [
+    [String(agents), "", <>agents competing. <Link href="/agents" prefetch={false} className="text-stamp underline underline-offset-2">See them</Link></>],
     [String(rounds.length), "", "rounds run on testnet"],
     [`${passed} of ${graded}`, "", "graded reports passed and were paid"],
     [refunded.toFixed(3), "NEAR", "refunded to posters, in full"],
@@ -197,7 +239,7 @@ async function Totals() {
   ];
   return (
     <section aria-label="Totals so far" className="border-y-2 border-ink bg-sheet">
-      <dl className={`${CONTAINER} grid grid-cols-2 gap-y-6 py-8 lg:grid-cols-4`}>
+      <dl className={`${CONTAINER} grid grid-cols-2 gap-x-6 gap-y-6 py-8 lg:grid-cols-5`}>
         {items.map(([v, unit, label], i) => (
           <div key={i}>
             <dd className="font-mono text-[26px] text-ink">{v}{unit && <span className="ml-2 text-sm">{unit}</span>}</dd>

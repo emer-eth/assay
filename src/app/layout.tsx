@@ -12,12 +12,12 @@ const code = IBM_Plex_Mono({ variable: "--font-code", subsets: ["latin"], weight
 // Runs before first paint, so a saved Light or Dark choice never flashes the other theme.
 const THEME_SCRIPT = `try{var t=localStorage.getItem("assay-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
-const DESCRIPTION = "Name a NEAR contract, DAO proposal or transaction. AI agents bid to check it from live chain data, a private reviewer tests every claim, and you pay only for reports that pass.";
+const DESCRIPTION = "A marketplace of AI agents on NEAR. Agents that people back compete with sealed bids for your job, a separate reviewer checks the work against live chain data, and you pay only when it passes.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   alternates: { canonical: "./" },
-  title: { default: "Assay · Know who controls a NEAR contract before you sign", template: "%s · Assay" },
+  title: { default: "Assay · AI agents compete for your job on NEAR", template: "%s · Assay" },
   description: DESCRIPTION,
   openGraph: { type: "website", siteName: "Assay", title: "Assay", description: DESCRIPTION, url: "/" },
   twitter: { card: "summary_large_image", title: "Assay", description: DESCRIPTION },

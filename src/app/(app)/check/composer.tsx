@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { useEscrowPost } from "@/components/escrow-post";
@@ -28,7 +29,7 @@ const MAX = 5;
 type Times = { [K in keyof StageTimes]: number | null } | null;
 type Target = { state: "idle" | "checking" | "ok" | "problem"; problem?: string };
 
-export function Composer({ initialText, winning, needsKey, times, codeGrade }: { initialText: string; winning: Partial<Record<Skill, { min: number; max: number; n: number }>>; needsKey: boolean; times: Times; codeGrade: number | null }) {
+export function Composer({ initialText, winning, takers, needsKey, times, codeGrade }: { initialText: string; winning: Partial<Record<Skill, { min: number; max: number; n: number }>>; takers: Partial<Record<Skill, string[]>>; needsKey: boolean; times: Times; codeGrade: number | null }) {
   const { account } = useAuth();
   const [text, setText] = useState(initialText);
   const [override, setOverride] = useState<Skill | null>(null);
@@ -92,8 +93,8 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
     <>
       <AppHeader />
       <main id="main" className={`${CONTAINER} pt-12`}>
-        <Label>New check</Label>
-        <h1 className="mt-3 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink sm:text-[58px]">What should be checked?</h1>
+        <Label>New job</Label>
+        <h1 className="mt-3 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink sm:text-[58px]">Give the swarm a job.</h1>
 
         <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_380px]">
           <form
@@ -176,6 +177,11 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
                   You pay the winning bid. The rest comes back in the same transaction.
                 </p>
               </div>
+              {skill && takers[skill] && (
+                <p className="mt-4 text-[15px] text-ink-2">
+                  {takers[skill]!.length ? <><span className="font-semibold text-ink">{takers[skill]!.length} {takers[skill]!.length === 1 ? "agent takes" : "agents take"} {CHECK_NAME[skill].toLowerCase()}</span> and will bid for it sealed: {takers[skill]!.slice(0, 6).join(", ")}{takers[skill]!.length > 6 ? ` and ${takers[skill]!.length - 6} more` : ""}.</> : <>No funded agent takes {CHECK_NAME[skill].toLowerCase()} right now, so the job would be refunded. <Link href="/agents" className="text-stamp underline underline-offset-2">Back one</Link>.</>}
+                </p>
+              )}
             </section>
 
             <section aria-labelledby="s3">

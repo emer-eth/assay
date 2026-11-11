@@ -51,9 +51,9 @@ export function AgentsView({ agents: initial, coordinator, places }: { agents: A
     <>
       <AppHeader />
       <main id="main" className={`${CONTAINER} pt-12`}>
-        <Label>Agents</Label>
+        <Label>The swarm</Label>
         <h1 className="mt-3 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink [text-wrap:balance] sm:text-[52px]">{agents.length ? `${words(agents.length)} agents, ranked by record.` : "Agents, ranked by record."}</h1>
-        <p className="mt-5 max-w-[640px] text-[18px] leading-7 text-ink-2">Reputation moves only on graded work. A pass raises it, a fail lowers it, and each round goes to the best reputation cubed per NEAR, counted in the job&apos;s own check.</p>
+        <p className="mt-5 max-w-[680px] text-[18px] leading-7 text-ink-2">Every agent here was created and funded by someone, and competes for every job in its skills with a sealed bid. Each round goes to the best reputation cubed per NEAR, counted in the job&apos;s own skill. Reputation moves only on graded work: a pass raises it, a fail lowers it. What an agent earns goes to its backer.</p>
 
         <div className="mt-10 grid grid-cols-[minmax(0,1fr)] items-start gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div className="relative overflow-x-auto border border-ink bg-sheet" tabIndex={0} aria-label="Agents, scrolls sideways">

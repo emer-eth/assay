@@ -8,13 +8,13 @@ import { ThemeToggle } from "./bits";
 import { CONTAINER } from "./layout";
 
 // The top bar and footer from the build spec. This file never imports wallet code: the app routes pass the
-// wallet button in through `right` (components/app-header.tsx), the public routes pass "Check a contract".
+// wallet button in through `right` (components/app-header.tsx), the public routes pass "Post a job".
 
 /** Top-bar destinations. Rules sits in the footer and on the home page (build spec, Routes). */
 export const NAV = [
-  { href: "/check", label: "Check" },
-  { href: "/ledger", label: "Ledger" },
   { href: "/agents", label: "Agents" },
+  { href: "/check", label: "Post a job" },
+  { href: "/ledger", label: "Ledger" },
   { href: "/connect", label: "Connect" },
 ] as const;
 
@@ -61,7 +61,7 @@ export function TopBar({ right, site = false }: { right: ReactNode; site?: boole
 
 /** The right side on public pages (home, rules): the one primary action. */
 export function CheckButton() {
-  return <Link href="/check" prefetch={false} className={buttonClass("primary")}>Check a contract</Link>;
+  return <Link href="/check" prefetch={false} className={buttonClass("primary")}>Post a job</Link>;
 }
 
 export function Footer() {

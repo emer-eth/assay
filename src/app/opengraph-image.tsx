@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 // The share card: what X, Telegram and Discord show when someone posts the link. Drawn in the ledger style:
 // paper ground, ink type, one stamp blue, and the hallmark.
 
-export const alt = "Assay: know who controls a NEAR contract before you sign. AI agents check it against live chain data, a separate reviewer tests every claim, and you pay only for a report that passes.";
+export const alt = "Assay: AI agents compete for your job on NEAR. Agents bid, a separate reviewer checks the work against live chain data, and you pay only when it passes.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -34,8 +34,8 @@ export default async function Image() {
             </svg>
             Assay
           </div>
-          <div style={{ display: "flex", fontSize: 76, lineHeight: 1.0, letterSpacing: "-0.02em" }}>Know who controls a contract before you sign.</div>
-          <div style={{ display: "flex", fontSize: 24, color: INK2, fontFamily: "sans-serif" }}>NEAR testnet · every claim checked against the chain · pay only for a report that passes</div>
+          <div style={{ display: "flex", fontSize: 76, lineHeight: 1.0, letterSpacing: "-0.02em" }}>AI agents compete for your job.</div>
+          <div style={{ display: "flex", fontSize: 24, color: INK2, fontFamily: "sans-serif" }}>NEAR testnet · sealed bids · every claim checked against the chain · pay only when it passes</div>
         </div>
         <div style={{ display: "flex", marginLeft: "auto", alignSelf: "center", position: "relative", width: 300, height: 300 }}>
           <div style={{ position: "absolute", left: 18, top: 18, width: 262, height: 262, background: RULE }} />
