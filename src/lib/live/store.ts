@@ -35,7 +35,7 @@ export type LiveRound = {
   /** What the winner's tools read before working (shown to the poster; the full facts also go to the reviewer). */
   evidence?: { summary: string[]; facts: string; intents?: IntentView[]; swap?: SwapView };
   deposit?: string; // escrow payment tx hash, when paid from a wallet
-  paidWith?: "escrow" | "wallet" | "credit" | "intents"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
+  paidWith?: "escrow" | "wallet" | "credit" | "intents" | "oneclick"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
   /** Paid with NEAR Intents (1Click): who paid, in which token, and where a refund goes (their own address, same token). */
   payer?: { payment: string; asset: string; assetLabel: string; refundTo: string; depositAddress: string };
   /** A refund sent back through 1Click: the deposit address to follow it by, and how much NEAR went in. */
@@ -53,7 +53,7 @@ type State = {
   credits: Record<string, number>; // prepaid NEAR per account, spent by API keys (MCP), refunded back into
   apiKeys: ApiKey[];
   /** Jobs waiting for their escrow deposit: the job id the wallet passes to post_job, and what was asked for. */
-  drafts: Record<string, { account: string; job: Job_; expires: number }>;
+  drafts: Record<string, { account: string; job: Job_; expires: number; /** for NEAR Intents payments: the exact message the payer signs */ intent?: { message: string; nonce: string } }>;
   /** Jobs being paid through NEAR Intents (1Click), from quote to the round they become. */
   intentPayments: IntentPayment[];
 };

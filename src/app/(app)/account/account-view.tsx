@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { AppHeader } from "@/components/app-header";
-import { AgentWithdraw, KeyManager, useCreditAndKeys, withdrawable } from "@/components/account-tools";
+import { AgentWithdraw, IntentsBalance, KeyManager, useCreditAndKeys, withdrawable } from "@/components/account-tools";
 import { useAuth } from "@/components/wallet";
 import type { Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
@@ -88,6 +88,7 @@ export function AccountView({ account, rounds, agents, loading }: { account: str
             </div>
           ))}
         </dl>
+        <IntentsBalance account={account} />
 
         <section aria-labelledby="checks-h" className="mt-14">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-4">

@@ -72,7 +72,7 @@ export async function verifySignIn(input: { token: string; accountId: string; pu
 
   used.set(ch.nonce, ch.exp);
   for (const [n, exp] of used) if (exp < Date.now()) used.delete(n);
-  (await cookies()).set(COOKIE, seal({ accountId: input.accountId, exp: Date.now() + SESSION_TTL }), {
+  (await cookies()).set(COOKIE, seal({ accountId: input.accountId, publicKey: input.publicKey, exp: Date.now() + SESSION_TTL }), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -80,6 +80,12 @@ export async function verifySignIn(input: { token: string; accountId: string; pu
     maxAge: SESSION_TTL / 1000,
   });
   return { ok: true as const, accountId: input.accountId };
+}
+
+/** The signed-in account and the key its wallet signed in with (sessions from before 11 Nov have no key). */
+export async function currentSession() {
+  const s = open<{ accountId: string; publicKey?: string; exp: number }>((await cookies()).get(COOKIE)?.value);
+  return s && s.exp > Date.now() ? { accountId: s.accountId, publicKey: s.publicKey ?? null } : null;
 }
 
 /** The signed-in account, or null. */

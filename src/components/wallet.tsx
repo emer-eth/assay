@@ -48,7 +48,13 @@ export type Auth = {
     near: number,
     onStep?: (s: PayStep) => void,
   ) => Promise<string>;
+  /** Sends one or more transactions from the user's wallet in one approval; returns their hashes. */
+  sendTransactions: (txs: WalletTx[], onStep?: (s: PayStep) => void) => Promise<string[]>;
+  /** Signs a NEP-413 message (a NEAR Intents intent) with the user's wallet: no transaction, no gas. */
+  signMessage: (m: { message: string; recipient: string; nonce: string }) => Promise<{ publicKey: string; signature: string }>;
 };
+/** A transaction for the wallet: function calls on one contract (yocto deposit and gas as strings). */
+export type WalletTx = { receiverId: string; calls: { method: string; args: Record<string, unknown>; deposit: string; gas?: string }[] };
 const AuthContext = createContext<Auth | null>(null);
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
@@ -144,6 +150,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       pay: (near, to, onStep) => get().then((a) => a.pay(near, to, onStep)),
       ensureSignedIn: (onStep) => get().then((a) => a.ensureSignedIn(onStep)),
       callWithDeposit: (contractId, method, args, near, onStep) => get().then((a) => a.callWithDeposit(contractId, method, args, near, onStep)),
+      sendTransactions: (txs, onStep) => get().then((a) => a.sendTransactions(txs, onStep)),
+      signMessage: (m) => get().then((a) => a.signMessage(m)),
     }),
     [account, ready, error, get],
   );

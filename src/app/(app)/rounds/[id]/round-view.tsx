@@ -203,6 +203,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
           <span>Budget <span className="font-mono text-ink">{r.job.budget.toFixed(3)} NEAR</span></span>
           <span>Posted by {r.mine ? "you" : <span className="font-mono [overflow-wrap:anywhere]">{r.job.poster}</span>}</span>
           {r.payer && <span className="flex items-center gap-2"><Tag tone="stamp">NEAR Intents</Tag> paid in {r.payer.assetLabel}</span>}
+          {r.paidWith === "intents" && <span className="flex items-center gap-2"><Tag tone="stamp">NEAR Intents</Tag> paid with a signed intent</span>}
           <span className="font-mono">{dateUtc(r.createdAt)}</span>
         </p>
 

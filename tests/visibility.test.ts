@@ -46,7 +46,7 @@ test("decoded intents and swap status stay public; the raw evidence facts never 
 });
 
 test("a round paid through NEAR Intents is private to the browser that paid, and only that browser sees the payment id", () => {
-  const paid = round({ deposit: undefined, paidWith: "intents", job: { id: "j", poster: "0xabc", description: "d", skills: ["tx-forensics"], budget: 0.3 }, payer: { payment: "pay-1", asset: "usdc-base", assetLabel: "USDC on Base", refundTo: "0xabc", depositAddress: "0xdep" } });
+  const paid = round({ deposit: undefined, paidWith: "oneclick", job: { id: "j", poster: "0xabc", description: "d", skills: ["tx-forensics"], budget: 0.3 }, payer: { payment: "pay-1", asset: "usdc-base", assetLabel: "USDC on Base", refundTo: "0xabc", depositAddress: "0xdep" } });
   const payer = forViewer(paid, null, ["pay-1"]);
   assert.equal(payer.mine, true);
   assert.equal(payer.deliverable, "three words here");

@@ -32,7 +32,9 @@ export const agentInput = z.object({
   model: z.enum(Object.keys(AGENT_MODELS) as [AgentModel, ...AgentModel[]]).optional(),
 });
 
-export type Payment = { via: "wallet"; txHash: string } | { via: "credit" } | { via: "escrow"; jobId: string; txHash?: string } | { via: "intents"; payment: string; jobId: string; assetLabel: string };
+export type Payment = { via: "wallet"; txHash: string } | { via: "credit" } | { via: "escrow"; jobId: string; txHash?: string } | { via: "oneclick"; payment: string; jobId: string; assetLabel: string }
+  /** A signed NEAR Intents transfer to the coordinator, already executed on the verifier (intents-jobs.ts). */
+  | { via: "intents"; jobId: string; tx: string };
 type Fail = { ok: false; status: number; error: string };
 
 /** Checks the escrow contract's own record: open, deposited by this account, for exactly this budget. Then claims it once. */
@@ -57,7 +59,7 @@ async function takeEscrow(account: string, near: number, jobId: string): Promise
 
 async function take(account: string, near: number, payment: Payment, purpose: string): Promise<Fail | null> {
   if (payment.via === "escrow") return takeEscrow(account, near, payment.jobId);
-  if (payment.via === "intents") return { ok: false, status: 400, error: "NEAR Intents payments start from the job form (intents-pay.ts)." };
+  if (payment.via === "intents" || payment.via === "oneclick") return { ok: false, status: 400, error: "NEAR Intents payments start from the job form." };
   if (payment.via === "credit")
     return spendCredit(account, near) ? null : { ok: false, status: 402, error: `Not enough credit for ${near} NEAR. Top up on the website.` };
   const paid = await claimDeposit(payment.txHash, account, near, purpose);

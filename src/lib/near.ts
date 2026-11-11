@@ -128,3 +128,17 @@ export async function sendWnear(to: string, yoctoAmount: bigint) {
   const res = await c.callFunctionRaw({ contractId: WRAP, methodName: "ft_transfer", args: { receiver_id: to, amount: yoctoAmount.toString() }, deposit: ONE_YOCTO, gas: GAS });
   return res.transaction.hash as string;
 }
+
+/** The coordinator's key pair, for signing NEAR Intents (NEP-413) messages. Never logged or sent anywhere. */
+export function coordinatorKeyPair() {
+  coordinator(); // same checks as signing a transaction (network, account)
+  return KeyPair.fromString(process.env.NEAR_PRIVATE_KEY as KeyPairString);
+}
+
+/** An agent's key pair, from KEYS_DIR or AGENT_KEYS, for signing its own intents. */
+export function agentKeyPair(accountId: string) {
+  const file = join(KEYS_DIR, `${accountId}.json`);
+  const secretKey = (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")).secretKey : JSON.parse(process.env.AGENT_KEYS || "{}")[accountId]) as KeyPairString | undefined;
+  if (!secretKey) throw new Error(`No key for ${accountId}.`);
+  return KeyPair.fromString(secretKey);
+}

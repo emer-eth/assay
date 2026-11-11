@@ -12,6 +12,7 @@
     "spike": "tsx --env-file=.env scripts/spike.ts",
     "deploy:escrow": "tsx --env-file=.env scripts/deploy-escrow.ts",
     "deploy:escrow:mainnet": "tsx --env-file=.env.mainnet scripts/deploy-escrow.ts",
+    "deploy:intents": "tsx --env-file=.env scripts/deploy-intents.ts",
     "jobs": "tsx --env-file=.env scripts/run-jobs.ts"
   },
   "dependencies": {

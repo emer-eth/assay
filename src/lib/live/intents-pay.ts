@@ -140,7 +140,7 @@ function setPayment(id: string, patch: Partial<IntentPayment>) {
 function postPaidJob(p: IntentPayment) {
   const jobId = `sfh-i-${p.id.slice(0, 13)}`;
   const asset = payAsset(p.asset)!;
-  const round = createRound(p.job, p.refundTo, { via: "intents", payment: p.id, jobId, assetLabel: asset.label });
+  const round = createRound(p.job, p.refundTo, { via: "oneclick", payment: p.id, jobId, assetLabel: asset.label });
   updateRound(round.id, { payer: { payment: p.id, asset: asset.key, assetLabel: asset.label, refundTo: p.refundTo, depositAddress: p.depositAddress } });
   setPayment(p.id, { status: "posted", roundId: round.id });
   // The round's first step (coordinator.ts) unwraps the wNEAR and deposits it into the escrow contract.

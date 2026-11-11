@@ -74,7 +74,9 @@ function NetworkSwitch({ path }: { path: string }) {
           <span key={n} aria-current="true" className={`${item} ${n === "mainnet" ? "bg-stamp text-on-stamp" : "bg-ink text-on-ink"}`}>{n}</span>
         ) : OTHER_NETWORK_URL ? (
           <a key={n} href={`${OTHER_NETWORK_URL}${path}`} className={`${item} text-ink-2 hover:text-ink hover:underline`} title={`Open Assay on NEAR ${n}`}>{n}</a>
-        ) : null,
+        ) : (
+          <span key={n} className={`${item} text-ink-2`} title={`Assay on NEAR ${n} is coming soon`}>{n}<span className="ml-1.5 normal-case tracking-normal">· soon</span></span>
+        ),
       )}
     </span>
   );

@@ -1,9 +1,9 @@
 "use client";
 
 import { NETWORK, PUBLIC_RPCS } from "@/lib/network";
-import { NearProvider, useNearWallet } from "near-connect-hooks";
+import { Actions, NearProvider, useNearWallet } from "near-connect-hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isTestnetAccount, TestnetHelp, toYocto, WrongNetworkError, type Auth, type PayStep } from "./wallet";
+import { isTestnetAccount, TestnetHelp, toYocto, WrongNetworkError, type Auth, type PayStep, type WalletTx } from "./wallet";
 
 // The wallet engine, loaded on the first Connect or Pay (see WalletProvider in wallet.tsx). The code below moved
 // here unchanged from wallet.tsx; only the bridge's ending differs: it hands its value to the provider instead of
@@ -204,6 +204,31 @@ function AuthBridge({ onValue }: { onValue: (v: Auth) => void }) {
     [wallet],
   );
 
+  const sendTransactions = useCallback(
+    async (txs: WalletTx[], onStep?: (s: PayStep) => void) => {
+      onStep?.("approve");
+      const transactions = txs.map((t) => ({
+        receiverId: t.receiverId,
+        actions: t.calls.map((c) => Actions.functionCall(c.method, c.args, c.gas ?? "100000000000000", c.deposit)),
+      }));
+      // One transaction goes through the single-transaction path, which every wallet supports.
+      const outcomes = transactions.length === 1 ? [await wallet.signAndSendTransaction(transactions[0])] : await wallet.signAndSendTransactions({ transactions } as never);
+      const hashes = (outcomes ?? []).map((o) => txHashOf(o)).filter((h): h is string => !!h);
+      if (hashes.length < txs.length) throw new Error("The wallet didn't return every transaction. Check your wallet's activity before trying again.");
+      onStep?.("confirm");
+      return hashes;
+    },
+    [wallet],
+  );
+
+  const signMessage = useCallback(
+    async (m: { message: string; recipient: string; nonce: string }) => {
+      const signed = await wallet.signNEP413Message({ message: m.message, recipient: m.recipient, nonce: Uint8Array.from(atob(m.nonce), (c) => c.charCodeAt(0)) });
+      return { publicKey: String(signed.publicKey), signature: String(signed.signature) };
+    },
+    [wallet],
+  );
+
   const signOut = useCallback(async () => {
     await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
     await wallet.signOut().catch(() => {});
@@ -212,8 +237,8 @@ function AuthBridge({ onValue }: { onValue: (v: Auth) => void }) {
 
   // Hand the value up once the connector has finished loading, and again whenever it changes.
   const value = useMemo<Auth>(
-    () => ({ account, ready, busy, error, signIn, signOut, pay, ensureSignedIn: ensure, callWithDeposit }),
-    [account, ready, busy, error, signIn, signOut, pay, ensure, callWithDeposit],
+    () => ({ account, ready, busy, error, signIn, signOut, pay, ensureSignedIn: ensure, callWithDeposit, sendTransactions, signMessage }),
+    [account, ready, busy, error, signIn, signOut, pay, ensure, callWithDeposit, sendTransactions, signMessage],
   );
   useEffect(() => {
     if (!wallet.loading) onValue(value);

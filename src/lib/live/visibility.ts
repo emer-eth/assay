@@ -23,7 +23,7 @@ export function forViewer(r: LiveRound, viewer: string | null, payments: string[
     out.briefWithheld = true;
   }
   // Rounds paid from a wallet are private to their poster; older demo rounds funded by the coordinator stay public.
-  if ((r.deposit || r.paidWith === "credit" || r.paidWith === "escrow" || r.paidWith === "intents") && !out.mine && r.deliverable) {
+  if ((r.deposit || r.paidWith === "credit" || r.paidWith === "escrow" || r.paidWith === "intents" || r.paidWith === "oneclick") && !out.mine && r.deliverable) {
     out.deliveredWords = r.deliverable.split(/\s+/).filter(Boolean).length;
     out.deliverable = undefined;
     out.private = true;

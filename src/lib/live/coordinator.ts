@@ -8,6 +8,7 @@ import type { Payment } from "./actions";
 import { agentBid, agentWork, modelOf, usageToNear } from "./agent-ai";
 import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
+import { settleThroughIntents } from "./intents-jobs";
 import { refundThroughIntents } from "./intents-pay";
 import { yoctoOf } from "./pay-assets";
 import { load, update, updateRound, type LiveRound } from "./store";
@@ -32,6 +33,8 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
         at: new Date().toISOString(),
         text:
           payment.via === "intents"
+            ? `${poster} paid ${job.budget} NEAR with a signed NEAR Intents transfer to the coordinator (job ${payment.jobId})`
+            : payment.via === "oneclick"
             ? `${poster} paid ${job.budget} NEAR in ${payment.assetLabel} through NEAR Intents (1Click); the coordinator deposits it into the escrow contract (job ${payment.jobId}) when the round starts`
             : payment.via === "escrow"
             ? `${poster} posted the job; ${job.budget} NEAR is held by the escrow contract (job ${payment.jobId})`
@@ -42,10 +45,10 @@ export function createRound(job: Omit<Job, "id" | "poster">, poster: string, pay
     ],
     eligible: [],
     bids: [],
-    txs: [],
+    txs: payment.via === "intents" ? [{ label: `Signed intent: ${poster} transferred ${job.budget} wNEAR to the coordinator on NEAR Intents (execute_intents)`, hash: payment.tx }] : [],
     deposit,
     paidWith: payment.via,
-    escrowJobId: payment.via === "escrow" || payment.via === "intents" ? payment.jobId : undefined,
+    escrowJobId: payment.via === "escrow" || payment.via === "oneclick" ? payment.jobId : undefined,
   };
   update((s) => s.rounds.unshift(round));
   return round;
@@ -61,6 +64,11 @@ async function refund(id: string, poster: string, near: number, why: string) {
     return;
   }
   if (r.paidWith === "intents") {
+    // Paid by a signed intent: the budget is in the coordinator's NEAR Intents balance. It goes back the same way.
+    await settleThroughIntents(id, null, 0, near, why);
+    return;
+  }
+  if (r.paidWith === "oneclick") {
     // The budget is in escrow (deposited by the coordinator), or still with the coordinator if the round never got
     // that far. Either way it goes back through NEAR Intents, to the payer's own address in the token they paid with.
     const onChain = r.escrowJobId ? await escrowJob(r.escrowJobId) : null;
@@ -134,7 +142,7 @@ export function recoverInterrupted() {
     }
     const unpaid = r.status !== "settling"; // before settling, nothing has been paid out of the budget
     updateRound(r.id, { status: "error", error: "The server restarted during this round." }, "The server restarted mid-round. The round was closed and the poster refunded.");
-    if (unpaid || r.paidWith === "escrow" || r.paidWith === "intents") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
+    if (unpaid || r.paidWith === "escrow" || r.paidWith === "oneclick" || r.paidWith === "intents") queue.tail = queue.tail.then(() => refund(r.id, r.job.poster, r.job.budget, "server restarted")).catch(() => {});
   }
 }
 
@@ -143,7 +151,7 @@ export async function runLiveRound(id: string) {
   if (!round || round.status !== "queued") return;
   // Paid through NEAR Intents: the wNEAR 1Click delivered becomes the escrow deposit now, in the queue, so the
   // coordinator signs one thing at a time (also after a restart, which re-queues rounds that hadn't started).
-  if (round.paidWith === "intents" && !round.txs.some((t) => t.label.startsWith("Coordinator deposited"))) {
+  if (round.paidWith === "oneclick" && !round.txs.some((t) => t.label.startsWith("Coordinator deposited"))) {
     try {
       await fundIntentsEscrow(round);
     } catch (e) {
@@ -218,7 +226,13 @@ export async function runLiveRound(id: string) {
     updateRound(id, { grade, status: "settling" }, grade.passed ? "Work passed review" : `Work failed review: ${grade.reasons.join("; ")}`);
     const s = settle(job, winner, decision.winner.ask, { passed: grade.passed, aiCost });
     const escrowJobId = load().rounds.find((r) => r.id === id)?.escrowJobId;
-    if (escrowJobId && grade.passed) {
+    const viaIntents = load().rounds.find((r) => r.id === id)?.paidWith === "intents";
+    if (viaIntents) {
+      // One signed intent: the winner's pay in NEAR, and the unused budget back to the payer's NEAR Intents balance.
+      if (grade.passed) await settleThroughIntents(id, winner.id, s.payout.toAgent, s.payout.refundToPoster, "unused budget");
+      else await refund(id, job.poster, job.budget, "work failed review");
+      paidOut = job.budget;
+    } else if (escrowJobId && grade.passed) {
       // One contract call pays the agent and the fee and refunds the rest of the budget to the poster.
       await ensureEscrowAgent(winner.id);
       const hash = await escrowSettle(escrowJobId, winner.id, s.payout.toAgent, s.payout.fee);
@@ -234,9 +248,9 @@ export async function runLiveRound(id: string) {
       paidOut += s.payout.toAgent + s.payout.fee;
       updateRound(id, (r) => r.txs.push({ label: `Coordinator paid ${winner.name} ${s.payout.toAgent} NEAR`, hash }));
     }
-    if (!escrowJobId) await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
+    if (!escrowJobId && !viaIntents) await refund(id, job.poster, s.payout.refundToPoster, grade.passed ? "unused budget" : "work failed review");
     // An Intents payer's unused budget came back from the escrow to the coordinator (it posted the job); send it on.
-    else if (grade.passed && s.payout.refundToPoster > 0 && load().rounds.find((r) => r.id === id)?.paidWith === "intents")
+    else if (grade.passed && s.payout.refundToPoster > 0 && load().rounds.find((r) => r.id === id)?.paidWith === "oneclick")
       await refundThroughIntents(id, s.payout.refundToPoster, "unused budget").catch((err) => updateRound(id, {}, `The unused ${s.payout.refundToPoster} NEAR couldn't be sent back automatically (${err instanceof Error ? err.message : err}). It's owed to ${job.poster}.`));
     paidOut = job.budget;
     update((st) => {

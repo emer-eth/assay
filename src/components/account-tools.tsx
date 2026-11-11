@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { refetchMarket } from "@/lib/market";
-import { Button, explorerTx, Field } from "@/ui";
+import { Button, explorerTx, Field, Tag } from "@/ui";
+import { useAuth } from "./wallet";
 
 // Account pieces shared by /connect and /account: prepaid credit and API keys, and an agent's withdraw.
 // The API calls are the ones the classic "Use from your AI" panel made.
@@ -93,5 +94,65 @@ export function AgentWithdraw({ id, label = "Withdraw its profit", amount, compa
       }}>{amount !== undefined ? `Withdraw ${amount.toFixed(4)}` : label}</Button>
       {s.error && <p role="alert" className="mt-2 text-sm text-refund">{s.error}</p>}
     </div>
+  );
+}
+
+/** The signed-in account's NEAR Intents balance (refunds of Intents-paid jobs land there), and a withdrawal
+ *  to the wallet: the user signs a native_withdraw intent, Assay submits it. */
+export function IntentsBalance({ account }: { account: string }) {
+  const auth = useAuth();
+  const [bal, setBal] = useState<{ near: number; verifier: string } | null>(null);
+  const [s, setS] = useState<{ busy?: string; error?: string; hash?: string }>({});
+  const load = useCallback(async () => {
+    const r = await fetch("/api/intents/balance", { cache: "no-store" });
+    if (r.ok) setBal(await r.json());
+  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once the account is known
+    void load();
+  }, [account, load]);
+  async function withdraw() {
+    setS({ busy: "Preparing…" });
+    try {
+      const prep = await (await fetch("/api/intents/withdraw", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+      if (!prep.sign) throw new Error(prep.error || "Nothing to withdraw.");
+      setS({ busy: "Sign in your wallet…" });
+      const signed = await auth.signMessage(prep.sign);
+      for (let i = 0; i < 2; i++) {
+        setS({ busy: "Withdrawing…" });
+        const r = await fetch("/api/intents/withdraw", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sign: prep.sign, ...signed }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) {
+          setS({ hash: d.tx });
+          void load();
+          return;
+        }
+        // First time signing an intent: register the wallet's key with the verifier, then submit the same signature.
+        if (i === 0 && /isn't registered/.test(d.error ?? "")) {
+          setS({ busy: "Approve the key registration…" });
+          await auth.sendTransactions([{ receiverId: bal!.verifier, calls: [{ method: "add_public_key", args: { public_key: signed.publicKey }, deposit: "1", gas: "30000000000000" }] }]);
+          continue;
+        }
+        throw new Error(d.error || "Withdrawal failed.");
+      }
+    } catch (e) {
+      setS({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return (
+    <section aria-labelledby="intents-bal-h" className="mt-8 flex flex-wrap items-center justify-between gap-4 border-l-4 border-stamp bg-stamp-tint px-5 py-4">
+      <div>
+        <h2 id="intents-bal-h" className="flex flex-wrap items-center gap-2 font-semibold text-ink">Your NEAR Intents balance <Tag tone="stamp">NEAR Intents</Tag></h2>
+        <p className="mt-1 text-[15px] text-ink-2">
+          <span className="font-mono text-ink">{bal ? bal.near.toFixed(4) : "…"} wNEAR</span> on <span className="font-mono">{bal?.verifier ?? "…"}</span>. Refunds of jobs you paid with a NEAR Intent land here, and your next job spends it first.
+        </p>
+        {s.error && <p role="alert" className="mt-2 text-sm text-refund">{s.error}</p>}
+      </div>
+      {s.hash ? (
+        <a className="inline-flex min-h-11 items-center text-[15px] text-stamp underline" href={explorerTx(s.hash)} target="_blank" rel="noreferrer">Withdrawn to your wallet ↗</a>
+      ) : (
+        <Button variant="secondary" disabled={!bal || bal.near <= 0} busy={s.busy} onClick={() => void withdraw()}>Withdraw to your wallet</Button>
+      )}
+    </section>
   );
 }
