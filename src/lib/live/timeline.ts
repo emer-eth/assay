@@ -103,3 +103,27 @@ export function money(r: PublicRound, agents: Pick<LiveAgent, "id" | "name">[]):
   const left = Math.round((r.job.budget - pay.toAgent - pay.fee - pay.refundToPoster) * 1e4) / 1e4;
   return { settled: true, lines, total: { label: "Left in escrow", amount: left }, note: pay.aiCost ? `${winner[0].toUpperCase()}${winner.slice(1)} paid ${fmt(pay.aiCost)} NEAR for its own AI, from its own account.` : undefined };
 }
+
+export type StageTimes = { review?: number; tools?: number; bids?: number; work?: number; grade?: number };
+
+/** How long each stage of a finished round took, in ms, read from its step log. */
+export function stageTimes(r: Pick<PublicRound, "steps">): StageTimes {
+  const at = (re: RegExp) => {
+    const s = r.steps.find((x) => re.test(x.text));
+    return s ? Date.parse(s.at) : undefined;
+  };
+  const posted = r.steps[0] ? Date.parse(r.steps[0].at) : undefined;
+  const review = at(/^Reviewer approved/), tools = at(/^Tools:/), bids = at(/^Bids revealed/), work = at(/ delivered \(/), grade = at(/^Work (passed|failed) review/);
+  const d = (a?: number, b?: number) => (a !== undefined && b !== undefined && b >= a ? b - a : undefined);
+  return { review: d(posted, review), tools: d(review, tools), bids: d(tools ?? review, bids), work: d(bids, work), grade: d(work, grade) };
+}
+
+/** Typical (median) time per stage across rounds, for "what happens next". */
+export function typicalTimes(rounds: Pick<PublicRound, "steps">[]): Required<{ [K in keyof StageTimes]: number | null }> {
+  const all = rounds.map(stageTimes);
+  const median = (k: keyof StageTimes) => {
+    const v = all.map((t) => t[k]).filter((x): x is number => x !== undefined).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  return { review: median("review"), tools: median("tools"), bids: median("bids"), work: median("work"), grade: median("grade") };
+}

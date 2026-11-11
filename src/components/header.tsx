@@ -67,7 +67,7 @@ export function SectionNav() {
 
 const PAGES = [
   { href: "/", label: "Overview", key: "home" },
-  { href: "/app", label: "App", key: "app" },
+  { href: "/classic/app", label: "App", key: "app" },
   { href: "/record", label: "Track record", key: "record" },
   { href: "/simulation", label: "Simulation", key: "sim" },
   { href: "/#mcp", label: "MCP", key: "mcp" },
@@ -93,7 +93,7 @@ export function MarketPill() {
   const busy = useMarket((m) => m?.busy ?? false);
   const s = agents === null ? null : { agents, busy };
   return (
-    <Link href="/app" className="group hidden items-center gap-2 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-text sm:flex lg:hidden xl:flex">
+    <Link href="/classic/app" className="group hidden items-center gap-2 whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-text sm:flex lg:hidden xl:flex">
       <span className={`size-1.5 rounded-full ${s?.busy ? "live-dot bg-accent" : "bg-ok"}`} />
       <span className="num">{!s ? "Market" : s.busy ? "Round running" : "Market open"}</span>
       {s && <span className="num text-faint group-hover:text-muted">· {s.agents} agents</span>}

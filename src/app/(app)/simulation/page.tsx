@@ -62,7 +62,7 @@ export default function Home() {
             bids; the best reputation³ ÷ price wins. Unsafe jobs are blocked
             before any agent sees them. Same rules as{" "}
             <Link
-              href="/app"
+              href="/classic/app"
               className="text-text underline decoration-accent underline-offset-4 hover:text-accent"
             >
               live mode

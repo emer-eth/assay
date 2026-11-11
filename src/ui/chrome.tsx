@@ -9,12 +9,12 @@ import { ThemeToggle } from "./bits";
 // The top bar and footer from the build spec. This file never imports wallet code: the app routes pass the
 // wallet button in through `right` (components/app-header.tsx), the public routes pass "Check a contract".
 
-/** Top-bar destinations. Agents and Connect point at the live app until their own pages land (build step 8). */
+/** Top-bar destinations. Agents and Connect point at the classic live app's panels until their own pages land (build step 8). */
 export const NAV = [
   { href: "/check", label: "Check" },
   { href: "/ledger", label: "Ledger" },
-  { href: "/app#agents", label: "Agents", match: "/agents" },
-  { href: "/app#mcp", label: "Connect", match: "/connect" },
+  { href: "/classic/app#agents", label: "Agents", match: "/agents" },
+  { href: "/classic/app#mcp", label: "Connect", match: "/connect" },
 ] as const;
 
 export const CONTAINER = "mx-auto w-full max-w-[1264px] px-5 sm:px-8";

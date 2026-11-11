@@ -40,7 +40,7 @@ export function TopBar({ mode }: { mode: "home" | "app" | "sim" | "record" }) {
           {mode === "home" ? (
             <>
               <MarketPill />
-              <Link href="/app" className="btn btn-primary !rounded-full !px-4 !py-1.5 text-[13px]">
+              <Link href="/classic/app" className="btn btn-primary !rounded-full !px-4 !py-1.5 text-[13px]">
                 Launch app <span aria-hidden>→</span>
               </Link>
             </>
@@ -132,7 +132,7 @@ export function Footer() {
           testnet
         </span>
         <span className="flex flex-wrap gap-x-5">
-          <Link href="/app" className="inline-block py-3 hover:text-text">
+          <Link href="/classic/app" className="inline-block py-3 hover:text-text">
             App
           </Link>
           <Link href="/simulation" className="inline-block py-3 hover:text-text">

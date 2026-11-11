@@ -1,6 +1,10 @@
 import "server-only";
 import { RPC_URLS } from "../near";
 import type { Job } from "../swarm/types";
+import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode } from "./detect";
+
+// The pure finders live in detect.ts (the browser uses them to name the check as you type).
+export { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode };
 
 // Agent tools: what makes a hired agent worth paying instead of asking a chatbot.
 // Before it works, the winner reads real inputs, and the same evidence goes to the reviewer,
@@ -22,18 +26,7 @@ const TIMEOUT = 10_000;
 
 // ---------- finding the target in a job ----------
 
-const URL_RE = /https?:\/\/\S+/g;
-const ACCOUNT_RE = /\b(?:[a-z0-9]+[-_])*[a-z0-9]+(?:\.(?:[a-z0-9]+[-_])*[a-z0-9]+)*\.(?:near|testnet)\b|\b[0-9a-f]{64}\b/g;
-const GITHUB_RE = /github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/(tree|blob)\/([^/\s)]+)(?:\/([^\s)]*))?)?(?=[\s)>"'\],]|$)/;
 
-export function findAccounts(text: string) {
-  return [...new Set(text.toLowerCase().replace(URL_RE, " ").match(ACCOUNT_RE) ?? [])].slice(0, 3);
-}
-export function findRepo(text: string) {
-  const m = text.match(GITHUB_RE);
-  return m ? { owner: m[1], repo: m[2], kind: m[3] as "tree" | "blob" | undefined, ref: m[4], path: m[5]?.replace(/\/$/, "") } : null;
-}
-export const hasPastedCode = (text: string) => /near_sdk|#\[near|near_bindgen|pub fn \w+\s*\(/.test(text);
 const netOf = (id: string): Net => (id.endsWith(".testnet") ? "testnet" : "mainnet");
 
 /** Checked before anyone pays: the job must name what to check, and it must exist. Returns a problem, or null. */
@@ -488,15 +481,8 @@ async function describeCall(receiver: string, method: string, args: unknown, dep
 
 // ---------- DAO proposal review ----------
 
-const PROPOSAL_NUM_RE = /(?:proposals?\s*(?:#|no\.?|number|id)?\s*|#|[?&]id=|proposals\/[a-z0-9._-]+?-)(\d{1,7})\b/i;
 
 /** The DAO and proposal number a job names, e.g. "proposal #1059 on ref-finance.sputnik-dao.near" or an Astro / NEAR Treasury link. */
-export function findProposal(text: string): { dao: string; id: number } | null {
-  const accounts = [...new Set(text.toLowerCase().match(ACCOUNT_RE) ?? [])];
-  const dao = accounts.find((a) => /sputnik|dao/.test(a)) ?? accounts[0];
-  const num = text.match(PROPOSAL_NUM_RE)?.[1];
-  return dao && num ? { dao, id: Number(num) } : null;
-}
 
 type Proposal = {
   id: number;
@@ -603,8 +589,6 @@ export async function proposalReport(dao: string, id: number): Promise<{ facts: 
 
 // ---------- transaction forensics ----------
 
-const TX_HASH_RE = /(?<![1-9A-HJ-NP-Za-km-z])[1-9A-HJ-NP-Za-km-z]{43,44}(?![1-9A-HJ-NP-Za-km-z])/;
-export const findTxHash = (text: string) => text.match(TX_HASH_RE)?.[0] ?? null;
 const ARCHIVE: Record<Net, string[]> = {
   mainnet: ["https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.fastnear.com"],
   testnet: ["https://archival-rpc.testnet.fastnear.com", ...RPC_URLS],

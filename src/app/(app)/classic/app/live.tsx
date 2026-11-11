@@ -14,6 +14,7 @@ import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
 import { refetchMarket, useMarket } from "@/lib/market";
+import { useEscrowPost } from "@/components/escrow-post";
 import { SKILL_LABEL, type Skill } from "@/lib/swarm/types";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 
@@ -507,93 +508,6 @@ function PayStatus({
   );
 }
 
-/**
- * Posting through the escrow contract: sign in if needed, reserve a job id, have the wallet call
- * post_job(job_id) on the contract with the budget attached, then let the server confirm it from the contract.
- * If confirming fails after the deposit, the job id is kept for a retry (and the poster can reclaim on chain).
- */
-function useEscrowPost(
-  liveKey: string,
-  onDone: (data: { id?: string }) => void,
-) {
-  const { ensureSignedIn, callWithDeposit } = useAuth();
-  const [step, setStep] = useState<PayStep | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<{
-    jobId: string;
-    txHash: string;
-  } | null>(null);
-  const headers = {
-    "content-type": "application/json",
-    ...(liveKey ? { "x-live-key": liveKey } : {}),
-  };
-
-  const submit = async (jobId: string, txHash: string) => {
-    setStep("confirm");
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch("/api/live/jobs", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ jobId, txHash }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setPending(null);
-        setStep(null);
-        onDone(data);
-        return true;
-      }
-      if (
-        res.status === 402 &&
-        /no deposit/i.test(data.error || "") &&
-        attempt < 4
-      ) {
-        await new Promise((r) => setTimeout(r, 2500));
-        continue;
-      }
-      setPending({ jobId, txHash });
-      setError(data.error || `Request failed (${res.status})`);
-      setStep(null);
-      return false;
-    }
-    return false;
-  };
-
-  const run = async (job: {
-    description: string;
-    skills: string[];
-    budget: number;
-  }) => {
-    setError(null);
-    try {
-      await ensureSignedIn(setStep);
-      const prep = await fetch("/api/live/jobs/prepare", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(job),
-      });
-      const p = await prep.json().catch(() => ({}));
-      if (!prep.ok) throw new Error(p.error || "Couldn't start the job.");
-      const txHash = await callWithDeposit(
-        p.contractId,
-        "post_job",
-        { job_id: p.jobId },
-        job.budget,
-        setStep,
-      );
-      return await submit(p.jobId, txHash);
-    } catch (e) {
-      setStep(null);
-      setError(e instanceof Error ? e.message : "The payment was cancelled.");
-      return false;
-    }
-  };
-
-  const retry = async () =>
-    pending ? (setError(null), submit(pending.jobId, pending.txHash)) : false;
-  return { run, retry, step, error, pending };
-}
-
 const EXAMPLES: { label: string; description: string; skills: Skill[] }[] = [
   {
     label: "Check Ref Finance",
@@ -791,7 +705,7 @@ function Agents({
   const rank = (a: LiveAgent) => (a.backer === account ? 2 : 0) + (cellState(a.id, round) !== "idle" ? 1 : 0) + a.quality / 10;
   const shown = all ? agents : [...agents].sort((a, b) => rank(b) - rank(a)).slice(0, COMPACT_AGENTS);
   return (
-    <section className="panel p-5" aria-labelledby="agents-h">
+    <section id="agents" className="panel scroll-mt-20 p-5" aria-labelledby="agents-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="agents-h" className="headline text-[19px] text-text">
           Agents <span className="num text-sm font-normal text-faint">{agents.length}</span>
@@ -1429,7 +1343,7 @@ function UseFromAI({
   const keyText = fresh ?? "sfh_YOUR_KEY";
 
   return (
-    <section className="panel p-5" aria-labelledby="ai-h">
+    <section id="mcp" className="panel scroll-mt-20 p-5" aria-labelledby="ai-h">
       <div className="flex items-center justify-between gap-2">
         <h2 id="ai-h" className="headline text-[19px] text-text">
           Use from your AI{" "}

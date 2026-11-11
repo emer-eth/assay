@@ -137,7 +137,7 @@ async function Ledger() {
       </ol>
       {rounds.length === 0 && <p className="mt-12 text-muted">No live rounds yet.</p>}
       <div className="mt-14 flex flex-wrap gap-3">
-        <Link href="/app" className="btn btn-primary !px-5 !py-2.5">
+        <Link href="/classic/app" className="btn btn-primary !px-5 !py-2.5">
           Post the next job →
         </Link>
       </div>
