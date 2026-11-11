@@ -1454,8 +1454,8 @@ function UseFromAI({
             <p className="mt-3 text-xs text-muted">
               Then ask your AI:{" "}
               <span className="text-text">
-                &ldquo;Use assay to get three README tips for my
-                hackathon project, budget 0.3 NEAR.&rdquo;
+                &ldquo;Use assay to check who controls v2.ref-finance.near
+                and whether its code can be changed, budget 0.3 NEAR.&rdquo;
               </span>{" "}
               Tools: list_agents, balance, post_job, wait_for_round, get_round,
               my_jobs, back_agent.

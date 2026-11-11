@@ -17,13 +17,16 @@ const { secretKey } = JSON.parse(readFileSync(`.contract-keys/${ID}.json`, "utf8
 const key = KeyPair.fromString(secretKey);
 const publicKey = key.getPublicKey().toString();
 const me = new Account(ID, provider(), KeyPairSigner.fromSecretKey(secretKey));
+// API replies are read loosely here: this is a command-line demo, not app code.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Data = Record<string, any>;
 let cookie = "";
 
 async function api(path: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, { method: body === undefined ? "GET" : "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   const set = res.headers.getSetCookie?.().map((c) => c.split(";")[0]).join("; ");
   if (set) cookie = [cookie, set].filter(Boolean).join("; ");
-  return { status: res.status, data: (await res.json().catch(() => ({}))) as Record<string, any> };
+  return { status: res.status, data: (await res.json().catch(() => ({}))) as Data };
 }
 /** A NEP-413 signature, as a wallet returns it (base64). */
 const sign = (m: { message: string; nonce: string; recipient: string }) => Buffer.from(key.sign(nep413Hash({ message: m.message, nonce: new Uint8Array(Buffer.from(m.nonce, "base64")), recipient: m.recipient })).signature).toString("base64");
@@ -36,7 +39,7 @@ async function signIn() {
 }
 
 async function job(description: string, skill: string, budget: number) {
-  let prep = await api("/api/intents/job", { description, skills: [skill], budget });
+  const prep = await api("/api/intents/job", { description, skills: [skill], budget });
   if (prep.status !== 200) throw new Error(`prepare: ${prep.data.error}`);
   const p = prep.data;
   if (p.registerKey) {
@@ -49,7 +52,7 @@ async function job(description: string, skill: string, budget: number) {
     await me.callFunction({ contractId: p.wrap, methodName: "ft_transfer_call", args: { receiver_id: p.verifier, amount: p.deposit, msg: "" }, deposit: 1n, gas: GAS });
     console.log(`✅ deposited ${Number(BigInt(p.deposit) / 10n ** 18n) / 1e6} NEAR into the NEAR Intents balance`);
   } else console.log("✅ NEAR Intents balance already covers the budget (a refund from an earlier job)");
-  let sub = { status: 0, data: {} as Record<string, any> };
+  let sub = { status: 0, data: {} as Data };
   for (let i = 0; i < 6; i++) {
     sub = await api("/api/intents/job", { step: "submit", jobId: p.jobId, publicKey, signature: sign(p.sign) });
     if (sub.status === 202) break;
