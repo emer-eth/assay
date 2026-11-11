@@ -9,7 +9,7 @@ const shortHash = (h: string) => (h.length > 14 ? `${h.slice(0, 8)}…${h.slice(
 export function TxLink({ label, hash }: { label: ReactNode; hash: string }) {
   return (
     <div className="border-b border-rule py-3 last:border-b-0">
-      <p className="text-[15px] text-ink">{label}</p>
+      <p className="text-[15px] text-ink [overflow-wrap:anywhere]">{label}</p>
       <a href={explorerTx(hash)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 font-mono text-sm text-stamp hover:underline">
         {shortHash(hash)} <span aria-hidden>↗</span>
         <span className="sr-only">(opens the explorer)</span>

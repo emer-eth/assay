@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { usePaidAction } from "@/components/escrow-post";
 import { PayProblem } from "@/components/pay-problem";
+import { KeyManager, useCreditAndKeys } from "@/components/account-tools";
 import { PAY_STEP_LABEL, useAuth } from "@/components/wallet";
 import { Button, CONTAINER, Field, Footer, Label } from "@/ui";
 
 // Connect your AI (build spec, Connect): top up credit, create a key, paste the command. The API calls are
 // the ones the classic live app's "Use from your AI" panel makes, unchanged (credit, keys, withdraw).
-
-type KeyRow = { id: string; label: string; prefix: string; createdAt: string; lastUsedAt?: string };
 
 /** Which tools need a key matches the MCP route: reading is open, spending or reading your own work needs one. */
 const TOOLS: [string, string, boolean][] = [
@@ -25,23 +24,17 @@ const TOOLS: [string, string, boolean][] = [
 
 export function Connect({ coordinator }: { coordinator: string | null }) {
   const { account, signIn, busy: signingIn } = useAuth();
-  const [data, setData] = useState<{ credit: number; keys: KeyRow[] } | null>(null);
+  const { data, load } = useCreditAndKeys(account);
   const [amount, setAmount] = useState("1");
-  const [label, setLabel] = useState("");
   const [fresh, setFresh] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [origin, setOrigin] = useState("https://your-assay-host");
   const [copied, setCopied] = useState(false);
-  const load = useCallback(async () => {
-    const res = await fetch("/api/live/credit", { cache: "no-store" });
-    if (res.ok) setData(await res.json());
-  }, []);
   useEffect(() => {
-    // The real host for the command, and the signed-in account's credit and keys, are only known in the browser.
+    // The real host for the command is only known in the browser.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrigin(window.location.origin);
-    if (account) void load();
-  }, [account, load]);
+  }, []);
   const topUp = usePaidAction("/api/live/credit", coordinator, "", () => {
     setMsg("Credit added.");
     void load();
@@ -93,32 +86,7 @@ export function Connect({ coordinator }: { coordinator: string | null }) {
 
             <section aria-labelledby="c2">
               <h2 id="c2" className="flex items-baseline gap-3 border-b-2 border-ink pb-3 text-lg font-semibold"><span className="font-mono text-sm">2</span> Create a key</h2>
-              <form className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={async (e) => {
-                e.preventDefault();
-                const res = await fetch("/api/live/keys", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ label }) });
-                const d = await res.json().catch(() => ({}));
-                if (res.ok) { setFresh(d.key); setLabel(""); void load(); } else setMsg(d.error || "Couldn't create a key.");
-              }}>
-                <Field className="flex-1" label="Label, so you know which client uses it" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Claude on my laptop" disabled={!account} maxLength={60} />
-                <Button type="submit" variant="secondary" disabled={!account}>Create key</Button>
-              </form>
-              <p className="mt-3 text-[15px] text-ink-2">The key is shown once and stored only as a hash. You can hold 5 keys and revoke any of them.</p>
-              {fresh && (
-                <div role="status" className="mt-4 border-l-4 border-stamp bg-stamp-tint px-4 py-3">
-                  <p className="font-semibold text-ink">Copy this key now. It won&apos;t be shown again.</p>
-                  <code className="mt-1 block font-mono text-sm break-all text-ink">{fresh}</code>
-                </div>
-              )}
-              {!!data?.keys.length && (
-                <ul className="mt-5 border-t border-rule">
-                  {data.keys.map((k) => (
-                    <li key={k.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-rule py-3 text-[15px]">
-                      <span><span className="font-mono">{k.prefix}…</span> {k.label} <span className="block text-sm text-ink-2">{k.lastUsedAt ? `Last used ${k.lastUsedAt.slice(0, 16).replace("T", " ")} UTC` : "Never used"}</span></span>
-                      <button type="button" className="min-h-11 text-refund underline underline-offset-2" onClick={async () => { await fetch(`/api/live/keys?id=${k.id}`, { method: "DELETE" }); void load(); }}>Revoke<span className="sr-only"> {k.label}</span></button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="mt-5"><KeyManager account={account} data={data} load={load} onFresh={setFresh} /></div>
             </section>
 
             <section aria-labelledby="c3">

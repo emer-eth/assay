@@ -12,7 +12,7 @@ function inline(text: string, key: string): ReactNode[] {
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const t = m[0];
-    out.push(t.startsWith("**") ? <strong key={`${key}-${i++}`}>{t.slice(2, -2)}</strong> : <code key={`${key}-${i++}`} className="font-mono text-[0.92em]">{t.slice(1, -1)}</code>);
+    out.push(t.startsWith("**") ? <strong key={`${key}-${i++}`}>{t.slice(2, -2)}</strong> : <code key={`${key}-${i++}`} className="font-mono text-[0.92em] break-all">{t.slice(1, -1)}</code>);
     last = m.index + t.length;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -79,5 +79,7 @@ export function Markdown({ text, top = 3 }: { text: string; top?: 2 | 3 }) {
     while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|```|\s*([-*]|\d+\.)\s+|\|)/.test(lines[i])) para.push(lines[i++]);
     blocks.push(<p key={k++} className="my-3">{inline(para.join(" "), `p${k}`)}</p>);
   }
-  return <div className="text-[16px] leading-[26px] text-ink">{blocks.map((b, j) => <Fragment key={j}>{b}</Fragment>)}</div>;
+  // Reports carry hashes, token ids and account names with no natural break points: let them wrap anywhere
+  // rather than run out of the sheet.
+  return <div className="min-w-0 text-[16px] leading-[26px] text-ink [overflow-wrap:anywhere]">{blocks.map((b, j) => <Fragment key={j}>{b}</Fragment>)}</div>;
 }

@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { AppHeader } from "@/components/app-header";
-import { refetchMarket, useMarket } from "@/lib/market";
+import { AgentWithdraw } from "@/components/account-tools";
+import { useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 import { START_QUALITY } from "@/lib/swarm/round";
 import { SKILLS, type Skill } from "@/lib/swarm/types";
-import { Button, CONTAINER, explorerTx, Footer, Label, LedgerTable, Sheet, Tag, TxLink, VerdictStamp } from "@/ui";
+import { CONTAINER, Footer, Label, LedgerTable, Sheet, Tag, TxLink, VerdictStamp } from "@/ui";
 import { RepBar, recordText } from "../agents-view";
 
 type Agent = { id: string; name: string; model?: string; skills: Skill[]; quality: number; skillQuality?: Partial<Record<Skill, number>>; balance: number; backer: string; prompt: string; earned: number; funding: number; createdTx?: string };
@@ -77,7 +77,7 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
               ))}
             </dl>
             {a.createdTx && <TxLink label="Created and funded" hash={a.createdTx} />}
-            {mine && <Withdraw id={a.id} />}
+            {mine && <AgentWithdraw id={a.id} />}
           </aside>
         </div>
         <section aria-labelledby="won-h" className="mt-14">
@@ -98,25 +98,5 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
       </main>
       <Footer />
     </>
-  );
-}
-
-/** The backer takes the agent's balance back to their wallet (the existing withdraw endpoint). */
-function Withdraw({ id }: { id: string }) {
-  const [s, setS] = useState<{ busy?: boolean; error?: string; hash?: string }>({});
-  if (s.hash) return <a className="block text-[15px] text-stamp underline" href={explorerTx(s.hash)} target="_blank" rel="noreferrer">Sent to your wallet ↗</a>;
-  return (
-    <div>
-      <Button variant="secondary" className="w-full" busy={s.busy ? "Sending…" : undefined} onClick={async () => {
-        setS({ busy: true });
-        const res = await fetch(`/api/live/agents/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
-          setS({ hash: data.hash });
-          void refetchMarket().catch(() => {});
-        } else setS({ error: data.error || "Withdrawal failed." });
-      }}>Withdraw its balance</Button>
-      {s.error && <p role="alert" className="mt-2 text-[15px] text-refund">{s.error}</p>}
-    </div>
   );
 }

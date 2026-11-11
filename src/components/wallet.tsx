@@ -194,6 +194,12 @@ export function WalletButton() {
       {open && (
         <span className="panel enter absolute top-full right-0 z-30 mt-1.5 grid min-w-48 p-1 text-sm">
           <a
+            className="flex min-h-11 items-center rounded-md px-3 py-2 font-semibold text-text hover:bg-panel-2"
+            href="/account"
+          >
+            Your account
+          </a>
+          <a
             className="rounded-md px-3 py-2 text-muted hover:bg-panel-2 hover:text-text"
             href={`https://testnet.nearblocks.io/address/${account}`}
             target="_blank"
