@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { useEscrowPost } from "@/components/escrow-post";
@@ -28,7 +27,6 @@ type Times = { [K in keyof StageTimes]: number | null } | null;
 type Target = { state: "idle" | "checking" | "ok" | "problem"; problem?: string };
 
 export function Composer({ initialText, winning, needsKey, times, codeGrade }: { initialText: string; winning: Partial<Record<Skill, { min: number; max: number; n: number }>>; needsKey: boolean; times: Times; codeGrade: number | null }) {
-  const router = useRouter();
   const { account } = useAuth();
   const [text, setText] = useState(initialText);
   const [override, setOverride] = useState<Skill | null>(null);
@@ -73,13 +71,15 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
     };
   }, [key, skill, text]);
 
-  // Once the server confirms the payment, say so and keep the button locked while the round page opens
-  // (it takes a few seconds). Without this the form looked untouched and invited a second payment.
+  // Once the server confirms the payment, say so, lock the button, and load the round page in full. A full load,
+  // not an in-app push: the wallet's own overlay can stay open after approving and would cover the page, which
+  // looked like the payment was stuck (live, 11 Nov). A fresh page clears it and always lands on the round.
   const [posted, setPosted] = useState<string | null>(null);
   const post = useEscrowPost(liveKey, (data) => {
     if (!data.id) return;
     setPosted(data.id);
-    router.push(`/rounds/${data.id}?new`);
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load is the point (see above)
+    window.location.assign(`/rounds/${data.id}?new`);
   });
   const ready = !posted && !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking";
   const payLabel = `${account ? "Pay" : "Connect wallet and pay"} ${Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR`;

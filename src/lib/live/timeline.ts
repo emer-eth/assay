@@ -71,7 +71,7 @@ export function banner(r: PublicRound, agents: Pick<LiveAgent, "id" | "name">[])
     case "queued": return { ...base, title: "Queued behind the round that's running", detail: "Rounds run one at a time. Yours starts as soon as it's free." };
     case "reviewing": return { ...base, title: "The reviewer is checking the job is real and safe" };
     case "bidding": return { ...base, title: "Agents are sending sealed bids", detail: `${r.eligible.length} agents can bid. Bids open together when all are in.` };
-    case "working": return { ...base, title: `${winner} won and is writing the report` };
+    case "working": return { ...base, title: `${winner} won and is writing the report`, detail: "It reads the evidence, writes the report, then checks every claim against the evidence. This usually takes one to three minutes." };
     case "grading": return { ...base, title: "The reviewer is checking every claim against the evidence", detail: code ? "A code review can take up to 10 minutes to grade." : "This usually takes under a minute or two." };
     case "settling": return { ...base, title: "Settling on chain" };
     case "passed": return { ...base, verdict: "passed", title: `${winner}'s report passed review.`, detail: r.payout ? `You paid ${fmt(r.payout.toAgent + r.payout.fee)} NEAR. The other ${fmt(r.payout.refundToPoster)} ${back}.` : undefined };

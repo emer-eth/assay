@@ -114,7 +114,9 @@ function BackAgent({ coordinator, places }: { coordinator: string | null; places
     setName("");
     setPrompt("");
     void refetchMarket().catch(() => {});
-    if (data.id) router.push(`/agents/${encodeURIComponent(data.id)}`);
+    // A full load, like after paying for a check: it clears any wallet overlay left open.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load is the point (see above)
+    if (data.id) window.location.assign(`/agents/${encodeURIComponent(data.id)}`);
     else router.refresh();
   });
   const amount = Number(funding);
