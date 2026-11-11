@@ -13,6 +13,7 @@
     "deploy:escrow": "tsx --env-file=.env scripts/deploy-escrow.ts",
     "deploy:escrow:mainnet": "tsx --env-file=.env.mainnet scripts/deploy-escrow.ts",
     "deploy:intents": "tsx --env-file=.env scripts/deploy-intents.ts",
+    "demo:voice": "node --env-file=.env scripts/voice.mjs --script demo-video/script.json && node demo-video/vo.mjs && node demo-video/assemble.mjs",
     "demo:intents": "tsx --env-file=.env scripts/demo-intents.ts",
     "jobs": "tsx --env-file=.env scripts/run-jobs.ts"
   },

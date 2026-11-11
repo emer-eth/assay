@@ -37,7 +37,7 @@ const OUT = join(process.cwd(), "demo-audio");
 const API = "https://api.elevenlabs.io/v1";
 
 if (!KEY) {
-  console.error("Set ELEVENLABS_API_KEY in this terminal first:  export ELEVENLABS_API_KEY=your_key");
+  console.error("No ElevenLabs key found. Add it to the ELEVENLABS_API_KEY= line in .env (git-ignored) and run `npm run demo:voice`, or export it in this terminal.");
   process.exit(1);
 }
 
@@ -51,13 +51,15 @@ if (process.argv.includes("--voices")) {
 
 // VOICE=Brian picks a voice on your account by name instead of by ID.
 let VOICE_PICKED = VOICE;
-if (process.env.VOICE) {
+// The demo video is narrated by Brian unless VOICE says otherwise.
+const NAME = process.env.VOICE || (scriptAt > 0 && !process.env.VOICE_ID ? "Brian" : "");
+if (NAME) {
   const r = await fetch(`${API}/voices`, { headers: { "xi-api-key": KEY } });
   if (!r.ok) fail(r.status, await r.text());
   const { voices } = await r.json();
-  const want = process.env.VOICE.toLowerCase();
+  const want = NAME.toLowerCase();
   const v = voices.find((x) => x.name.toLowerCase() === want) || voices.find((x) => x.name.toLowerCase().startsWith(want));
-  if (!v) { console.error(`No voice called "${process.env.VOICE}" on your account. Run with --voices to see them.`); process.exit(1); }
+  if (!v) { console.error(`No voice called "${NAME}" on your account. Run with --voices to see them.`); process.exit(1); }
   VOICE_PICKED = v.voice_id;
   console.log(`Voice: ${v.name}\n`);
 }
