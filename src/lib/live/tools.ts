@@ -2,8 +2,8 @@ import "server-only";
 import { RPC_URLS } from "../near";
 import type { Job } from "../swarm/types";
 import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode } from "./detect";
-import { intentEvidence, tokenContract } from "./intents";
-import { depositAddressCandidates, fetchSwapStatus, swapEvidence } from "./oneclick";
+import { intentLines, tokenContract, viewIntents, type IntentView } from "./intents";
+import { depositAddressCandidates, fetchSwapStatus, swapEvidence, viewSwap, type SwapView } from "./oneclick";
 
 // The pure finders live in detect.ts (the browser uses them to name the check as you type).
 export { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode };
@@ -662,7 +662,7 @@ async function describeLogs(logs: string[]) {
   return out;
 }
 
-export async function txReport(hash: string, text: string): Promise<{ facts: string; summary: string }> {
+export async function txReport(hash: string, text: string): Promise<{ facts: string; summary: string; intents?: IntentView[] }> {
   const found = await findTx(hash, text);
   if (!found) return { facts: `TRANSACTION ${hash}: not found on NEAR mainnet or testnet (if it's on testnet, name the account that sent it).`, summary: `transaction ${hash} not found` };
   const { tx, net } = found;
@@ -694,10 +694,12 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
     const t = tokenContract(id);
     return t.contract ? tokenAmount(t.contract, raw) : `${raw} raw units of ${t.label}`;
   };
+  const intents: IntentView[] = [];
   for (const a of t.actions) {
     const v = typeof a === "string" ? null : (a as Record<string, Record<string, string>>).FunctionCall;
-    if (v && /^(execute|simulate)_intents$/.test(v.method_name)) lines.push(...(await intentEvidence(decodeArgs(v.args), ranAt, intentAmount)));
+    if (v && /^(execute|simulate)_intents$/.test(v.method_name)) intents.push(...(await viewIntents(decodeArgs(v.args), ranAt, intentAmount)));
   }
+  lines.push(...intentLines(intents));
   lines.push("- Receipts, in the order they ran (each runs on its own; a failure does NOT undo receipts that already succeeded, and a failed receipt's attached NEAR is refunded):");
   for (const [i, r] of tx.receipts_outcome.slice(0, 30).entries()) {
     const rc = byId.get(r.id);
@@ -714,7 +716,7 @@ export async function txReport(hash: string, text: string): Promise<{ facts: str
   lines.push(`- Total gas fees burnt: ${nearExact(fees.toString())}`);
   const ts = nbTime?.txns?.[0]?.block_timestamp;
   if (ts) lines.push(`- Time: ${new Date(Number(BigInt(ts) / 1_000_000n)).toISOString().replace("T", " ").slice(0, 19)} UTC`);
-  return { facts: lines.join("\n"), summary: `transaction ${hash.slice(0, 8)}… from ${t.signer_id} to ${t.receiver_id}: ${err ? `failed (${err.slice(0, 80)})` : "succeeded"}, ${tx.receipts_outcome.length} receipts` };
+  return { facts: lines.join("\n"), summary: `transaction ${hash.slice(0, 8)}… from ${t.signer_id} to ${t.receiver_id}: ${err ? `failed (${err.slice(0, 80)})` : "succeeded"}, ${tx.receipts_outcome.length} receipts`, intents: intents.length ? intents : undefined };
 }
 
 // ---------- the evidence an agent works from ----------
@@ -734,12 +736,16 @@ const sourceSummary = (src: Source) => {
   return `Read ${src.files.length} file${src.files.length === 1 ? "" : "s"} from ${src.label}; the scan flagged ${n} pattern${n === 1 ? "" : "s"}`;
 };
 
-export type Evidence = { facts: string; summary: string[] };
+/** What the tools read. `facts` goes to the agents and the reviewer only; `intents` and `swap` are public chain
+ *  data the round page shows to everyone. */
+export type Evidence = { facts: string; summary: string[]; intents?: IntentView[]; swap?: SwapView };
 
 /** Runs the tools a job's skills call for. Returns null if the job needs no tools. */
 export async function gatherEvidence(job: Pick<Job, "description" | "skills">): Promise<Evidence | null> {
   const parts: string[] = [];
   const summary: string[] = [];
+  const intents: IntentView[] = [];
+  let swap: SwapView | undefined;
   let sourceRead = false;
   if (job.skills.includes("due-diligence")) {
     for (const id of findAccounts(job.description)) {
@@ -788,6 +794,7 @@ export async function gatherEvidence(job: Pick<Job, "description" | "skills">): 
       const r = swapEvidence(a, s);
       parts.push(r.facts);
       summary.push(`Read ${r.summary}`);
+      swap = viewSwap(a, s);
       swaps.push(a);
       // The swap's own NEAR transaction shows the intents that settled it.
       const nearTx = s.swapDetails?.nearTxHashes?.[0];
@@ -796,16 +803,18 @@ export async function gatherEvidence(job: Pick<Job, "description" | "skills">): 
         if (t) {
           parts.push(t.facts);
           summary.push(`Read the swap's NEAR ${t.summary}`);
+          if (t.intents) intents.push(...t.intents);
         }
       }
       break;
     }
     const hash = findTxHash(job.description);
     if (hash && !swaps.includes(hash)) {
-      const r = await txReport(hash, job.description).catch((e) => ({ facts: `TRANSACTION ${hash}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: "couldn't read the transaction" }));
+      const r: { facts: string; summary: string; intents?: IntentView[] } = await txReport(hash, job.description).catch((e) => ({ facts: `TRANSACTION ${hash}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: "couldn't read the transaction" }));
       parts.push(r.facts);
       summary.push(`Read ${r.summary}`);
+      if (r.intents) intents.push(...r.intents);
     }
   }
-  return parts.length ? { facts: parts.join("\n\n"), summary } : null;
+  return parts.length ? { facts: parts.join("\n\n"), summary, ...(intents.length ? { intents } : {}), ...(swap ? { swap } : {}) } : null;
 }

@@ -108,31 +108,51 @@ export async function describeIntent(i: Record<string, unknown>, signer: string 
   }
 }
 
-/** The evidence lines for every signed intent in a call, given when the call ran (for the deadline check). */
-export async function intentEvidence(args: unknown, executedAt: Date | null, amount: Amount): Promise<string[]> {
-  const signed = decodeSignedIntents(args);
-  if (!signed.length) return [];
-  const lines = [`- NEAR Intents: ${signed.length} signed payload${signed.length === 1 ? "" : "s"} in the call, decoded:`];
-  for (const [n, s] of signed.entries()) {
+/** One signed payload, ready to show: who signed it, its deadline, each intent in words, and any flags. Public chain data. */
+export type IntentView = { signer: string; standard: string; deadline: string; expired: boolean; items: string[]; flags: string[] };
+
+/** Every signed intent in a call, decoded and described, with the deadline checked against when the call ran. */
+export async function viewIntents(args: unknown, executedAt: Date | null, amount: Amount): Promise<IntentView[]> {
+  const out: IntentView[] = [];
+  for (const s of decodeSignedIntents(args)) {
     const flags: string[] = [];
     let deadline = s.deadline ?? "none given";
+    let expired = false;
     if (s.deadline && executedAt) {
       const d = Date.parse(s.deadline);
       if (Number.isFinite(d)) {
         const mins = Math.round((d - executedAt.getTime()) / 60_000);
-        deadline += d < executedAt.getTime() ? ` (EXPIRED ${-mins} min before the call ran)` : ` (${mins} min after the call ran, so still valid then)`;
-        if (d < executedAt.getTime()) flags.push("the deadline had passed when the call ran");
+        expired = d < executedAt.getTime();
+        deadline += expired ? ` (EXPIRED ${-mins} min before the call ran)` : ` (${mins} min after the call ran, so still valid then)`;
+        if (expired) flags.push("the deadline had passed when the call ran");
       }
     }
-    lines.push(`  ${n + 1}. signed by ${who(s.signer)} (${s.standard}${s.recipient ? `, for ${s.recipient}` : ""}), deadline ${deadline}`);
-    if (!s.intents.length) lines.push("     no intents in the message");
+    const items: string[] = [];
     for (const i of s.intents) {
       const d = await describeIntent(i, s.signer, amount);
-      lines.push(`     - ${d.text}`);
+      items.push(d.text);
       flags.push(...d.flags);
     }
-    for (const f of flags) lines.push(`     ! ${f}`);
+    out.push({ signer: who(s.signer), standard: `${s.standard}${s.recipient ? `, for ${s.recipient}` : ""}`, deadline, expired, items, flags });
+  }
+  return out;
+}
+
+/** The evidence lines for a call's signed intents (what the agents and the reviewer read). */
+export function intentLines(views: IntentView[]): string[] {
+  if (!views.length) return [];
+  const lines = [`- NEAR Intents: ${views.length} signed payload${views.length === 1 ? "" : "s"} in the call, decoded:`];
+  for (const [n, v] of views.entries()) {
+    lines.push(`  ${n + 1}. signed by ${v.signer} (${v.standard}), deadline ${v.deadline}`);
+    if (!v.items.length) lines.push("     no intents in the message");
+    for (const t of v.items) lines.push(`     - ${t}`);
+    for (const f of v.flags) lines.push(`     ! ${f}`);
   }
   lines.push("  (Decoded from the call's own arguments. A flag is a fact about the intent, not the confirmed cause of a failure: compare it with the error.)");
   return lines;
+}
+
+/** The evidence lines for every signed intent in a call, given when the call ran (for the deadline check). */
+export async function intentEvidence(args: unknown, executedAt: Date | null, amount: Amount): Promise<string[]> {
+  return intentLines(await viewIntents(args, executedAt, amount));
 }

@@ -111,6 +111,49 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
     </section>
   ) : null;
 
+  // NEAR Intents, decoded: public chain data, so everyone sees it, not just the poster.
+  const intents = r.evidence?.intents ?? [];
+  const swap = r.evidence?.swap;
+  // Rendered in both the wide and the phone layout, so each copy gets its own heading id.
+  const intentsPanel = (k: string) => intents.length || swap ? (
+    <section aria-labelledby={`intents-h-${k}`}>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <Label as="h2"><span id={`intents-h-${k}`}>NEAR Intents, decoded</span></Label>
+        <span className="text-sm text-ink-2">read from the chain, not from the report</span>
+      </div>
+      <div className="border-t-2 border-ink">
+        {swap && (
+          <div className="border-b border-rule py-4">
+            <p className="text-[15px] font-semibold text-ink">1Click swap · <span className="font-mono">{swap.status}</span></p>
+            <p className="mt-1 text-[15px] text-ink-2">{swap.meaning}</p>
+            <dl className="mt-3 grid gap-x-6 gap-y-1 text-[15px] sm:grid-cols-[150px_1fr]">
+              <dt className="text-ink-2">Deposit address</dt><dd className="font-mono [overflow-wrap:anywhere]">{swap.address}</dd>
+              <dt className="text-ink-2">Asked for</dt><dd className="font-mono [overflow-wrap:anywhere]">{swap.requested}</dd>
+              {swap.refunded && (<><dt className="text-ink-2">Refunded</dt><dd className="font-mono">{swap.refunded}</dd></>)}
+              {swap.reason && (<><dt className="text-ink-2">Why</dt><dd className="text-refund">{swap.reason}</dd></>)}
+            </dl>
+          </div>
+        )}
+        {intents.map((v, i) => (
+          <div key={i} className="border-b border-rule py-4">
+            <p className="text-[15px] text-ink">Signed by <span className="font-mono [overflow-wrap:anywhere]">{v.signer}</span> <span className="text-ink-2">({v.standard})</span></p>
+            <p className={`mt-1 font-mono text-sm ${v.expired ? "text-refund" : "text-ink-2"}`}>Deadline {v.deadline.replace("T", " ").replace(/\.\d+Z/, " UTC").replace(/Z(?= |$)/, " UTC")}</p>
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] [overflow-wrap:anywhere]">
+              {v.items.map((t, j) => <li key={j}>{t.replace(/ \(raw \d+, token [^)]+\)/, "")}</li>)}
+              {!v.items.length && <li className="text-ink-2">no intents in the message</li>}
+            </ul>
+            {v.flags.length > 0 && (
+              <ul className="mt-3 space-y-1 border-l-4 border-refund pl-3 text-[15px] text-refund">
+                {v.flags.map((f, j) => <li key={j}>{f}</li>)}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-sm text-ink-2">A flag is a fact about the intent, not the confirmed cause of a failure. Compare it with the error.</p>
+    </section>
+  ) : null;
+
   const bidTable = showBids ? <BidTable bids={bids} sealed={sealed} opening={opening} caption={sealed ? "Sealed bids" : "Sealed bids, revealed"} /> : null;
 
   const chain = r.txs.length || r.deposit ? (
@@ -164,8 +207,8 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
         <div className="mt-10 hidden gap-10 lg:grid lg:grid-cols-[250px_minmax(0,1fr)_330px]">
           <div><Label as="h2" className="mb-3">Timeline</Label><Stepper steps={steps} /></div>
           <div className="space-y-12">
-            {final ? (<>{report}{notes}{evidence}{bidTable}</>) : (<>{evidence}{bidTable}{report}</>)}
-            {!report && !notes && !evidence && !bidTable && <p className="text-ink-2">Nothing to show yet. This fills in as the round runs.</p>}
+            {final ? (<>{report}{notes}{intentsPanel("wide")}{evidence}{bidTable}</>) : (<>{intentsPanel("wide")}{evidence}{bidTable}{report}</>)}
+            {!report && !notes && !evidence && !bidTable && !intentsPanel("x") && <p className="text-ink-2">Nothing to show yet. This fills in as the round runs.</p>}
           </div>
           <div>{moneyPanel}</div>
         </div>
@@ -174,6 +217,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
         <div className="mt-8 space-y-8 lg:hidden">
           {moneyPanel}
           {report}
+          {intentsPanel("phone")}
           {!final && evidence}
           {!final && bidTable}
           <div className="border-t-2 border-ink">

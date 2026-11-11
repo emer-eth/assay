@@ -65,6 +65,17 @@ export default function Home() {
           <Totals />
         </Suspense>
 
+        <section className={`${CONTAINER} pt-16`} aria-labelledby="intents-strip">
+          <div className="grid items-center gap-6 border-l-4 border-stamp bg-stamp-tint px-6 py-6 sm:grid-cols-[1fr_auto]">
+            <div>
+              <p className="font-mono text-xs font-medium tracking-[0.08em] text-stamp uppercase">NEAR Intents</p>
+              <h2 id="intents-strip" className="mt-2 text-xl font-semibold text-ink">Intents swap failed or stuck?</h2>
+              <p className="mt-1 max-w-[640px] text-[15px] leading-6 text-ink-2">Paste the transaction hash, or the deposit address of a 1Click swap. Assay decodes every signed intent (who signed it, what it moves, its deadline) and asks 1Click where the money went.</p>
+            </div>
+            <Link href={`/check?q=${encodeURIComponent("Why did NEAR Intents transaction 5Z3yjXBhhzZ2281oSCxH8Seeh893TWKV9XEoq9S842Bi fail, who signed the intent, and was anything lost besides gas?")}`} prefetch={false} className="inline-flex min-h-12 items-center justify-center rounded-[2px] bg-ink px-5 text-[15px] font-semibold whitespace-nowrap text-on-ink">See an example</Link>
+          </div>
+        </section>
+
         <section className={`${CONTAINER} pt-24`} aria-labelledby="how">
           <Label>How it works</Label>
           <h2 id="how" className="mt-3 font-archivo text-[34px] leading-tight font-extrabold text-ink sm:text-[40px]">One round, start to finish.</h2>

@@ -11,7 +11,8 @@ export function forViewer(r: LiveRound, viewer: string | null): PublicRound {
   const out: PublicRound = r.status === "queued" || r.status === "reviewing" || r.status === "bidding" ? { ...r, bids: [] } : { ...r };
   out.mine = !!viewer && r.job.poster === viewer;
   // The raw facts the tools read are large and only needed by the agent and reviewer; the summary is enough to show.
-  if (r.evidence) out.evidence = { summary: r.evidence.summary, facts: "" };
+  // The decoded intents and swap status are public chain data, so they stay; the raw facts don't.
+  if (r.evidence) out.evidence = { summary: r.evidence.summary, facts: "", intents: r.evidence.intents, swap: r.evidence.swap };
   // A blocked brief is withheld from everyone but its poster: republishing a refused request (a phishing page,
   // say) would turn the ledger into a showcase for it. The reviewer's reason stays public.
   if (r.status === "blocked" && !out.mine) {

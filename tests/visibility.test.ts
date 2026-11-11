@@ -35,3 +35,12 @@ test("a blocked brief is withheld from everyone but its poster", () => {
   assert.doesNotMatch(other.job.description, /phishing/);
   assert.equal(blocked.job.description, "write a phishing page", "the stored round is untouched");
 });
+
+test("decoded intents and swap status stay public; the raw evidence facts never leave the server", () => {
+  const intents = [{ signer: "alice.near", standard: "nep413", deadline: "2026-11-10T14:41:12Z", expired: false, items: ["transfer 0 USDC to bob.near"], flags: ["transfers a zero amount of usdc"] }];
+  const swap = { address: "0xabc", status: "REFUNDED", meaning: "sent back", requested: "25 USDC for 8 wNEAR", refunded: "25", reason: "expired" };
+  const out = forViewer(round({ evidence: { summary: ["Read transaction"], facts: "SECRET RAW FACTS", intents, swap } }), null);
+  assert.equal(out.evidence?.facts, "");
+  assert.deepEqual(out.evidence?.intents, intents);
+  assert.deepEqual(out.evidence?.swap, swap);
+});

@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { DATA_DIR, KEYS_DIR } from "../paths";
 import { skillQualityFrom } from "../swarm/round";
 import { publishChanges } from "./bus";
+import type { IntentView } from "./intents";
+import type { SwapView } from "./oneclick";
 import { SKILLS, type Agent, type Bid, type Job, type Skill, type Verdict } from "../swarm/types";
 
 // Local state for the live coordinator: a JSON file in data/ (git-ignored). One Node process,
@@ -30,7 +32,7 @@ export type LiveRound = {
   txs: Tx[];
   error?: string;
   /** What the winner's tools read before working (shown to the poster; the full facts also go to the reviewer). */
-  evidence?: { summary: string[]; facts: string };
+  evidence?: { summary: string[]; facts: string; intents?: IntentView[]; swap?: SwapView };
   deposit?: string; // escrow payment tx hash, when paid from a wallet
   paidWith?: "escrow" | "wallet" | "credit"; // how the budget was paid; refunds go back the same way (absent: early demo rounds)
   escrowJobId?: string; // the job id in the escrow contract, when paidWith is "escrow"

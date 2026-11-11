@@ -26,7 +26,8 @@ export function findProposal(text: string): { dao: string; id: number } | null {
 }
 export const findTxHash = (text: string) => text.match(TX_HASH_RE)?.[0] ?? null;
 
-export type Detected = { skill: Skill; target: string; reads: string } | null;
+/** `intents`: the text points at NEAR Intents (an Intents transaction or a 1Click swap), shown as a tag. */
+export type Detected = { skill: Skill; target: string; reads: string; intents?: boolean } | null;
 
 /** The check a job asks for, from what it names. Most specific first: code, then a proposal, a transaction, an account. */
 export function detectCheck(text: string): Detected {
@@ -37,9 +38,12 @@ export function detectCheck(text: string): Detected {
   if (prop) return { skill: "proposal-review", target: `proposal #${prop.id} on ${prop.dao}`, reads: "Tools will decode what it executes, who it pays, and the votes so far." };
   // A cross-chain swap through NEAR Intents (1Click) is named by its deposit address.
   const deposit = /1click|swap|deposit address|bridge|cross-chain|intents/i.test(text) ? depositAddressCandidates(text).find((a) => a.startsWith("0x") || /deposit/i.test(text)) : undefined;
-  if (deposit) return { skill: "tx-forensics", target: `the 1Click swap at ${deposit.slice(0, 8)}…${deposit.slice(-4)}`, reads: "Tools will ask 1Click for the swap's status, refund and transactions on every chain, then read its NEAR settlement." };
+  if (deposit) return { skill: "tx-forensics", target: `the 1Click swap at ${deposit.slice(0, 8)}…${deposit.slice(-4)}`, reads: "Tools will ask 1Click for the swap's status, refund and transactions on every chain, then read its NEAR settlement.", intents: true };
   const tx = findTxHash(text);
-  if (tx) return { skill: "tx-forensics", target: `transaction ${tx.slice(0, 8)}…${tx.slice(-4)}`, reads: "Tools will read every receipt in order and where each token went." };
+  if (tx) {
+    const intents = /\bintents?\b|1click|intents\.near/i.test(text);
+    return { skill: "tx-forensics", target: `transaction ${tx.slice(0, 8)}…${tx.slice(-4)}`, reads: intents ? "Tools will read every receipt in order, decode each signed NEAR Intent in it, and show where each token went." : "Tools will read every receipt in order and where each token went.", intents };
+  }
   const acct = findAccounts(text)[0];
   if (acct) return { skill: "due-diligence", target: acct, reads: "Tools will read its keys, code, owner and recent activity." };
   return null;

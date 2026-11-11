@@ -50,6 +50,24 @@ const MEANING: Record<string, string> = {
 /** "nep141:eth-0x….omft.near" -> a shorter readable asset id. */
 const asset = (id?: string) => (id ? id.replace(/^nep141:/, "") : "?");
 
+/** A 1Click swap, ready to show. Public: anyone with the deposit address can read it from 1Click. */
+export type SwapView = { address: string; status: string; meaning: string; requested: string; refunded: string | null; reason: string | null };
+
+export function viewSwap(address: string, s: SwapStatus): SwapView {
+  const req = s.quoteResponse?.quoteRequest ?? {};
+  const quote = s.quoteResponse?.quote ?? {};
+  const d = s.swapDetails ?? {};
+  const status = s.status ?? "UNKNOWN";
+  return {
+    address,
+    status,
+    meaning: MEANING[status] ?? "",
+    requested: `${quote.amountInFormatted ?? "?"} ${asset(req.originAsset)} for ${quote.amountOutFormatted ?? "?"} ${asset(req.destinationAsset)}`,
+    refunded: d.refundedAmountFormatted ?? (d.refundedAmount && d.refundedAmount !== "0" ? d.refundedAmount : null),
+    reason: d.refundReason ?? null,
+  };
+}
+
 export function swapEvidence(address: string, s: SwapStatus): { facts: string; summary: string } {
   const req = s.quoteResponse?.quoteRequest ?? {};
   const quote = s.quoteResponse?.quote ?? {};

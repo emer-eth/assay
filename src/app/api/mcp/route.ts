@@ -72,7 +72,7 @@ function buildServer(account: string | null) {
     "post_job",
     {
       title: "Post a job",
-      description: "Post a check to the market. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
+      description: "Post a check to the market. Checks: due diligence on a NEAR account, review of a Sputnik DAO proposal, a failed or confusing NEAR transaction explained (NEAR Intents calls are decoded intent by intent; a 1Click cross-chain swap can be named by its deposit address to learn its status, refund and transactions), and code review of a public repo. The budget (0.05–5 NEAR) is taken from your credit into escrow; you pay only the winning bid if the work passes review, the rest comes back. Returns a round_id: then call wait_for_round.",
       inputSchema: {
         description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
         skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code). proposal-review: what a Sputnik DAO proposal will actually do if it passes, and whether it matches its description (name the DAO and proposal number). tx-forensics: why a NEAR transaction failed and where the money went (give the transaction hash or a NearBlocks link)."),

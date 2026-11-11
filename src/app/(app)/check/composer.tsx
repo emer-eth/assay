@@ -17,9 +17,11 @@ const CHECK_NAME: Record<Skill, string> = { "due-diligence": "Due diligence", "c
 const EXAMPLES: { label: string; text: string }[] = [
   { label: "Ref Finance", text: "Before I deposit: who controls v2.ref-finance.near, can its code be changed, and by whom?" },
   { label: "DAO proposal", text: "I'm on the council: what will proposal #1059 on ref-finance.sputnik-dao.near actually do, and does it match its description?" },
-  { label: "Failed transaction", text: "My NEAR Intents transfer in transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg failed. Why, who actually signed it, and where's my money?" },
+  { label: "Failed Intents transfer", text: "Why did NEAR Intents transaction 5Z3yjXBhhzZ2281oSCxH8Seeh893TWKV9XEoq9S842Bi fail, who signed the intent, and was anything lost besides gas?" },
+  { label: "Stuck cross-chain swap", text: "My NEAR Intents (1Click) swap never arrived. I sent the funds to the deposit address PASTE_THE_DEPOSIT_ADDRESS_HERE. Where is my money, and was it refunded?" },
   { label: "Contract repo", text: "Review https://github.com/near-examples/guest-book-examples/tree/main/contract-rs for storage and payable-method issues, with fixes." },
 ];
+const PLACEHOLDER = "PASTE_THE_DEPOSIT_ADDRESS_HERE";
 const MIN = 0.05;
 const MAX = 5;
 
@@ -121,6 +123,7 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
                   <>
                     <span className="font-mono text-sm font-semibold tracking-[0.08em] text-stamp uppercase">{CHECK_NAME[skill]}</span>
                     {BETA_SKILLS.includes(skill) && <Tag tone="refund">Beta</Tag>}
+                    {detected?.intents && !override && <Tag tone="stamp">NEAR Intents</Tag>}
                     <span className="min-w-0 flex-1 text-ink">
                       {target.state === "problem" ? (
                         <span className="text-refund">{target.problem}</span>
@@ -133,7 +136,7 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
                     <button type="button" className="min-h-11 text-stamp underline underline-offset-2" onClick={() => setChanging((v) => !v)} aria-expanded={changing}>Change type</button>
                   </>
                 ) : (
-                  <span className="text-ink-2">{text.trim() ? "Name an account (name.near), a DAO proposal number, a transaction hash or a GitHub repo." : "The check type appears here as you type."}</span>
+                  <span className="text-ink-2">{text.includes(PLACEHOLDER) ? "Replace the placeholder with your swap's deposit address (it's selected: paste over it)." : text.trim() ? "Name an account (name.near), a DAO proposal number, a transaction hash, a 1Click deposit address or a GitHub repo." : "The check type appears here as you type."}</span>
                 )}
               </div>
               {changing && (
@@ -149,7 +152,17 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <span className="text-[15px] text-ink-2">Start from an example</span>
                 {EXAMPLES.map((ex) => (
-                  <button key={ex.label} type="button" onClick={() => { setText(ex.text); setOverride(null); }} className="min-h-11 rounded-[2px] border border-ink px-4 text-[15px] text-ink hover:bg-tint">{ex.label}</button>
+                  <button key={ex.label} type="button" onClick={() => {
+                    setText(ex.text);
+                    setOverride(null);
+                    // An example with a placeholder: select it, so pasting replaces it.
+                    const at = ex.text.indexOf(PLACEHOLDER);
+                    if (at >= 0) requestAnimationFrame(() => {
+                      const box = document.querySelector<HTMLTextAreaElement>("main textarea");
+                      box?.focus();
+                      box?.setSelectionRange(at, at + PLACEHOLDER.length);
+                    });
+                  }} className="min-h-11 rounded-[2px] border border-ink px-4 text-[15px] text-ink hover:bg-tint">{ex.label}</button>
                 ))}
               </div>
             </section>
