@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Hive, HiveLegend, type Cell, type CellState } from "@/components/hive";
-import { near, Stat, TopBar } from "@/components/ui";
+import { near, Stat } from "@/components/ui";
+import { AppHeader } from "@/components/app-header";
+import { CONTAINER, Footer } from "@/ui";
 import { simulate } from "@/lib/swarm/sim";
 import type { RoundResult } from "@/lib/swarm/types";
 
@@ -47,9 +49,9 @@ export default function Home() {
 
   return (
     <>
-      <TopBar mode="sim" />
+      <AppHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main id="main" className={`${CONTAINER} flex-1 py-10`}>
         <section className="mb-6 max-w-3xl">
           <p className="eyebrow">
             Simulation · 20 scripted agents · no AI calls, no chain
@@ -62,12 +64,16 @@ export default function Home() {
             bids; the best reputation³ ÷ price wins. Unsafe jobs are blocked
             before any agent sees them. Same rules as{" "}
             <Link
-              href="/classic/app"
-              className="text-text underline decoration-accent underline-offset-4 hover:text-accent"
+              href="/check"
+              className="text-stamp underline underline-offset-4"
             >
-              live mode
+              the live market
             </Link>
-            , written down in RULES.md.
+            , written down in the{" "}
+            <Link href="/rules" className="text-stamp underline underline-offset-4">
+              rules
+            </Link>
+            .
           </p>
           <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
             <Stat label="Jobs" value={t.posted} />
@@ -195,6 +201,7 @@ export default function Home() {
           {round && <SimRound r={round} />}
         </div>
       </main>
+      <Footer />
     </>
   );
 }

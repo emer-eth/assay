@@ -14,7 +14,7 @@ import { PAY_STEP_LABEL, useAuth, type PayStep } from "@/components/wallet";
 import type { LiveAgent, LiveRound } from "@/lib/live/store";
 import type { PublicRound } from "@/lib/live/visibility";
 import { refetchMarket, useMarket } from "@/lib/market";
-import { useEscrowPost } from "@/components/escrow-post";
+import { useEscrowPost, usePaidAction } from "@/components/escrow-post";
 import { SKILL_LABEL, type Skill } from "@/lib/swarm/types";
 import { AGENT_MODELS, type AgentModel } from "@/lib/models";
 
@@ -384,77 +384,6 @@ function EmptyFeed() {
  * wallet, then hand the transaction hash to the server, which checks it on chain. If the server says no
  * after the payment went through (e.g. a round is running), the hash is kept so it can be retried, never lost.
  */
-function usePaidAction(
-  path: string,
-  escrow: string | null,
-  liveKey: string,
-  onDone: (data: { id?: string }) => void,
-) {
-  const { pay } = useAuth();
-  const [step, setStep] = useState<PayStep | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<{
-    body: Record<string, unknown>;
-    txHash: string;
-  } | null>(null);
-
-  const submit = async (body: Record<string, unknown>, txHash: string) => {
-    setStep("confirm");
-    // The chain can take a few seconds to show a fresh payment as final: retry briefly before giving up.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(liveKey ? { "x-live-key": liveKey } : {}),
-        },
-        body: JSON.stringify({ ...body, txHash }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setPending(null);
-        setStep(null);
-        onDone(data);
-        return true;
-      }
-      if (
-        res.status === 402 &&
-        /find that payment/i.test(data.error || "") &&
-        attempt < 4
-      ) {
-        await new Promise((r) => setTimeout(r, 2500));
-        continue;
-      }
-      setPending({ body, txHash });
-      setError(data.error || `Request failed (${res.status})`);
-      setStep(null);
-      return false;
-    }
-    return false;
-  };
-
-  const run = async (body: Record<string, unknown>, amount: number) => {
-    setError(null);
-    if (!escrow) return (setError("The coordinator isn't set up yet."), false);
-    try {
-      const txHash = await pay(amount, escrow, setStep);
-      return await submit(body, txHash);
-    } catch (e) {
-      setStep(null);
-      setError(e instanceof Error ? e.message : "The payment was cancelled.");
-      return false;
-    }
-  };
-
-  const retry = async () => {
-    if (!pending) return false;
-    setError(null);
-    return submit(pending.body, pending.txHash);
-  };
-
-  return { run, retry, step, error, pending };
-}
-
 function PayStatus({
   step,
   error,

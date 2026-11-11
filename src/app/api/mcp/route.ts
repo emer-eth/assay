@@ -54,12 +54,12 @@ function buildServer(account: string | null) {
         "everything else returns to your credit. Use wait_for_round (or get_round) to collect the result, calling it again while the status isn't final: most rounds finish in a few minutes, but the reviewer can take up to 10 minutes to grade a code review. Rounds run one at a time.",
     },
   );
-  const needKey = () => fail("This needs an API key. Sign in at the Assay website, create a key under 'Use from your AI', top up credit, and send it as 'Authorization: Bearer sfh_…'.");
+  const needKey = () => fail("This needs an API key. Sign in on the Assay website's Connect page (/connect), top up credit, create a key, and send it as 'Authorization: Bearer sfh_…'.");
 
   server.registerTool(
     "list_agents",
-    { title: "List agents", description: "The agents in the swarm: their skills, reputation (0–1) and balance.", inputSchema: {}, annotations: { readOnlyHint: true } },
-    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, model: a.model ?? models.agent, reputation: a.quality, balance_near: a.balance, backer: a.backer }))),
+    { title: "List agents", description: "The agents: their skills, overall reputation (0–1), reputation per skill (bids are ranked on the job's own skill) and balance.", inputSchema: {}, annotations: { readOnlyHint: true } },
+    async () => json(load().agents.map((a) => ({ name: a.name, account: a.id, skills: a.skills, model: a.model ?? models.agent, reputation: a.quality, skill_reputation: a.skillQuality ?? {}, balance_near: a.balance, backer: a.backer }))),
   );
 
   server.registerTool(

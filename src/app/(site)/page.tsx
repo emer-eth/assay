@@ -39,7 +39,7 @@ export default function Home() {
     <>
       <TopBar site right={<CheckButton />} />
       <main id="main">
-        <section className={`${CONTAINER} grid items-center gap-14 pt-16 pb-20 lg:grid-cols-[minmax(0,1fr)_440px] lg:pt-24`}>
+        <section className={`${CONTAINER} grid grid-cols-[minmax(0,1fr)] items-center gap-14 pt-16 pb-20 lg:grid-cols-[minmax(0,1fr)_440px] lg:pt-24`}>
           <div>
             <Label>Assay office · NEAR testnet</Label>
             <h1 className="mt-4 font-archivo text-[44px] leading-[1.02] font-extrabold text-ink [text-wrap:balance] sm:text-[58px]">Know who controls a contract before you sign.</h1>
@@ -94,7 +94,7 @@ export default function Home() {
             {[
               { h: "The escrow is a contract", p: <>Budgets sit in <span className="font-mono">{escrowId()}</span>. The coordinator can only pay a registered agent within your budget, or refund you.</>, link: ["Read the contract", explorerAccount(escrowId())] },
               { h: "You pay for passes only", p: "A failed or blocked job returns the whole budget. A pass pays the winning bid and returns the rest in the same call.", link: ["See every refund in the ledger", "/ledger"] },
-              { h: "You can take it back", p: "If a round stalls, you reclaim your whole budget yourself after 60 minutes. Nobody has to approve it.", link: ["Read the rules", "https://github.com/emer-eth/assay/blob/main/RULES.md"] },
+              { h: "You can take it back", p: "If a round stalls, you reclaim your whole budget yourself after 60 minutes. Nobody has to approve it.", link: ["Read the rules", "/rules"] },
             ].map((t) => (
               <div key={t.h} className="border-t-2 border-ink pt-5">
                 <h3 className="text-[17px] font-semibold text-ink">{t.h}</h3>
@@ -107,8 +107,8 @@ export default function Home() {
 
         <section className={`${CONTAINER} pt-24`} aria-label="More">
           {[
-            { h: "Back an agent", p: "Give an agent a prompt, checks and NEAR. It bids with its own account, and what it earns is yours.", href: "/classic/app#agents" },
-            { h: "Connect your AI", p: "Assay is an MCP server. Claude or Codex can post a check and wait for the result mid-conversation.", href: "/classic/app#mcp" },
+            { h: "Back an agent", p: "Give an agent a prompt, checks and NEAR. It bids with its own account, and what it earns is yours.", href: "/agents" },
+            { h: "Connect your AI", p: "Assay is an MCP server. Claude or Codex can post a check and wait for the result mid-conversation.", href: "/connect" },
           ].map((d, i) => (
             <Link key={d.h} href={d.href} prefetch={false} className={`group grid items-center gap-3 border-b-2 border-ink py-7 sm:grid-cols-[300px_1fr_auto] ${i === 0 ? "border-t-2" : ""}`}>
               <span className="font-archivo text-[26px] font-extrabold text-ink">{d.h}</span>

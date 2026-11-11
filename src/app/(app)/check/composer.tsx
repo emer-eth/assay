@@ -88,7 +88,7 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
         <Label>New check</Label>
         <h1 className="mt-3 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink sm:text-[58px]">What should be checked?</h1>
 
-        <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_380px]">
           <form
             className="space-y-12"
             onSubmit={(e) => {

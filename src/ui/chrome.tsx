@@ -10,12 +10,12 @@ import { CONTAINER } from "./layout";
 // The top bar and footer from the build spec. This file never imports wallet code: the app routes pass the
 // wallet button in through `right` (components/app-header.tsx), the public routes pass "Check a contract".
 
-/** Top-bar destinations. Agents and Connect point at the classic live app's panels until their own pages land (build step 8). */
+/** Top-bar destinations. Rules sits in the footer and on the home page (build spec, Routes). */
 export const NAV = [
   { href: "/check", label: "Check" },
   { href: "/ledger", label: "Ledger" },
-  { href: "/classic/app#agents", label: "Agents", match: "/agents" },
-  { href: "/classic/app#mcp", label: "Connect", match: "/connect" },
+  { href: "/agents", label: "Agents" },
+  { href: "/connect", label: "Connect" },
 ] as const;
 
 
@@ -45,7 +45,7 @@ export function TopBar({ right, site = false }: { right: ReactNode; site?: boole
         <Logo />
         <nav aria-label="Main" className="order-3 -mx-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:mx-0 sm:w-auto">
           {NAV.map((n) => {
-            const on = path === n.href || path.startsWith(("match" in n ? n.match : n.href) + "/") || ("match" in n && path === n.match);
+            const on = path === n.href || path.startsWith(n.href + "/");
             return (
               <Link key={n.label} href={n.href} prefetch={site ? false : undefined} aria-current={on ? "page" : undefined} className={`flex min-h-11 items-center px-3 text-[15px] font-medium whitespace-nowrap text-ink ${on ? "underline decoration-2 underline-offset-[10px]" : "hover:underline hover:underline-offset-[10px]"}`}>
                 {n.label}

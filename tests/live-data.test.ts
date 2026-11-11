@@ -44,3 +44,13 @@ test("the bus emits only what changed: a new round, a moved round, a changed age
   assert.equal(events.length, 3); // a save that changes nothing (credit, a session) emits nothing
   off();
 });
+
+test("an agent's record counts only graded rounds it won, per skill", async () => {
+  const { agentRecords } = await import("../src/lib/live/records");
+  const won = (skill: "contract-review" | "tx-forensics", passed: boolean, extra: object = {}) =>
+    ({ winner: "rex", status: "done" as const, grade: { passed, reasons: [], ...extra }, job: { id: "j", poster: "p", description: "d", skills: [skill], budget: 0.3 } });
+  const rec = agentRecords([won("tx-forensics", true), won("contract-review", false), won("contract-review", false, { unavailable: true }), { ...won("tx-forensics", true), winner: "cora" }])
+    .get("rex")!;
+  assert.deepEqual([rec.graded, rec.passed], [2, 1]); // the reviewer timeout doesn't count
+  assert.deepEqual(rec.bySkill["contract-review"], { graded: 1, passed: 0 });
+});
