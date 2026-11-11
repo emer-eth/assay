@@ -164,9 +164,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** The connected account's NEAR: in the wallet, and on NEAR Intents. Re-read every 30 s, when the tab comes back,
+ *  and when the menu opens, so it follows payments and refunds without a reload. */
+function useBalance(account: string | null, tick: number) {
+  const [bal, setBal] = useState<{ account: string; near: number | null; intents: number | null } | null>(null);
+  useEffect(() => {
+    if (!account) return;
+    let stop = false;
+    const read = () =>
+      fetch("/api/account/balance", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!stop && d?.account === account) setBal(d);
+        })
+        .catch(() => {});
+    void read();
+    const every = setInterval(() => document.visibilityState === "visible" && void read(), 30_000);
+    const onShow = () => document.visibilityState === "visible" && void read();
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      stop = true;
+      clearInterval(every);
+      document.removeEventListener("visibilitychange", onShow);
+    };
+  }, [account, tick]);
+  return bal?.account === account ? bal : null;
+}
+const nearText = (n: number) => (n >= 100 ? n.toFixed(1) : n.toFixed(2));
+
 export function WalletButton() {
   const { account, ready, busy, error, signIn, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+  const bal = useBalance(account, tick);
   if (!ready) return <span className="h-8 w-28" aria-hidden />;
   if (!account)
     return (
@@ -193,14 +223,28 @@ export function WalletButton() {
     <span className="relative">
       <button
         className="num flex items-center gap-2 rounded-lg border border-line-strong px-2.5 py-1.5 text-xs hover:bg-panel-2"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setOpen(!open);
+          if (!open) setTick((t) => t + 1);
+        }}
         aria-expanded={open}
       >
         <span className="size-1.5 rounded-full bg-ok" />
-        <span className="max-w-40 truncate">{account}</span>
+        {bal?.near != null && (
+          <span className="border-r border-line-strong pr-2 font-semibold whitespace-nowrap" title={`${bal.near} NEAR available in your wallet`}>
+            {nearText(bal.near)} NEAR
+          </span>
+        )}
+        <span className="max-w-28 truncate sm:max-w-40">{account}</span>
       </button>
       {open && (
-        <span className="panel enter absolute top-full right-0 z-30 mt-1.5 grid min-w-48 p-1 text-sm">
+        <span className="panel enter absolute top-full right-0 z-30 mt-1.5 grid min-w-56 p-1 text-sm">
+          {bal && (
+            <span className="mb-1 grid gap-1 border-b border-line-strong px-3 py-2 text-muted">
+              <span className="flex justify-between gap-6">In your wallet <span className="num text-text">{bal.near != null ? `${bal.near.toFixed(4)} NEAR` : "—"}</span></span>
+              <span className="flex justify-between gap-6">On NEAR Intents <span className="num text-text">{bal.intents != null ? `${bal.intents.toFixed(4)} NEAR` : "—"}</span></span>
+            </span>
+          )}
           <a
             className="flex min-h-11 items-center rounded-md px-3 py-2 font-semibold text-text hover:bg-panel-2"
             href="/account"

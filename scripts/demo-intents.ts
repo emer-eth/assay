@@ -97,7 +97,8 @@ async function main() {
   if (cmd === "job") await job(a[0], a[1] || "due-diligence", Number(a[2] || 0.3));
   else if (cmd === "agent") await agent(a[0], a[1], (a[2] || "due-diligence").split(","), Number(a[3] || 0.5));
   else if (cmd === "withdraw") await withdraw();
-  else throw new Error('usage: job "<text>" <skill> [budget] | agent "<name>" "<prompt>" <skills> [funding] | withdraw');
+  else if (cmd === "balance") console.log((await api("/api/account/balance")).data);
+  else throw new Error('usage: job "<text>" <skill> [budget] | agent "<name>" "<prompt>" <skills> [funding] | withdraw | balance');
 }
 main().catch((e) => {
   console.error("❌", e instanceof Error ? e.message : e);
