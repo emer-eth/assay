@@ -123,6 +123,22 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the payment page is a fresh start
     window.location.assign(`/pay/${data.id}`);
   }
+  // Why the pay button is disabled, said next to it (the first thing to fix).
+  const blocked = posted
+    ? null
+    : text.trim().length < 10
+      ? "Write what the swarm should check first (step 1)."
+      : !skill
+        ? "Name what to check in step 1: an account, a DAO proposal, a transaction hash or a GitHub repo."
+        : target.state === "problem"
+          ? "Fix the target in step 1 first (see the red note there)."
+          : target.state === "checking"
+            ? "Checking the target exists…"
+            : budgetError
+              ? budgetError
+              : method === "oneclick" && (!refundTo.trim() || refundProblem)
+                ? "Add a valid refund address."
+                : null;
   const ready = !posted && !!skill && text.trim().length >= 10 && !budgetError && target.state !== "problem" && target.state !== "checking" && (method !== "oneclick" || (!!refundTo.trim() && !refundProblem));
   const payLabel = `${account ? "Pay" : "Connect wallet and pay"} ${Number.isFinite(amount) ? amount.toFixed(2) : "—"} NEAR`;
   const win = skill ? winning[skill] : undefined;
@@ -301,6 +317,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                   </>
                 )}
               </div>
+              {blocked && <p className="mt-3 text-[15px] text-ink-2" aria-live="polite">{blocked}</p>}
               {posted && (
                 <p role="status" className="mt-5 border-l-4 border-stamp bg-stamp-tint px-4 py-3 text-[15px] text-ink">
                   Payment confirmed. Round <a href={`/rounds/${posted}?new`} className="font-mono text-stamp underline underline-offset-2">{posted}</a> is starting, and the page is opening it now.
@@ -332,10 +349,12 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                 ["The winner writes the report", t(times?.work, "under a minute")],
                 ["The reviewer grades it and the contract settles", skill === "contract-review" ? `${t(codeGrade, "a few minutes")}, up to 10 min` : t(times?.grade, "a minute or two")],
               ].map(([what, when], i) => (
-                <li key={i} className="flex gap-4 border-b border-rule py-4 text-[15px]">
+                <li key={i} className="grid grid-cols-[auto_1fr] gap-x-4 border-b border-rule py-4 text-[15px]">
                   <span className="font-mono text-sm text-ink-2">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="flex-1 text-ink">{what}</span>
-                  <span className="font-mono text-sm whitespace-nowrap text-ink-2">{when}</span>
+                  <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <span className="text-ink">{what}</span>
+                    <span className="font-mono text-sm text-ink-2">{when}</span>
+                  </span>
                 </li>
               ))}
             </ol>
