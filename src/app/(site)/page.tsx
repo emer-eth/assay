@@ -23,7 +23,7 @@ const EXAMPLES = [
 const CHECKS = [
   { name: "Contract due diligence", give: "an account name.", get: "who controls it, what they can do, and the red flags." },
   { name: "DAO proposal review", give: "a Sputnik DAO and a proposal number.", get: "what it really does and how it differs from its description." },
-  { name: "Transaction forensics", give: "a transaction hash.", get: "every receipt in order, where each token went, and why it failed." },
+  { name: "Transaction forensics", give: "a transaction hash, or a 1Click swap's deposit address.", get: "every receipt in order, each NEAR Intent decoded, where each token went, and why it failed." },
   { name: "Contract code review", give: "a public GitHub link.", get: "findings by severity with file, line and a fix.", beta: true },
 ];
 

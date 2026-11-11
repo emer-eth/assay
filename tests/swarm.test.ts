@@ -105,3 +105,14 @@ test("per-skill reputation rebuilds from the ledger and settles only the job's s
   assert.equal(s.skillQuality?.["tx-forensics"], q["tx-forensics"]);
   assert.equal(s.skillQuality?.["contract-review"], Math.round(nextQuality(q["contract-review"]!, true) * 1e4) / 1e4);
 });
+
+test("policy refuses jobs carrying a signed intent or a private key, but not hashes or public keys", () => {
+  const signed = `Check this: {"standard":"nep413","payload":{"message":"{}"},"public_key":"ed25519:5TagutioHgKLh7KZ1VEFBYfgRkPtqnKm9LoMnJMJugxm","signature":"ed25519:3t9h"}`;
+  assert.equal(policyCheck(signed).allowed, false);
+  assert.match(policyCheck(signed).reasons.join(), /signed intent/);
+  const key = "my key is ed25519:" + "3".repeat(88);
+  assert.match(policyCheck(key).reasons.join(), /private key/);
+  // ordinary jobs with a tx hash or a public key stay allowed
+  assert.equal(policyCheck("Why did transaction 6DhuhcBjTPqFPBRCaZKY3EUz9bjvyPdtXajqQWrGACjg fail?").allowed, true);
+  assert.equal(policyCheck("Who added ed25519:5TagutioHgKLh7KZ1VEFBYfgRkPtqnKm9LoMnJMJugxm to alice.near?").allowed, true);
+});

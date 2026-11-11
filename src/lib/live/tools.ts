@@ -3,6 +3,7 @@ import { RPC_URLS } from "../near";
 import type { Job } from "../swarm/types";
 import { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode } from "./detect";
 import { intentEvidence, tokenContract } from "./intents";
+import { depositAddressCandidates, fetchSwapStatus, swapEvidence } from "./oneclick";
 
 // The pure finders live in detect.ts (the browser uses them to name the check as you type).
 export { findAccounts, findProposal, findRepo, findTxHash, hasPastedCode };
@@ -55,10 +56,12 @@ export async function targetProblem(job: Pick<Job, "description" | "skills">): P
     if (p === null) return `Couldn't find proposal #${prop.id} on ${prop.dao}. Check the DAO account and the number.`;
   }
   if (job.skills.includes("tx-forensics")) {
+    // A 1Click swap's deposit address is enough on its own.
+    for (const a of depositAddressCandidates(job.description)) if (await fetchSwapStatus(a)) return null;
     const hash = findTxHash(job.description);
-    if (!hash) return "Transaction forensics needs the transaction hash (or a NearBlocks link to it).";
+    if (!hash) return "Transaction forensics needs the transaction hash (or a NearBlocks link to it), or the deposit address of a 1Click swap.";
     const tx = await findTx(hash, job.description).catch(() => undefined);
-    if (tx === null) return "Couldn't find that transaction on NEAR mainnet or testnet. For a testnet transaction, also name the account that sent it.";
+    if (tx === null) return "Couldn't find that transaction on NEAR mainnet or testnet, or a 1Click swap with that deposit address. For a testnet transaction, also name the account that sent it.";
   }
   return null;
 }
@@ -777,8 +780,28 @@ export async function gatherEvidence(job: Pick<Job, "description" | "skills">): 
     }
   }
   if (job.skills.includes("tx-forensics")) {
+    // A 1Click swap (NEAR Intents) is named by its deposit address: ask 1Click about anything that could be one.
+    const swaps: string[] = [];
+    for (const a of depositAddressCandidates(job.description)) {
+      const s = await fetchSwapStatus(a);
+      if (!s) continue;
+      const r = swapEvidence(a, s);
+      parts.push(r.facts);
+      summary.push(`Read ${r.summary}`);
+      swaps.push(a);
+      // The swap's own NEAR transaction shows the intents that settled it.
+      const nearTx = s.swapDetails?.nearTxHashes?.[0];
+      if (nearTx && !job.description.includes(nearTx)) {
+        const t = await txReport(nearTx, "intents.near").catch(() => null);
+        if (t) {
+          parts.push(t.facts);
+          summary.push(`Read the swap's NEAR ${t.summary}`);
+        }
+      }
+      break;
+    }
     const hash = findTxHash(job.description);
-    if (hash) {
+    if (hash && !swaps.includes(hash)) {
       const r = await txReport(hash, job.description).catch((e) => ({ facts: `TRANSACTION ${hash}: couldn't be read (${e instanceof Error ? e.message : e}).`, summary: "couldn't read the transaction" }));
       parts.push(r.facts);
       summary.push(`Read ${r.summary}`);

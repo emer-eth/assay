@@ -1,4 +1,5 @@
 import type { Skill } from "../swarm/types";
+import { depositAddressCandidates } from "./oneclick";
 
 // Finding what a job names: an account, a GitHub repo or pasted code, a DAO proposal, a transaction hash.
 // Pure, so the server (tools.ts) and the browser (the /check composer) read the text the same way.
@@ -34,6 +35,9 @@ export function detectCheck(text: string): Detected {
   if (hasPastedCode(text)) return { skill: "contract-review", target: "the pasted contract", reads: "Tools will scan the pasted code for NEAR-specific patterns." };
   const prop = /proposal|#\d/i.test(text) ? findProposal(text) : null;
   if (prop) return { skill: "proposal-review", target: `proposal #${prop.id} on ${prop.dao}`, reads: "Tools will decode what it executes, who it pays, and the votes so far." };
+  // A cross-chain swap through NEAR Intents (1Click) is named by its deposit address.
+  const deposit = /1click|swap|deposit address|bridge|cross-chain|intents/i.test(text) ? depositAddressCandidates(text).find((a) => a.startsWith("0x") || /deposit/i.test(text)) : undefined;
+  if (deposit) return { skill: "tx-forensics", target: `the 1Click swap at ${deposit.slice(0, 8)}…${deposit.slice(-4)}`, reads: "Tools will ask 1Click for the swap's status, refund and transactions on every chain, then read its NEAR settlement." };
   const tx = findTxHash(text);
   if (tx) return { skill: "tx-forensics", target: `transaction ${tx.slice(0, 8)}…${tx.slice(-4)}`, reads: "Tools will read every receipt in order and where each token went." };
   const acct = findAccounts(text)[0];

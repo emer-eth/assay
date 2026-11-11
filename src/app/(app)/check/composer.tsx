@@ -106,7 +106,7 @@ export function Composer({ initialText, winning, needsKey, times, codeGrade }: {
               <div className="mt-5">
                 <Field
                   multiline
-                  label="Name the account, proposal, transaction or repo. Say what you need to know."
+                  label="Name the account, proposal, transaction, 1Click deposit address or repo. Say what you need to know."
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value);
