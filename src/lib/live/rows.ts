@@ -25,8 +25,9 @@ export function toRow(r: LiveRound, agents: Pick<LiveAgent, "id" | "name">[]): R
   const p = r.payout;
   const paid = p ? r4(p.toAgent) : 0;
   const fee = p ? r4(p.fee) : 0;
-  // A round still running has its whole budget in escrow: nothing paid or refunded yet.
-  const refunded = p ? r4(p.refundToPoster) : 0;
+  // A round still running has its whole budget in escrow: nothing paid or refunded yet. A round that stopped
+  // (a restart mid-round) has no settlement: its whole budget was refunded, which its transactions show.
+  const refunded = p ? r4(p.refundToPoster) : r.status === "error" ? r.job.budget : 0;
   return {
     id: r.id,
     createdAt: r.createdAt,

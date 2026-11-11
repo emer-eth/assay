@@ -54,3 +54,8 @@ test("an agent's record counts only graded rounds it won, per skill", async () =
   assert.deepEqual([rec.graded, rec.passed], [2, 1]); // the reviewer timeout doesn't count
   assert.deepEqual(rec.bySkill["contract-review"], { graded: 1, passed: 0 });
 });
+
+test("a round stopped by a restart shows its whole budget refunded", () => {
+  const row = toRow(round("s", { status: "error" }), []);
+  assert.deepEqual([row.paid, row.fee, row.refunded], [0, 0, 0.3]);
+});
