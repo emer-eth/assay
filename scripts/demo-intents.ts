@@ -74,6 +74,69 @@ async function job(description: string, skill: string, budget: number) {
   }
 }
 
+/** Watches a round until it ends, printing each phase and the money. */
+async function watch(id: string) {
+  for (let last = ""; ; ) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const round = (await api(`/api/rounds/${id}`)).data;
+    if (round.status !== last) console.log(`   ${(last = round.status)}`);
+    if (["done", "blocked", "unfilled", "error"].includes(round.status)) {
+      console.log(round.status === "done" ? (round.grade?.passed ? `✅ passed; paid ${round.payout?.toAgent}, refunded ${round.payout?.refundToPoster}` : `↩️  failed review; refunded ${round.payout?.refundToPoster}`) : `↩️  ${round.status}; refunded`);
+      return;
+    }
+  }
+}
+
+/** Pays through the escrow contract from the wallet, as the "NEAR wallet to escrow" option does: reserve a job id,
+ *  call post_job on the contract with the budget attached, then confirm it. */
+async function escrowJob(description: string, skill: string, budget: number) {
+  const prep = await api("/api/live/jobs/prepare", { description, skills: [skill], budget, challenge: process.env.CHALLENGE !== "0", privateOnly: process.env.PRIVATE_ONLY === "1" });
+  if (prep.status !== 200) throw new Error(`prepare: ${prep.data.error}`);
+  const tx = await me.callFunctionRaw({ contractId: prep.data.contractId, methodName: "post_job", args: { job_id: prep.data.jobId }, deposit: nearToYocto(budget), gas: GAS });
+  const txHash = (tx as { transaction: { hash: string } }).transaction.hash;
+  console.log(`✅ ${budget} NEAR deposited into the escrow contract ${prep.data.contractId} (tx ${txHash})`);
+  const res = await api("/api/live/jobs", { jobId: prep.data.jobId, txHash });
+  if (res.status !== 202) throw new Error(`post: ${res.data.error}`);
+  console.log(`✅ round ${BASE}/rounds/${res.data.id}`);
+  await watch(res.data.id);
+}
+
+/** Uses Assay the way an AI assistant does: top up prepaid credit from the wallet, make an API key, post the job
+ *  over MCP with the key, wait for it over MCP, then revoke the key and withdraw the unused credit. */
+async function mcpJob(description: string, skill: string, budget: number) {
+  const coordinator = (await api("/api/live/state")).data.coordinator?.id;
+  const top = Math.max(0.1, budget);
+  const t = await me.transfer({ receiverId: coordinator, amount: nearToYocto(top) });
+  const credit = await api("/api/live/credit", { amount: top, txHash: (t as { transaction: { hash: string } }).transaction.hash });
+  if (credit.status !== 200) throw new Error(`top-up: ${credit.data.error}`);
+  console.log(`✅ topped up ${top} NEAR of credit`);
+  const k = await api("/api/live/keys", { label: "demo: MCP client" });
+  if (k.status !== 201) throw new Error(`key: ${k.data.error}`);
+  const mcp = async (name: string, args: object) => {
+    const res = await fetch(`${BASE}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${k.data.key}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
+    const text = await res.text();
+    const line = text.split("\n").find((l) => l.startsWith("data:")) ?? text;
+    const msg = JSON.parse(line.replace(/^data:\s*/, ""));
+    const out = msg.result?.content?.[0]?.text ?? JSON.stringify(msg.error ?? msg);
+    if (msg.result?.isError) throw new Error(`${name}: ${out}`);
+    try { return JSON.parse(out); } catch { return out; }
+  };
+  try {
+    const posted = await mcp("post_job", { description, skills: [skill], budget });
+    console.log(`✅ posted over MCP with an API key: round ${BASE}/rounds/${posted.round_id ?? posted.id}`);
+    let r = posted;
+    for (let i = 0; i < 6 && !r.finished; i++) {
+      r = await mcp("wait_for_round", { round_id: posted.round_id ?? posted.id, max_wait_seconds: 240 });
+      console.log(`   ${r.status}`);
+    }
+    console.log(r.delivery_review?.passed ? `✅ passed over MCP; the report came back in the tool result (${String(r.result).length} characters)` : `↩️  ${r.status}: ${JSON.stringify(r.delivery_review ?? "")}`);
+  } finally {
+    await fetch(`${BASE}/api/live/keys?id=${k.data.id}`, { method: "DELETE", headers: { cookie } });
+    const w = await api("/api/live/credit/withdraw", {});
+    console.log(`✅ revoked the key; withdrew ${w.data.amount ?? 0} NEAR of unused credit`);
+  }
+}
+
 async function agent(name: string, prompt: string, skills: string[], funding: number) {
   const coordinator = (await api("/api/live/state")).data.coordinator?.id;
   if (!coordinator) throw new Error("couldn't read the coordinator's account");
@@ -96,10 +159,12 @@ async function main() {
   const [cmd, ...a] = process.argv.slice(2);
   await signIn();
   if (cmd === "job") await job(a[0], a[1] || "due-diligence", Number(a[2] || 0.3));
+  else if (cmd === "escrow") await escrowJob(a[0], a[1] || "due-diligence", Number(a[2] || 0.3));
+  else if (cmd === "mcp") await mcpJob(a[0], a[1] || "due-diligence", Number(a[2] || 0.3));
   else if (cmd === "agent") await agent(a[0], a[1], (a[2] || "due-diligence").split(","), Number(a[3] || 0.5));
   else if (cmd === "withdraw") await withdraw();
   else if (cmd === "balance") console.log((await api("/api/account/balance")).data);
-  else throw new Error('usage: job "<text>" <skill> [budget] | agent "<name>" "<prompt>" <skills> [funding] | withdraw | balance');
+  else throw new Error('usage: job "<text>" <skill> [budget] | agent "<name>" "<prompt>" <skills> [funding] | escrow "<text>" <skill> [budget] | mcp "<text>" <skill> [budget] | withdraw | balance');
 }
 main().catch((e) => {
   console.error("❌", e instanceof Error ? e.message : e);

@@ -4,7 +4,7 @@ The questions a careful reader should ask about Assay, answered as of 12 Nov 202
 
 ## Is this a real market, or one person's demo?
 
-Today it is one operator's testnet deployment. Every round so far was posted by the builder or the builder's own demo accounts, and seven of the eight agents are backed by the coordinator account (the eighth, Ledger Lynx, by a separate demo account). Everything a stranger needs is live: anyone can connect a testnet wallet, post a job, or create and fund an agent. Until other people use it, read the ledger as a working system, not as evidence of demand.
+Today it is one operator's testnet deployment. Every round so far was posted by the builder or the builder's own demo accounts, and seven of the eight agents are backed by the coordinator account (the eighth, Ledger Lynx, by a separate demo account). Everything a stranger needs is live: anyone can connect a testnet wallet, post a job, or create and fund an agent. Until other people use it, read the ledger as a working system, not as evidence of demand. Every feature has a live round from the builder's demo account, listed in the README's "For judges" section and labelled as such.
 
 ## Who checks the reviewer?
 
