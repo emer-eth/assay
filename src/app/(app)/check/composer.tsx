@@ -47,7 +47,7 @@ const MAX = LIMITS.maxBudget;
 type Times = { [K in keyof StageTimes]: number | null } | null;
 type Target = { state: "idle" | "checking" | "ok" | "problem"; problem?: string };
 
-export function Composer({ initialText, winning, takers, needsKey, times, codeGrade }: { initialText: string; winning: Partial<Record<Skill, { min: number; max: number; n: number }>>; takers: Partial<Record<Skill, string[]>>; needsKey: boolean; times: Times; codeGrade: number | null }) {
+export function Composer({ initialText, winning, takers: allTakers, privateTakers, needsKey, times, codeGrade }: { initialText: string; winning: Partial<Record<Skill, { min: number; max: number; n: number }>>; takers: Partial<Record<Skill, string[]>>; privateTakers: Partial<Record<Skill, string[]>>; needsKey: boolean; times: Times; codeGrade: number | null }) {
   const { account } = useAuth();
   const [text, setText] = useState(initialText);
   const [override, setOverride] = useState<Skill | null>(null);
@@ -55,6 +55,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
   const [budget, setBudget] = useState("0.30");
   // The second check is on unless the poster turns it off: other agents read the report to look for a mistake.
   const [challenge, setChallenge] = useState(true);
+  // Private-only: agents on NEAR AI's own private inference only (some agents run on OpenAI or Google, who would see the job).
+  const [privateOnly, setPrivateOnly] = useState(false);
+  const takers = privateOnly ? privateTakers : allTakers;
   const [liveKey, setLiveKey] = useState("");
   const [result, setResult] = useState<{ key: string; ok: boolean; problem?: string } | null>(null);
 
@@ -130,7 +133,7 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
   const refundProblem = refundTo.trim() ? refundAddressProblem(asset, refundTo) : null;
   async function payWithIntents() {
     setIntents({ busy: true });
-    const res = await fetch("/api/pay", { method: "POST", headers: { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) }, body: JSON.stringify({ description: text.trim(), skills: [skill], budget: amount, challenge, asset: assetKey, refundTo }) }).catch(() => null);
+    const res = await fetch("/api/pay", { method: "POST", headers: { "content-type": "application/json", ...(liveKey ? { "x-live-key": liveKey } : {}) }, body: JSON.stringify({ description: text.trim(), skills: [skill], budget: amount, challenge, privateOnly, asset: assetKey, refundTo }) }).catch(() => null);
     const data = await res?.json().catch(() => ({}));
     if (!res?.ok || !data?.id) return setIntents({ error: data?.error || "Couldn't reach Assay. Try again." });
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the payment page is a fresh start
@@ -170,9 +173,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
             onSubmit={(e) => {
               e.preventDefault();
               if (!ready || !skill) return;
-              if (method === "intents") void intentsPost.run({ description: text.trim(), skills: [skill], budget: amount, challenge });
+              if (method === "intents") void intentsPost.run({ description: text.trim(), skills: [skill], budget: amount, challenge, privateOnly });
               else if (method === "oneclick") void payWithIntents();
-              else void post.run({ description: text.trim(), skills: [skill], budget: amount, challenge });
+              else void post.run({ description: text.trim(), skills: [skill], budget: amount, challenge, privateOnly });
             }}
           >
             <section aria-labelledby="s1">
@@ -271,7 +274,16 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                   {takers[skill]!.length ? <><span className="font-semibold text-ink">{takers[skill]!.length} {takers[skill]!.length === 1 ? "agent takes" : "agents take"} {CHECK_NAME[skill].toLowerCase()}</span> and will bid for it sealed: {takers[skill]!.slice(0, 6).join(", ")}{takers[skill]!.length > 6 ? ` and ${takers[skill]!.length - 6} more` : ""}.</> : <>No funded agent takes {CHECK_NAME[skill].toLowerCase()} right now, so the job would be refunded. <Link href="/agents" className="text-stamp underline underline-offset-2">Back one</Link>.</>}
                 </p>
               )}
-              <label className={`mt-6 flex cursor-pointer gap-3 border p-4 ${challenge ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
+              <label className={`mt-6 flex cursor-pointer gap-3 border p-4 ${privateOnly ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
+                <input type="checkbox" checked={privateOnly} onChange={(e) => setPrivateOnly(e.target.checked)} className="mt-1 size-5 accent-[var(--ink)]" />
+                <span>
+                  <span className="font-semibold text-ink">Private agents only</span>
+                  <span className="mt-1 block text-[15px] text-ink-2">
+                    Some agents run on OpenAI or Google models, and NEAR AI sends their requests to those companies, so they would see your job and the evidence. Tick this and only agents on NEAR AI&apos;s own private inference can bid{challenge ? ", and the second check uses a private model too" : ""}. Fewer agents bid, so it may cost a little more.
+                  </span>
+                </span>
+              </label>
+              <label className={`mt-3 flex cursor-pointer gap-3 border p-4 ${challenge ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
                 <input type="checkbox" checked={challenge} onChange={(e) => setChallenge(e.target.checked)} className="mt-1 size-5 accent-[var(--ink)]" />
                 <span>
                   <span className="flex flex-wrap items-center gap-2 font-semibold text-ink">Second check <Tag tone="stamp">Recommended</Tag></span>
@@ -292,9 +304,9 @@ export function Composer({ initialText, winning, takers, needsKey, times, codeGr
                   <legend className="mb-3 text-sm text-ink-2">How do you want to pay?</legend>
                   <div className={`grid gap-3 ${IS_MAINNET ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                     {([
-                      ["intents", "Sign a NEAR Intent", "Your NEAR goes into your NEAR Intents balance; you sign one intent that pays the budget. Refunds come back there."],
+                      ["intents", "Sign a NEAR Intent", "Your NEAR goes into your NEAR Intents balance; you sign one intent that pays the budget to Assay's coordinator, which holds it until the round settles. Refunds come back there."],
                       ...(IS_MAINNET ? ([["oneclick", "Any token, any chain", "USDC, ETH, SOL, BTC and more, through 1Click. No NEAR wallet needed."]] as const) : []),
-                      ["wallet", "NEAR wallet to escrow", "Pay the budget in NEAR straight into the escrow contract."],
+                      ["wallet", "NEAR wallet to escrow", "Pay the budget in NEAR straight into the escrow contract. If a round stalls, you can take it back yourself after 60 minutes."],
                     ] as const).map(([m, h, p]) => (
                       <label key={m} className={`flex cursor-pointer gap-3 border p-4 ${method === m ? "border-ink bg-stamp-tint" : "border-rule bg-sheet"}`}>
                         <input type="radio" name="method" value={m} checked={method === m} onChange={() => setMethod(m)} className="mt-1 size-5 accent-[var(--ink)]" />

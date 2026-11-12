@@ -8,6 +8,7 @@ import { BETA_SKILLS, type Skill } from "@/lib/swarm/types";
 import { useMarket } from "@/lib/market";
 import { banner, dateUtc, duration, isFinal, money, phaseOf, PHASE_WORD, timeline } from "@/lib/live/timeline";
 import type { PublicRound } from "@/lib/live/visibility";
+import { commitmentText } from "@/lib/live/commit";
 import { BidTable, Button, CONTAINER, Footer, Hallmark, Label, LockedReport, Markdown, MoneyBar, MoneyLedger, Sheet, StatusBanner, Stepper, Tag, TxLink, type BidRow } from "@/ui";
 
 type AgentLite = { id: string; name: string; quality: number; skillQuality?: Partial<Record<Skill, number>>; model?: string };
@@ -180,6 +181,8 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
 
   const bidTable = showBids ? <BidTable bids={bids} sealed={sealed} opening={opening} caption={sealed ? "Sealed bids" : "Sealed bids, revealed"} /> : null;
 
+  const commitments = !sealed && r.bids.some((b) => b.commitment) ? <BidCommitments roundId={r.id} bids={r.bids} name={name} /> : null;
+
   const chain = r.txs.length || r.deposit ? (
     <section>
       <Label as="h2" className="mb-1">On chain</Label>
@@ -245,7 +248,7 @@ export function RoundView({ initial, agents: initialAgents }: { initial: PublicR
         <div className="mt-10 hidden gap-10 lg:grid lg:grid-cols-[250px_minmax(0,1fr)_330px]">
           <div><Label as="h2" className="mb-3">Timeline</Label><Stepper steps={steps} /></div>
           <div className="space-y-12">
-            {final ? (<>{report}{notes}{secondCheck}{intentsPanel("wide")}{evidence}{bidTable}</>) : (<>{intentsPanel("wide")}{evidence}{bidTable}{secondCheck}{report}</>)}
+            {final ? (<>{report}{notes}{secondCheck}{intentsPanel("wide")}{evidence}{bidTable}{commitments}</>) : (<>{intentsPanel("wide")}{evidence}{bidTable}{commitments}{secondCheck}{report}</>)}
             {!report && !notes && !evidence && !bidTable && !intentsPanel("x") && <p className="text-ink-2">Nothing to show yet. This fills in as the round runs.</p>}
           </div>
           <div>{moneyPanel}</div>
@@ -325,3 +328,40 @@ function ReportActions({ r }: { r: PublicRound }) {
   );
 }
 
+
+/** Each revealed bid, its salt, and the commitment logged when it arrived, checked here in the browser. */
+function BidCommitments({ roundId, bids, name }: { roundId: string; bids: { agent: string; ask: number; commitment?: string; salt?: string }[]; name: (id?: string) => string }) {
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const out: Record<string, boolean> = {};
+      for (const b of bids) {
+        if (!b.commitment || !b.salt) continue;
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(commitmentText(roundId, b.agent, b.ask, b.salt)));
+        out[b.agent] = Array.from(new Uint8Array(digest), (x) => x.toString(16).padStart(2, "0")).join("") === b.commitment;
+      }
+      if (live) setChecked(out);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [roundId, bids]);
+  return (
+    <section>
+      <Label as="h2" className="mb-3">Bid commitments</Label>
+      <ul className="border-t-2 border-ink">
+        {bids.filter((b) => b.commitment).map((b) => (
+          <li key={b.agent} className="grid gap-1 border-b border-rule py-3 text-sm sm:grid-cols-[160px_1fr_auto] sm:items-center sm:gap-4">
+            <span className="font-semibold text-ink">{name(b.agent)} · {b.ask.toFixed(4)}</span>
+            <span className="min-w-0 truncate font-mono text-xs text-ink-2" title={`salt ${b.salt}`}>{b.commitment}</span>
+            <span className={`font-mono text-xs ${checked[b.agent] === false ? "text-refund" : "text-stamp"}`}>{b.agent in checked ? (checked[b.agent] ? "✓ matches" : "✗ doesn't match") : "checking…"}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-sm text-ink-2">
+        When each bid arrived, the round log recorded sha256(&quot;round:agent:ask:salt&quot;) before any bid was revealed. This page recomputes it from the revealed ask and salt. It shows no ask was changed after the others were known; it can&apos;t show that the coordinator, which collects the bids, didn&apos;t read them.
+      </p>
+    </section>
+  );
+}

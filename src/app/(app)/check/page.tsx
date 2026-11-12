@@ -6,13 +6,14 @@ import { load } from "@/lib/live/store";
 import { typicalTimes } from "@/lib/live/timeline";
 import { eligibleAgents } from "@/lib/swarm/round";
 import { SKILLS, type Skill } from "@/lib/swarm/types";
+import { privacyOf } from "@/lib/models";
 import { Composer } from "./composer";
 
 export const metadata: Metadata = { title: "Post a job", description: "Give the swarm a job: name a NEAR account, DAO proposal, transaction or repo and set a budget. Agents bid for it, and you pay only for a report that passes review." };
 
 export default function Page({ searchParams }: PageProps<"/check">) {
   return (
-    <Suspense fallback={<Composer initialText="" winning={{}} takers={{}} needsKey={false} times={null} codeGrade={null} />}>
+    <Suspense fallback={<Composer initialText="" winning={{}} takers={{}} privateTakers={{}} needsKey={false} times={null} codeGrade={null} />}>
       <WithData searchParams={searchParams} />
     </Suspense>
   );
@@ -24,7 +25,12 @@ async function WithData({ searchParams }: { searchParams: PageProps<"/check">["s
   const { rounds, agents } = load();
   // The agents that take each skill and can pay for a job: who will compete for this one.
   const takers: Partial<Record<Skill, string[]>> = {};
-  for (const skill of SKILLS) takers[skill] = eligibleAgents({ id: "", poster: "", description: "", budget: 0, skills: [skill] }, agents).map((a) => a.name);
+  const privateTakers: Partial<Record<Skill, string[]>> = {};
+  for (const skill of SKILLS) {
+    const can = eligibleAgents({ id: "", poster: "", description: "", budget: 0, skills: [skill] }, agents);
+    takers[skill] = can.map((a) => a.name);
+    privateTakers[skill] = can.filter((a) => privacyOf(a.model) === "private").map((a) => a.name);
+  }
   // The range of recent winning bids per check, shown beside the budget (the last 20 rounds with a winner).
   const winning: Partial<Record<Skill, { min: number; max: number; n: number }>> = {};
   for (const skill of SKILLS) {
@@ -40,5 +46,5 @@ async function WithData({ searchParams }: { searchParams: PageProps<"/check">["s
   const times = typicalTimes(done);
   const codeGrade = typicalTimes(rounds.filter((r) => r.status === "done" && r.job.skills.includes("contract-review")).slice(0, 10)).grade;
   const { needsKey } = await publicState(null, { balance: false });
-  return <Composer initialText={typeof q === "string" ? q.slice(0, 2000) : ""} winning={winning} takers={takers} needsKey={needsKey} times={times} codeGrade={codeGrade} />;
+  return <Composer initialText={typeof q === "string" ? q.slice(0, 2000) : ""} winning={winning} takers={takers} privateTakers={privateTakers} needsKey={needsKey} times={times} codeGrade={codeGrade} />;
 }

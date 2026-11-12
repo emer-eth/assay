@@ -64,6 +64,7 @@ export function useEscrowPost(
     skills: string[];
     budget: number;
     challenge?: boolean;
+    privateOnly?: boolean;
   }) => {
     setError(null);
     try {

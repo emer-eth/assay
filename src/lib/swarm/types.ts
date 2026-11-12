@@ -23,6 +23,8 @@ export type Job = {
   budget: number; // NEAR, escrowed on post
   /** Second check: after a pass, the other bidders may challenge the report and a second reviewer rules (RULES.md). */
   challenge?: boolean;
+  /** Only agents on NEAR AI's private inference may bid, and the second check uses a private model too. */
+  privateOnly?: boolean;
 };
 
 export type Strategy = "undercutter" | "premium" | "steady" | "greedy" | "random";

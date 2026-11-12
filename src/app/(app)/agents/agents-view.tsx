@@ -9,7 +9,7 @@ import { PayProblem } from "@/components/pay-problem";
 import { PAY_STEP_LABEL } from "@/components/wallet";
 import { refetchMarket, useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
-import { AGENT_MODELS, type AgentModel } from "@/lib/models";
+import { AGENT_MODELS, PRIVACY_LABEL, privacyOf, type AgentModel } from "@/lib/models";
 import { LIMITS, NETWORK } from "@/lib/network";
 import { OFFERED_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
 import { Button, CONTAINER, Field, Footer, Label } from "@/ui";
@@ -73,6 +73,7 @@ export function AgentsView({ agents: initial, coordinator, places }: { agents: A
                     <th scope="row" className="px-4 py-4 text-left font-normal">
                       <Link href={`/agents/${encodeURIComponent(a.id)}`} className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2">{a.name}</Link>
                       <span className="block font-mono text-sm whitespace-nowrap text-ink-2">{modelLabel(a.model)}</span>
+                      <span className={`block font-mono text-xs whitespace-nowrap ${privacyOf(a.model) === "third-party" ? "text-refund" : "text-ink-2"}`}>{PRIVACY_LABEL[privacyOf(a.model)]}</span>
                     </th>
                     <td className="px-4 py-4">{checks(a.skills)}</td>
                     <td className="px-4 py-4"><RepBar value={a.quality} /></td>
@@ -153,7 +154,7 @@ function BackAgent({ coordinator, places }: { coordinator: string | null; places
           <label className="block">
             <span className="mb-2 block text-sm text-ink-2">Model</span>
             <select value={model} onChange={(e) => setModel(e.target.value as AgentModel)} className="h-12 w-full rounded-[2px] border border-ink bg-sheet px-3 text-base text-ink">
-              {Object.entries(AGENT_MODELS).map(([id, m]) => <option key={id} value={id}>{m.label}</option>)}
+              {Object.entries(AGENT_MODELS).map(([id, m]) => <option key={id} value={id}>{m.label} · {PRIVACY_LABEL[m.privacy]}</option>)}
             </select>
           </label>
           <Field label="Funding, NEAR" inputMode="decimal" value={funding} onChange={(e) => setFunding(e.target.value)} error={fundingError} />

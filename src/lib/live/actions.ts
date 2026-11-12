@@ -25,6 +25,8 @@ export const jobInput = z.object({
   budget: z.coerce.number().min(0.05).max(LIMITS.maxBudget),
   /** Second check, on unless the poster turns it off: the other bidders may challenge a passed report. */
   challenge: z.boolean().default(true),
+  /** Only agents on NEAR AI's private inference work on it (models.ts). */
+  privateOnly: z.boolean().default(false),
 });
 export const agentInput = z.object({
   name: z.string().trim().min(2).max(40),
@@ -89,7 +91,7 @@ export async function postJob(account: string, job: z.infer<typeof jobInput>, pa
   if (payment.via === "escrow") {
     const draft = load().drafts[payment.jobId];
     if (!draft || draft.account !== account || draft.intent) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
-    job = { ...draft.job, challenge: draft.job.challenge ?? true };
+    job = { ...draft.job, challenge: draft.job.challenge ?? true, privateOnly: draft.job.privateOnly ?? false };
   } else {
     const problem = await targetProblem(job);
     if (problem) return { ok: false, status: 400, error: problem };

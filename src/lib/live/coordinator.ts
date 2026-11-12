@@ -2,10 +2,13 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { gradeDelivery, reviewJob, ruleChallenge } from "../near-ai";
 import { agentAccount, availableNear, coordinator, ensureEscrowAgent, escrowJob, escrowRefund, escrowSettle, sendNear, unwrapNear, wnearBalance, escrowPost } from "../near";
-import { challengeQuality, decide, eligibleAgents, jobQuality, MAX_CHALLENGERS, settle } from "../swarm/round";
+import { challengeQuality, decide, eligibleAgents, jobQuality, MAX_CHALLENGERS, round4, settle } from "../swarm/round";
+import { bidCommitment, newSalt } from "./commit-server";
 import type { Job } from "../swarm/types";
 import type { Payment } from "./actions";
 import { agentBid, agentChallenge, agentWork, modelOf, usageToNear } from "./agent-ai";
+import { models as aiModels } from "../near-ai";
+import { privacyOf } from "../models";
 import { gatherEvidence } from "./tools";
 import { addCredit } from "./credit";
 import { recoverClaimedIntents, settleThroughIntents } from "./intents-jobs";
@@ -193,18 +196,35 @@ export async function runLiveRound(id: string) {
       load().agents.map(async (a) => ({ ...a, balance: await availableNear(a.id).catch(() => 0) })),
     );
     update((s) => s.agents.forEach((a) => (a.balance = agents.find((x) => x.id === a.id)?.balance ?? a.balance)));
-    const eligible = eligibleAgents(job, agents);
-    updateRound(id, { eligible: eligible.map((a) => a.id) }, `${eligible.length} of ${agents.length} agents can bid (right skills and enough NEAR for their AI)`);
+    // A private-only job is only seen by agents on NEAR AI's own private inference.
+    const pool = job.privateOnly ? agents.filter((a) => privacyOf(a.model) === "private") : agents;
+    const eligible = eligibleAgents(job, pool);
+    updateRound(id, { eligible: eligible.map((a) => a.id) }, `${eligible.length} of ${agents.length} agents can bid (right skills and enough NEAR for their AI${job.privateOnly ? "; private-only job: agents on NEAR AI's private inference only" : ""})`);
 
     // 3. Sealed bids: collected in parallel, revealed together once all are in
     // An agent can't bid below its own AI cost for the job (RULES.md): lower asks are raised to that floor.
     const floor = new Map(eligible.map((a) => [a.id, Math.max(a.costPerJob, usageToNear(estimate, modelOf(a)))]));
-    const raw = await Promise.all(eligible.map(async (a) => [a.id, await agentBid(a, job, evidence, floor.get(a.id)!)] as const));
-    const asks = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, Math.max(b!.ask, floor.get(id) ?? 0)]));
+    // Each bid is fixed as it arrives: its final ask (raised to the floor, capped at the budget, as decide() does) is
+    // committed to in the public log before any bid is revealed (commit.ts).
+    const sealedBids = new Map<string, { commitment: string; salt: string }>();
+    const raw = await Promise.all(
+      eligible.map(async (a) => {
+        const b = await agentBid(a, job, evidence, floor.get(a.id)!);
+        if (b) {
+          const ask = round4(Math.min(job.budget, Math.max(0.0001, b.ask, floor.get(a.id) ?? 0)));
+          const salt = newSalt();
+          const commitment = bidCommitment(id, a.id, ask, salt);
+          sealedBids.set(a.id, { commitment, salt });
+          updateRound(id, {}, `Sealed bid from ${a.name}, commitment ${commitment}`);
+        }
+        return [a.id, b] as const;
+      }),
+    );
+    const asks = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, round4(Math.min(job.budget, Math.max(0.0001, b!.ask, floor.get(id) ?? 0)))]));
     const pitches = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.pitch]));
     const bidUsage = new Map(raw.filter(([, b]) => b).map(([id, b]) => [id, b!.usage]));
-    const decision = decide(job, agents, asks);
-    const bids = decision.bids.map((b) => ({ ...b, pitch: pitches.get(b.agent) }));
+    const decision = decide(job, pool, asks);
+    const bids = decision.bids.map((b) => ({ ...b, pitch: pitches.get(b.agent), ...sealedBids.get(b.agent) }));
     if (!decision.winner) {
       updateRound(id, { bids, status: "unfilled", payout: { toAgent: 0, toBacker: 0, fee: 0, refundToPoster: job.budget, aiCost: 0 } }, `No valid bids. Poster refunded ${job.budget} NEAR.`);
       await refund(id, job.poster, job.budget, "no bids");
@@ -251,7 +271,7 @@ export async function runLiveRound(id: string) {
             if (hash) updateRound(id, (r) => r.txs.push({ label: `${f.a.name} paid ${spent} NEAR for its own AI (second check)`, hash }));
           }
           if (!f.claim) continue;
-          const ruling = await ruleChallenge(job.description, work.text, evidence.facts, f.claim);
+          const ruling = await ruleChallenge(job.description, work.text, evidence.facts, f.claim, job.privateOnly ? aiModels.secondReviewerPrivate : aiModels.secondReviewer);
           challenges.push({ agent: f.a.id, claim: f.claim, upheld: ruling.upheld, reason: ruling.reason, at: new Date().toISOString() });
           updateRound(id, { challenges: [...challenges] }, `Challenge by ${f.a.name} ${ruling.upheld === null ? "not ruled on" : ruling.upheld ? "upheld" : "rejected"}: ${ruling.reason}`);
         }

@@ -80,13 +80,14 @@ function buildServer(account: string | null) {
         description: z.string().describe("What the agent should check. Name the account (e.g. v2.ref-finance.near) or link the repo (e.g. https://github.com/owner/repo/tree/main/contract)."),
         skills: z.array(z.enum(SKILLS)).describe("due-diligence: check a NEAR account or contract before trusting it (name the account). contract-review: review a near-sdk Rust contract for NEAR-specific bugs (give a public GitHub link or paste the code). proposal-review: what a Sputnik DAO proposal will actually do if it passes, and whether it matches its description (name the DAO and proposal number). tx-forensics: why a NEAR transaction failed and where the money went (give the transaction hash or a NearBlocks link)."),
         budget: z.number().describe(`Maximum to pay, in NEAR (0.05–${LIMITS.maxBudget}).`),
+        private_only: z.boolean().optional().describe("Only agents on NEAR AI's own private inference may bid (some agents run on OpenAI or Google models, who would see the job). Default false."),
         challenge: z.boolean().optional().describe("Second check, on by default: after a report passes, the other bidders may challenge one claim each and a second reviewer rules; an upheld challenge refunds you in full. Set false to skip it (only the reviewer reads the report, and it settles sooner)."),
       },
       annotations: { destructiveHint: false, openWorldHint: true },
     },
     async (args) => {
       if (!account) return needKey();
-      const parsed = jobInput.safeParse(args);
+      const parsed = jobInput.safeParse({ ...args, privateOnly: (args as { private_only?: boolean }).private_only });
       if (!parsed.success) return fail(`Describe the job (10+ characters), give at least one skill, and a budget of 0.05–${LIMITS.maxBudget} NEAR.`);
       const res = await postJob(account, parsed.data, { via: "credit" });
       if (!res.ok) return fail(res.error);

@@ -24,7 +24,7 @@ export type LiveRound = {
   steps: { at: string; text: string }[];
   review?: Verdict;
   eligible: string[];
-  bids: (Bid & { pitch?: string })[]; // only shown once bidding has closed
+  bids: (Bid & { pitch?: string; /** sha256 logged when the bid arrived (commit.ts) */ commitment?: string; salt?: string })[]; // only shown once bidding has closed
   winner?: string;
   deliverable?: string;
   tokens?: number;
@@ -85,7 +85,7 @@ export type IntentPayment = {
   roundId?: string;
   note?: string;
 };
-type Job_ = { description: string; skills: Skill[]; budget: number; challenge?: boolean };
+type Job_ = { description: string; skills: Skill[]; budget: number; challenge?: boolean; privateOnly?: boolean };
 
 const DIR = DATA_DIR;
 const FILE = join(DIR, "live.json");

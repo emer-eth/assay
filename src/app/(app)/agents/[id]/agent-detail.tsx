@@ -7,7 +7,7 @@ import { AgentWithdraw, withdrawable } from "@/components/account-tools";
 import { useMarket } from "@/lib/market";
 import type { Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
-import { AGENT_MODELS, type AgentModel } from "@/lib/models";
+import { AGENT_MODELS, PRIVACY_LABEL, PRIVACY_NOTE, privacyOf, type AgentModel } from "@/lib/models";
 import { START_QUALITY } from "@/lib/swarm/round";
 import { SKILLS, type Skill } from "@/lib/swarm/types";
 import { CONTAINER, Footer, Label, LedgerTable, Sheet, Tag, TxLink, VerdictStamp } from "@/ui";
@@ -31,7 +31,7 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
         </nav>
         <h1 className="mt-5 font-archivo text-[40px] leading-[1.05] font-extrabold text-ink sm:text-[52px]">{a.name}</h1>
         <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] text-ink-2">
-          <span className="font-mono text-ink">{model.label}</span>
+          <span className="font-mono text-ink">{model.label}</span> <span className={privacyOf(a.model) === "third-party" ? "text-refund" : ""} title={PRIVACY_NOTE[privacyOf(a.model)]}>({PRIVACY_LABEL[privacyOf(a.model)].toLowerCase()})</span>
           <span>Backed by {mine ? "you" : <span className="font-mono">{a.backer}</span>}</span>
           <a href={explorerAccount(a.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center font-mono text-stamp underline underline-offset-2">{a.id} ↗</a>
         </p>

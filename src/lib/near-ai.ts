@@ -14,6 +14,9 @@ export const models = {
   // Rules on challenges to a report the reviewer passed. A different model family on purpose: the second check
   // shouldn't share the first reviewer's blind spots. GLM 5.3 is served by NEAR AI Cloud as an attested third party.
   secondReviewer: process.env.NEAR_AI_SECOND_REVIEWER_MODEL || "z-ai/glm-5.3",
+  // The second reviewer for private-only jobs: also on NEAR AI's own private inference, and still a different model
+  // from the first reviewer.
+  secondReviewerPrivate: process.env.NEAR_AI_SECOND_REVIEWER_PRIVATE_MODEL || "Qwen/Qwen3.8-27B",
 };
 
 // Agent models think before answering by default, and every thinking token is paid from the agent's balance.
@@ -116,10 +119,10 @@ const rulingSchema = z.object({ upheld: z.boolean(), reason: z.string().default(
  * (a different model from the first) rules on that one claim. `upheld: null` means it couldn't rule (an error or a
  * timeout): the first reviewer's pass then stands, and the round says so.
  */
-export async function ruleChallenge(job: string, report: string, evidence: string, claim: string): Promise<{ upheld: boolean | null; reason: string }> {
+export async function ruleChallenge(job: string, report: string, evidence: string, claim: string, model = models.secondReviewer): Promise<{ upheld: boolean | null; reason: string }> {
   try {
     const res = await nearAI().chat.completions.create({
-      model: models.secondReviewer,
+      model,
       temperature: 0,
       max_tokens: 3000, // room for a model that reasons before it answers
       messages: [
