@@ -55,3 +55,25 @@ test("a challenge quotes the private report, so only the poster reads its text; 
   assert.equal(pub.reason, "the evidence shows 2 keys");
   assert.equal(pub.upheld, false);
 });
+
+test("ledger rows and agent records count the second check", async () => {
+  const { toRow } = await import("../src/lib/live/rows");
+  const { agentRecords, challengeText } = await import("../src/lib/live/records");
+  const r = round({
+    grade: { passed: false, reasons: ["Overturned"] }, overturned: true,
+    challenges: [{ agent: "b", claim: "x", upheld: true, reason: "y", at: at(90) }, { agent: "c", claim: "x", upheld: false, reason: "y", at: at(91) }],
+    steps: [...round().steps, { at: at(95), text: "Second check: the pass was overturned on B's challenge. Nothing is paid; the poster is refunded in full." }],
+  });
+  assert.deepEqual(toRow(r, []).secondCheck, { challenges: 2, overturned: true });
+  assert.equal(toRow(round({ grade: { passed: true, reasons: [] } }), []).secondCheck, null);
+  const rec = agentRecords([r]);
+  assert.deepEqual(rec.get("b")?.challenges, { filed: 1, upheld: 1, overturned: 0 });
+  assert.deepEqual(rec.get("a")?.challenges, { filed: 0, upheld: 0, overturned: 1 });
+  assert.equal(challengeText(rec.get("c")!), "1 challenge filed, 0 upheld");
+});
+
+test("the typical time of the second check comes from its log lines", async () => {
+  const { stageTimes } = await import("../src/lib/live/timeline");
+  const r = round({ steps: [...round().steps, { at: at(62), text: "Second check: B can challenge the report" }, { at: at(80), text: "Second check: no agent challenged the report. The pass stands." }] });
+  assert.equal(stageTimes(r).check, 20_000);
+});

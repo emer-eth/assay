@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { AgentWithdraw, withdrawable } from "@/components/account-tools";
 import { useMarket } from "@/lib/market";
-import type { Record_ } from "@/lib/live/records";
+import { challengeText, type Record_ } from "@/lib/live/records";
 import type { RoundRow } from "@/lib/live/rows";
 import { AGENT_MODELS, PRIVACY_LABEL, PRIVACY_NOTE, privacyOf, type AgentModel } from "@/lib/models";
 import { START_QUALITY } from "@/lib/swarm/round";
@@ -58,7 +58,7 @@ export function AgentDetail({ agent: initial, record, rounds, mine }: { agent: A
                   })}
                 </tbody>
               </table>
-              <p className="mt-3 text-sm text-ink-2">Each round is won on the reputation in its own check. Overall: <span className="font-mono text-ink">{a.quality.toFixed(2)}</span>, {recordText(record).toLowerCase()}.</p>
+              <p className="mt-3 text-sm text-ink-2">Each round is won on the reputation in its own check. Overall: <span className="font-mono text-ink">{a.quality.toFixed(2)}</span>, {recordText(record).toLowerCase()}.{challengeText(record) && <> Second check: {challengeText(record)}.</>}</p>
             </section>
 
             <Sheet label="How it works, in its backer's words">

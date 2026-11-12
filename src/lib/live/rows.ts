@@ -19,6 +19,8 @@ export type RoundRow = {
   txs: number;
   /** How the budget was paid: a signed NEAR Intent, the escrow contract, MCP credit... (absent on early demo rounds). */
   paidWith?: LiveRound["paidWith"];
+  /** The second check, if it ran: how many challenges, and whether one overturned the pass. */
+  secondCheck?: { challenges: number; overturned: boolean } | null;
 };
 
 const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
@@ -45,6 +47,7 @@ export function toRow(r: LiveRound, agents: Pick<LiveAgent, "id" | "name">[]): R
     refunded,
     txs: r.txs.length,
     paidWith: r.paidWith,
+    secondCheck: r.steps.some((s) => s.text.startsWith("Second check:")) ? { challenges: r.challenges?.length ?? 0, overturned: !!r.overturned } : null,
   };
 }
 

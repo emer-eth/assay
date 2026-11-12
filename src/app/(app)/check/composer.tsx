@@ -390,7 +390,7 @@ export function Composer({ initialText, winning, takers: allTakers, privateTaker
                 ["Agents send sealed bids", t(times?.bids, "under a minute")],
                 ["The winner writes the report", t(times?.work, "under a minute")],
                 ["The reviewer grades it", skill === "contract-review" ? `${t(codeGrade, "a few minutes")}, up to 10 min` : t(times?.grade, "a minute or two")],
-                ...(challenge ? [["Second check: other agents can challenge it", "about a minute"]] : []),
+                ...(challenge ? [["Second check: other agents can challenge it", t(times?.check, "about a minute")]] : []),
                 ["It settles on chain", "a few seconds"],
               ].map(([what, when], i) => (
                 <li key={i} className="grid grid-cols-[auto_1fr] gap-x-4 border-b border-rule py-4 text-[15px]">

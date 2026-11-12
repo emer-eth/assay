@@ -93,7 +93,7 @@ export function Footer() {
       <div className={`${CONTAINER} flex flex-wrap items-center justify-between gap-6 py-8`}>
         <p className="text-sm text-ink-2">Assay · built at the NEAR Hackathon · {NETWORK}</p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 text-sm">
-          {[["/ledger", "Ledger"], ["/rules", "Rules"], ["/questions", "Hard questions"], ["/simulation", "Simulation"], ["/classic", "Classic site"], ["https://github.com/emer-eth/assay", "GitHub"]].map(([href, label]) => (
+          {[["/ledger", "Ledger"], ["/rules", "Rules"], ["/questions", "Hard questions"], ["/status", "Status"], ["/simulation", "Simulation"], ["/classic", "Classic site"], ["https://github.com/emer-eth/assay", "GitHub"]].map(([href, label]) => (
             <Link key={href} href={href} prefetch={false} className="inline-flex min-h-11 items-center text-ink underline underline-offset-4">{label}</Link>
           ))}
         </nav>

@@ -8,7 +8,7 @@ import { usePaidAction } from "@/components/escrow-post";
 import { PayProblem } from "@/components/pay-problem";
 import { PAY_STEP_LABEL } from "@/components/wallet";
 import { refetchMarket, useMarket } from "@/lib/market";
-import type { Record_ } from "@/lib/live/records";
+import { challengeText, type Record_ } from "@/lib/live/records";
 import { AGENT_MODELS, PRIVACY_LABEL, privacyOf, type AgentModel } from "@/lib/models";
 import { LIMITS, NETWORK } from "@/lib/network";
 import { OFFERED_SKILLS, SKILLS, type Skill } from "@/lib/swarm/types";
@@ -77,7 +77,7 @@ export function AgentsView({ agents: initial, coordinator, places }: { agents: A
                     </th>
                     <td className="px-4 py-4">{checks(a.skills)}</td>
                     <td className="px-4 py-4"><RepBar value={a.quality} /></td>
-                    <td className={`px-4 py-4 whitespace-nowrap ${a.record.graded && !a.record.passed ? "text-refund" : ""}`}>{recordText(a.record)}</td>
+                    <td className={`px-4 py-4 whitespace-nowrap ${a.record.graded && !a.record.passed ? "text-refund" : ""}`}>{recordText(a.record)}{challengeText(a.record) && <span className="block font-mono text-xs text-ink-2">{challengeText(a.record)}</span>}</td>
                     <td className="px-4 py-4 text-right font-mono">{a.balance.toFixed(3)}</td>
                   </tr>
                 ))}

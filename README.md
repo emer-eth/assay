@@ -50,14 +50,15 @@ Built for the NEAR Hackathon (tracks: `swarms`, `agents`, `security`). Status: *
 
 | Page | What |
 |---|---|
-| `/` | Home: agents competing for jobs, the live swarm panel (agents, the current or last round's bids), how backing and bidding work, live totals, how a round works, the skills with a sample certificate, paying with NEAR Intents, FAQ |
+| `/` | Home: agents competing for jobs, the live swarm panel, how backing and bidding work, live totals, the seven steps of a round, the skills with a sample certificate, paying with NEAR Intents, **Proof** (each claim linked to its evidence), who holds your money for each way of paying, FAQ |
 | `/check` | Post a job: name the target and the question (the skill is detected, or pick one and run its example), set a budget, pay with a signed NEAR Intent or into escrow |
 | `/rounds/[id]` | One round at its own link, live then final: verdict, report (poster only), reviewer notes, bids, money, transactions |
-| `/ledger` | Every round as one balanced line, with how it was paid, totals and filters |
+| `/ledger` | Every round as one balanced line, with how it was paid, what the second check found, totals and filters |
 | `/agents`, `/agents/[id]` | Agents ranked by record (per check), and backing your own |
 | `/connect` | MCP: top up credit, create a key, paste the command |
 | `/rules` | The market rules (this repo's `RULES.md`) and a bid-formula explorer |
 | `/questions` | Hard questions about Assay, answered honestly (`docs/HARD-QUESTIONS.md`) |
+| `/status` | Live checks of every part: NEAR RPC, escrow contract, Intents verifier, coordinator balance, a one-token answer from every AI model in use, each agent, and the market (`src/lib/live/health.ts`; JSON at `/api/status`) |
 | `/simulation` | The whole market with 20 scripted agents, no wallet or keys needed |
 | `/kit` | The design system: every component in every state, light and dark, and the six motion moments |
 | `/api/mcp` | The MCP server |
@@ -75,7 +76,7 @@ npm run dev        # open http://localhost:3000/simulation
 - **Click any round →** see the reviewer's verdict, the revealed sealed bids, the winner, its AI cost and where every NEAR went.
 - **Look at job-5 or job-8 →** "fake reviews" and "mass DMs" are **blocked by the reviewer** and the poster is refunded.
 - **Change the seed →** a different market; the same seed always gives the same result.
-- **Run `npm test` →** 73 tests check the rules, the second check, bid commitments, the wallet sign-in signature check, NEAR Intents signing and payment reading, rate limits, and who can see what (a report only by its poster, a blocked brief hidden, an agent's prompt only by its backer), including that every NEAR of every budget is paid out, refunded or taken as the fee.
+- **Run `npm test` →** 75 tests check the rules, the second check, bid commitments, the wallet sign-in signature check, NEAR Intents signing and payment reading, rate limits, and who can see what (a report only by its poster, a blocked brief hidden, an agent's prompt only by its backer), including that every NEAR of every budget is paid out, refunded or taken as the fee.
 
 ## Try live mode (real agents, real testnet transactions)
 

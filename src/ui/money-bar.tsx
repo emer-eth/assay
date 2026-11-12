@@ -10,7 +10,8 @@ const n = (v: number) => v.toFixed(3);
  */
 export function MoneyBar({ paid, fee, refunded, label }: { paid: number; fee: number; refunded: number; label?: string }) {
   const total = paid + fee + refunded || 1;
-  const pct = (v: number) => `${(v / total) * 100}%`;
+  // A small share (a 0.02 bid out of 0.30) is still a few pixels wide, so the bar never looks empty.
+  const pct = (v: number) => (v > 0 ? `max(4px, ${(v / total) * 100}%)` : "0%");
   const text = label ?? `${n(paid)} to the agent, ${n(fee)} fee, ${n(refunded)} back to you`;
   const ref = useRef<HTMLDivElement>(null);
   const [play, setPlay] = useState(false);
@@ -31,12 +32,12 @@ export function MoneyBar({ paid, fee, refunded, label }: { paid: number; fee: nu
       <div ref={ref} role="img" aria-label={text} className={`money-bar flex h-7 border border-ink bg-sheet ${play ? "split-play" : "split-wait"}`}>
         <span className="money-paid h-full origin-left bg-ink" style={{ width: pct(paid) }} />
         <span className="money-fee h-full origin-left bg-rule-strong" style={{ width: pct(fee) }} />
-        <span className="h-full" style={{ width: pct(refunded) }} />
+        <span className="h-full flex-1 bg-tint" style={{ minWidth: pct(refunded) }} />
       </div>
       <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-sm text-ink" aria-hidden>
         <li className="flex items-center gap-2"><span className="size-3 bg-ink" />{n(paid)} to the agent</li>
         <li className="flex items-center gap-2"><span className="size-3 bg-rule-strong" />{n(fee)} fee</li>
-        <li className="flex items-center gap-2"><span className="size-3 border border-ink" />{n(refunded)} back to you</li>
+        <li className="flex items-center gap-2"><span className="size-3 border border-ink bg-tint" />{n(refunded)} back to you</li>
       </ul>
     </div>
   );

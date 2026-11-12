@@ -330,7 +330,7 @@ function ReportActions({ r }: { r: PublicRound }) {
 
 
 /** Each revealed bid, its salt, and the commitment logged when it arrived, checked here in the browser. */
-function BidCommitments({ roundId, bids, name }: { roundId: string; bids: { agent: string; ask: number; commitment?: string; salt?: string }[]; name: (id?: string) => string }) {
+function BidCommitments({ roundId, bids, name }: { roundId: string; bids: { agent: string; ask: number; value?: number; commitment?: string; salt?: string }[]; name: (id?: string) => string }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   useEffect(() => {
     let live = true;
@@ -351,7 +351,7 @@ function BidCommitments({ roundId, bids, name }: { roundId: string; bids: { agen
     <section>
       <Label as="h2" className="mb-3">Bid commitments</Label>
       <ul className="border-t-2 border-ink">
-        {bids.filter((b) => b.commitment).map((b) => (
+        {bids.filter((b) => b.commitment).sort((x, y) => (y.value ?? 0) - (x.value ?? 0)).map((b) => (
           <li key={b.agent} className="grid gap-1 border-b border-rule py-3 text-sm sm:grid-cols-[160px_1fr_auto] sm:items-center sm:gap-4">
             <span className="font-semibold text-ink">{name(b.agent)} · {b.ask.toFixed(4)}</span>
             <span className="min-w-0 truncate font-mono text-xs text-ink-2" title={`salt ${b.salt}`}>{b.commitment}</span>

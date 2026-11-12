@@ -53,6 +53,10 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
     ["Refunded, NEAR", near(rows.reduce((s, r) => s + r.refunded, 0))],
     ["Agents' AI spend, NEAR", near(aiSpend, 3)],
   ];
+  // The second check across rounds: how often it ran, how many challenges rival agents filed, how many passes fell.
+  const checked = rows.filter((r) => r.secondCheck);
+  const challenges = checked.reduce((s, r) => s + (r.secondCheck?.challenges ?? 0), 0);
+  const overturned = checked.filter((r) => r.secondCheck?.overturned).length;
 
   const table: LedgerRow[] = shown.map((r) => {
     const v = verdictOf(r);
@@ -68,6 +72,7 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
           <span className="flex flex-wrap gap-x-3 font-mono text-xs uppercase">
             {skill && <span className="text-ink-2">{CHECK[skill]}</span>}
             {r.paidWith && <span className={r.paidWith === "intents" || r.paidWith === "oneclick" ? "font-semibold text-stamp" : "text-ink-2"}>Paid: {PAID[r.paidWith]}</span>}
+            {r.secondCheck && <span className={r.secondCheck.overturned ? "font-semibold text-refund" : "text-ink-2"}>{r.secondCheck.overturned ? "Overturned on challenge" : `2nd check: ${r.secondCheck.challenges ? `${r.secondCheck.challenges} challenge${r.secondCheck.challenges === 1 ? "" : "s"}, none upheld` : "unchallenged"}`}</span>}
           </span>
         </>
       ),
@@ -97,6 +102,14 @@ export function LedgerView({ rows: initial, aiSpend, loading }: { rows: RoundRow
             </div>
           ))}
         </dl>
+
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-2 border border-rule bg-sheet px-5 py-4 text-[15px]">
+          <span className="font-mono text-xs tracking-[0.08em] text-ink-2 uppercase">Second check</span>
+          <span><span className="font-mono text-ink">{loading ? "—" : checked.length}</span> <span className="text-ink-2">passes put to rival agents</span></span>
+          <span><span className="font-mono text-ink">{loading ? "—" : challenges}</span> <span className="text-ink-2">challenges filed</span></span>
+          <span><span className={`font-mono ${overturned ? "text-refund" : "text-ink"}`}>{loading ? "—" : overturned}</span> <span className="text-ink-2">passes overturned</span></span>
+          <a href="/questions" className="ml-auto text-stamp underline underline-offset-2">Who checks the reviewer?</a>
+        </div>
 
         <div className="mt-10 mb-4 flex flex-wrap items-center justify-between gap-4">
           <div role="group" aria-label="Filter by verdict" className="flex flex-wrap gap-2">
