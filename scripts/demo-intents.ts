@@ -39,7 +39,8 @@ async function signIn() {
 }
 
 async function job(description: string, skill: string, budget: number) {
-  const prep = await api("/api/intents/job", { description, skills: [skill], budget });
+  // PRIVATE_ONLY=1: only private-inference agents may bid. CHALLENGE=0: skip the second check.
+  const prep = await api("/api/intents/job", { description, skills: [skill], budget, privateOnly: process.env.PRIVATE_ONLY === "1", challenge: process.env.CHALLENGE !== "0" });
   if (prep.status !== 200) throw new Error(`prepare: ${prep.data.error}`);
   const p = prep.data;
   if (p.registerKey) {
