@@ -9,6 +9,7 @@ import { base58, executeIntents, hasIntentsKey, intentLanded, INTENTS_ID, intent
 import { yoctoOf } from "./pay-assets";
 import { load, update, updateRound } from "./store";
 import { targetProblem } from "./tools";
+import { dailyCap } from "./actions";
 
 // Paying for a job with NEAR Intents, by signing an intent. The payer's NEAR sits in their own balance on the
 // verifier contract; they sign one NEP-413 message, "transfer <budget> wNEAR to the coordinator", and the
@@ -39,6 +40,8 @@ export type IntentsPrep = {
 export async function prepareIntentsJob(account: string, publicKey: string | null, job: z.infer<typeof jobInput>): Promise<({ ok: true } & IntentsPrep) | Fail> {
   // The verifier refuses a transfer to oneself ("invalid intent"), so the coordinator's own wallet can't pay this way.
   if (account === coord()) return { ok: false, status: 400, error: `${account} is Assay's own coordinator account, and NEAR Intents won't let an account pay itself. Connect a different testnet account to pay with an intent, or use "NEAR wallet to escrow".` };
+  const capped = dailyCap(account); // before any money moves: the daily cap (budget.ts)
+  if (capped) return capped;
   const problem = await targetProblem(job); // before any money moves: the job must name a real target
   if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-n-${randomUUID().slice(0, 13)}`;

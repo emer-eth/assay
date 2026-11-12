@@ -11,6 +11,7 @@ import { addCredit, spendCredit } from "./credit";
 import { claimDeposit } from "./deposit";
 import { LIMITS } from "./guard";
 import { targetProblem } from "./tools";
+import { capProblem } from "./budget";
 import { AGENT_MODELS, type AgentModel } from "../models";
 import { SKILLS } from "../swarm/types";
 import { load, update, type LiveAgent } from "./store";
@@ -74,7 +75,15 @@ async function take(account: string, near: number, payment: Payment, purpose: st
  * Step 1 of a wallet-paid job: reserve a job id. The wallet then calls post_job(job_id) on the escrow contract
  * with the budget attached, and step 2 (postJob with { via: "escrow", jobId }) confirms it from the contract.
  */
+/** The daily cap (budget.ts), checked before any payment. */
+export function dailyCap(account: string): Fail | null {
+  const problem = capProblem(load().rounds, account, process.env.NEAR_ACCOUNT_ID ?? null);
+  return problem ? { ok: false, status: 429, error: problem } : null;
+}
+
 export async function prepareJob(account: string, job: z.infer<typeof jobInput>): Promise<{ ok: true; jobId: string; contractId: string } | Fail> {
+  const capped = dailyCap(account);
+  if (capped) return capped;
   const problem = await targetProblem(job); // before any money moves: the job must name a real account or repo
   if (problem) return { ok: false, status: 400, error: problem };
   const jobId = `sfh-${randomUUID().slice(0, 13)}`;
@@ -93,6 +102,8 @@ export async function postJob(account: string, job: z.infer<typeof jobInput>, pa
     if (!draft || draft.account !== account || draft.intent) return { ok: false, status: 404, error: "Unknown job id. Start again from the form." };
     job = { ...draft.job, challenge: draft.job.challenge ?? true, privateOnly: draft.job.privateOnly ?? false };
   } else {
+    const capped = dailyCap(account);
+    if (capped) return capped;
     const problem = await targetProblem(job);
     if (problem) return { ok: false, status: 400, error: problem };
   }

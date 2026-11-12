@@ -64,6 +64,9 @@ export async function startPayIn(job: z.infer<typeof jobInput>, assetKey: string
   if (!asset) return { ok: false, status: 400, error: "Pick a token to pay with." };
   const bad = refundAddressProblem(asset, refundTo);
   if (bad) return { ok: false, status: 400, error: bad };
+  const { dailyCap } = await import("./actions");
+  const capped = dailyCap(refundTo.trim());
+  if (capped) return capped;
   const problem = await targetProblem(job); // before any money moves, the job must name a real target
   if (problem) return { ok: false, status: 400, error: problem };
   let quote;

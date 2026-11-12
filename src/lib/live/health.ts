@@ -6,6 +6,7 @@ import { models, nearAI } from "../near-ai";
 import { ACTIVE } from "./status";
 import { INTENTS_ID, intentsBalance } from "./intents-verifier";
 import { load } from "./store";
+import { DAILY_ROUNDS, DAILY_ROUNDS_PER_ACCOUNT, minutesToReset, usedToday } from "./budget";
 
 // The live status page: every part Assay depends on, checked for real (an RPC call, a contract view, a one-token
 // completion from each model). The models are called rather than looked up in NEAR AI's list, because a listed
@@ -78,7 +79,9 @@ async function run(): Promise<Health> {
     const p = pings[i];
     modelUp.set(m, !p.e);
     const who = m in AGENT_MODELS ? ` · ${PRIVACY_LABEL[privacyOf(m)].toLowerCase()}` : "";
-    add({ group: "NEAR AI Cloud", name, state: p.e ? "down" : "ok", detail: p.e ? `${m}: ${p.e}` : `${m} answered${who}`, ms: p.ms });
+    // Out of credit shows up as a payment error on every model at once: say so plainly.
+    const broke = p.e && /402|insufficient|credit|balance|quota|payment/i.test(p.e);
+    add({ group: "NEAR AI Cloud", name, state: p.e ? "down" : "ok", detail: p.e ? `${m}: ${broke ? "NEAR AI credits look used up (" + p.e + ")" : p.e}` : `${m} answered${who}`, ms: p.ms });
   });
 
   // Each agent: can it pay for a job's AI, and is its model answering? Either failing means it can't bid.
@@ -95,6 +98,8 @@ async function run(): Promise<Health> {
   const active = s.rounds.filter((r) => ACTIVE.includes(r.status));
   const stuck = active.filter((r) => Date.now() - Date.parse(r.createdAt) > 30 * 60_000);
   add({ group: "Market", name: "Rounds", state: stuck.length ? "warn" : "ok", detail: `${active.length ? `${active.length} running now` : "none running now"} · ${day} in the last 24 hours${last ? ` · last one ${Math.round((Date.now() - Date.parse(last.createdAt)) / 60_000)} min ago` : ""}${stuck.length ? ` · ${stuck.length} running over 30 min` : ""}` });
+  const used = usedToday(s.rounds, null);
+  add({ group: "Market", name: "Today's rounds", state: used.total >= DAILY_ROUNDS ? "warn" : "ok", detail: `${used.total} of ${DAILY_ROUNDS} today (at most ${DAILY_ROUNDS_PER_ACCOUNT} per account), because each round uses paid AI · resets in ${Math.floor(minutesToReset() / 60)} h ${minutesToReset() % 60} min` });
   const bidders = s.agents.filter((a) => a.balance >= a.costPerJob && modelUp.get(a.model && a.model in AGENT_MODELS ? a.model : models.agent) !== false).length;
   add({ group: "Market", name: "Agents able to bid", state: bidders >= 2 ? "ok" : bidders === 1 ? "warn" : "down", detail: `${bidders} of ${s.agents.length}${bidders < 2 ? " (a job needs two for a contest and a second check)" : ""}` });
   return { at: new Date().toISOString(), checks };
