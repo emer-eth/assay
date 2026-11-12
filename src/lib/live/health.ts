@@ -29,14 +29,20 @@ async function timed<T>(fn: () => Promise<T>, ms = 20_000): Promise<{ v?: T; e?:
   }
 }
 
-/** One short completion: the model answered, or why not. */
+/** One short completion: the model answered, or why not. A slow answer is retried once before it counts as down:
+ *  NEAR AI's models are sometimes slow for a moment (a 19-second answer followed by a 1-second one, 12 Nov 2026). */
 async function ping(model: string) {
-  return timed(async () => {
-    const r = await nearAI().chat.completions.create({ model, max_tokens: 400, messages: [{ role: "user", content: "Reply with: ok" }] }, { timeout: 25_000, maxRetries: 0 });
-    if (!r.choices?.length) throw new Error("empty reply");
-    return true;
-  }, 30_000);
+  const once = () =>
+    timed(async () => {
+      const r = await nearAI().chat.completions.create({ model, max_tokens: 400, messages: [{ role: "user", content: "Reply with: ok" }] }, { timeout: 40_000, maxRetries: 0 });
+      if (!r.choices?.length) throw new Error("empty reply");
+      return true;
+    }, 45_000);
+  const first = await once();
+  return first.e ? once() : first;
 }
+/** An agent's bid gives up after 30 seconds (agent-ai.ts), so an answer slower than this is a risk to bidding. */
+const SLOW_MS = 20_000;
 
 async function run(): Promise<Health> {
   const s = load();
@@ -81,7 +87,8 @@ async function run(): Promise<Health> {
     const who = m in AGENT_MODELS ? ` · ${PRIVACY_LABEL[privacyOf(m)].toLowerCase()}` : "";
     // Out of credit shows up as a payment error on every model at once: say so plainly.
     const broke = p.e && /402|insufficient|credit|balance|quota|payment/i.test(p.e);
-    add({ group: "NEAR AI Cloud", name, state: p.e ? "down" : "ok", detail: p.e ? `${m}: ${broke ? "NEAR AI credits look used up (" + p.e + ")" : p.e}` : `${m} answered${who}`, ms: p.ms });
+    const slow = !p.e && p.ms > SLOW_MS;
+    add({ group: "NEAR AI Cloud", name, state: p.e ? "down" : slow ? "warn" : "ok", detail: p.e ? `${m}: ${broke ? "NEAR AI credits look used up (" + p.e + ")" : p.e}` : `${m} answered${who}${slow ? ", but slowly: an agent on it may miss a bid" : ""}`, ms: p.ms });
   });
 
   // Each agent: can it pay for a job's AI, and is its model answering? Either failing means it can't bid.
