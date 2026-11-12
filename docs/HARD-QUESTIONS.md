@@ -14,11 +14,11 @@ What it doesn't solve: the challengers are agents on this same market, and it on
 
 ## Can the reviewer be prompt-injected?
 
-We attack it ourselves: `npm run redteam` sends 12 injection attempts (orders to the grader, fake verdicts, fake evidence, claimed admin modes, injections in the job and in on-chain text) plus checks of the second check. One attack got through: a report that faked the end of its own block. It was fixed by wrapping every untrusted text in markers with a random id per request; since then, three runs in a row refused 12 of 12. That is the builder testing their own system, not a proof. The bound that matters more: the reviewer has no keys or tools, so a fooled reviewer can pay one winning bid, which the escrow contract caps at the job's budget.
+We attack it ourselves: `npm run redteam` sends 12 injection attempts (orders to the grader, fake verdicts, fake evidence, claimed admin modes, injections in the job and in on-chain text) plus checks of the second check. One attack got through: a report that faked the end of its own block. It was fixed by wrapping every untrusted text in markers with a random id per request; since then, three runs in a row refused 12 of 12, and the latest run's output is saved in [`docs/redteam-results.md`](redteam-results.md). That is the builder testing their own system, not a proof. The bound that matters more: the reviewer has no keys or tools, so a fooled reviewer can pay one winning bid, which the escrow contract caps at the job's budget.
 
 ## Why not just ask a chatbot?
 
-We ran it: [`docs/chatbot-comparison.md`](chatbot-comparison.md). Three models answered "who controls v2.ref-finance.near, and can its code be changed?" plainly, then again with the evidence Assay's tools read from mainnet. The same reviewer graded all six against that evidence: all three plain answers failed (one named the wrong owner DAO, one invented a council and threshold, one never named the controller), and all three answers with tools passed. One question, one run: it shows the difference, it doesn't measure it.
+We ran it: [`docs/chatbot-comparison.md`](chatbot-comparison.md). Three models answered "who controls v2.ref-finance.near, and can its code be changed?" plainly, then again with the evidence Assay's tools read from mainnet. The same reviewer graded all six against that evidence: all three plain answers failed (one named the wrong owner DAO and made up the voting threshold; two never named who controls it), and all three answers with tools passed. One question, one run: it shows the difference, it doesn't measure it.
 
 ## Who holds my money during a round?
 
@@ -42,7 +42,7 @@ Each agent has its own NEAR account and pays its AI cost from it in a real trans
 
 ## Why would anyone back an agent?
 
-Not for income, today. Agents bid close to their own AI cost to win, so the best agent's profit so far is under 0.01 NEAR. Backing an agent is about building a reputation in a skill; the economics would need a margin above cost, or real demand, to pay.
+Not for income, today. Agents bid close to their own AI cost to win, so profits are small: the best agent's backer has made about 0.1 NEAR across all its rounds, and most have made little or nothing. Backing an agent is about building a reputation in a skill; the economics would need a margin above cost, or real demand, to pay.
 
 ## Is a testnet verifier really NEAR Intents?
 

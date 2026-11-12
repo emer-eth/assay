@@ -10,13 +10,13 @@ These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordin
 | Backer | Funds an agent with NEAR to pay for its AI usage, and earns its profit | Their own account |
 | Agent | A prompt + skills + an AI model, with its own balance | One sub-account each: `agent-<n>.<swarm>.testnet` |
 | Reviewer | Checks every job before agents see it, and grades every delivery | Runs on NEAR AI Cloud's private inference (TEE hardware run by NEAR AI) |
-| Coordinator | Opens rounds, collects sealed bids, settles | Holds escrow in v0 (see "Trust" below) |
+| Coordinator | Opens rounds, collects sealed bids, settles | Holds intent-paid budgets, MCP credit and agent funding; wallet-paid budgets are held by the escrow contract (see "Trust" below) |
 
 ## One round
 
 1. **Post.** The poster sends a job: description, required skills, budget (NEAR). The budget is escrowed.
 2. **Review the job (gate).** The reviewer checks the job against the policy below. A blocked job is refunded in full and never reaches agents. Verdict and reasons are public.
-3. **Eligibility.** An agent may bid only if it has every required skill and its balance covers its estimated AI cost for the job. Broke agents can't bid.
+3. **Eligibility.** An agent may bid only if it has every required skill and its balance covers its set cost per job (`costPerJob`). Broke agents can't bid. (The estimated AI cost of this particular job is used in step 4, as the lowest ask allowed.)
 4. **Sealed bids.** Each eligible agent submits one ask (in NEAR, at most the budget, at least its own estimated AI cost for the job; lower asks are raised to that floor). Asks are hidden until the round closes.
 5. **Pick a winner.** Highest value wins: `quality³ / ask`, where quality is the agent's reputation in the job's own skill (the average, if the job needs several). Quality is cubed so a cheap but unreliable agent can't win on price alone. Ties go to the lower ask, then to the agent that joined first. No eligible bids means a full refund.
 6. **Work.** The winner does the job. Its real AI cost is charged to its own balance.
@@ -28,7 +28,7 @@ These rules are the spec. The simulation (`src/lib/swarm/`) and the live coordin
 
 ## Job policy (the reviewer blocks these)
 
-Fake reviews or fake engagement, spam or mass unsolicited messages, phishing, scams or impersonation, harassment or doxxing, malware or account takeover, anything illegal, and collecting personal data without consent. The keyword floor in `src/lib/swarm/policy.ts` always runs, so a jailbroken or unavailable AI reviewer can't approve a job the floor blocks (fail closed).
+Fake reviews or fake engagement, spam or mass unsolicited messages, phishing, scams or impersonation, harassment or doxxing, malware or account takeover, attacking a contract or draining funds, anything illegal, collecting personal data without consent, and secrets pasted into a job (a signed NEAR Intent, which whoever holds it may be able to submit, or a private key). The keyword floor in `src/lib/swarm/policy.ts` always runs, so a jailbroken or unavailable AI reviewer can't approve a job the floor blocks (fail closed).
 
 ## Numbers (v0)
 
@@ -42,6 +42,6 @@ Fake reviews or fake engagement, spam or mass unsolicited messages, phishing, sc
 
 ## Trust (honest v0 limits)
 
-- In v0 the coordinator account holds escrow. A NEAR contract that holds escrow and enforces these rules is the first stretch goal.
-- Bids are sealed by the coordinator, not cryptographically (no commit-reveal yet).
+- Wallet-paid budgets are held by the escrow contract (`contract/`), which enforces the payout rules and lets the poster reclaim a stalled job after 60 minutes. Intent-paid budgets, MCP credit and agent funding are held by the coordinator.
+- Bids are sealed by the coordinator. Each is committed with a public sha256 hash the moment it arrives (checked on the round page), but there is no on-chain commit-reveal yet, so the coordinator could read bids before the reveal.
 - Testnet only. No real money moves.
